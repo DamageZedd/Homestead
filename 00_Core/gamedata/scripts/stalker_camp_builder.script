@@ -1121,6 +1121,8 @@ local defaults = {
     cook_output_tier = 1,           -- Cook output quality: 1=basic, 2=prepared/tinned, 3=gourmet.
     settler_invincible = false,     -- When true, settlers are healed to full health every update tick.
     show_rival_camp_map_spots = true, -- When true, rival camp map spots are shown.
+    settlement_map_spot_style = 0,    -- 0: Tactical Base (Homestead), 1: PAW Stalker Pin, 2: Classic Green Dot
+    outpost_map_spot_style = 0,       -- 0: Faction Badges & Insignias, 1: Tactical Outposts, 2: PAW Pushpins, 3: Classic Dots
     enable_surplus_cap = true,        -- Anti-flooding surplus governor: pauses crafters/cooks/medics when camp stores are abundant.
 
     trader_loot_table = {
@@ -1159,6 +1161,7 @@ local mcm_option_path = {
     enforce_territory_safety = "stalker_camp_builder/general/enforce_territory_safety",
     camp_rest_bonus = "stalker_camp_builder/general/camp_rest_bonus",
     fast_travel_cost = "stalker_camp_builder/general/fast_travel_cost",
+    settlement_map_spot_style = "stalker_camp_builder/general/settlement_map_spot_style",
 
     enable_surplus_cap = "stalker_camp_builder/jobs/enable_surplus_cap",
     realtime_job_cook_interval_min = "stalker_camp_builder/jobs/realtime_job_cook_interval_min",
@@ -1206,6 +1209,7 @@ local mcm_option_path = {
     rival_camp_hospitality = "stalker_camp_builder/rivals/rival_camp_hospitality",
     rival_friendly_takeover = "stalker_camp_builder/rivals/rival_friendly_takeover",
     show_rival_camp_map_spots = "stalker_camp_builder/rivals/show_rival_camp_map_spots",
+    outpost_map_spot_style = "stalker_camp_builder/rivals/outpost_map_spot_style",
 
     raid_cooldown_hr = "stalker_camp_builder/raids_events/raid_cooldown_hr",
     raid_base_chance = "stalker_camp_builder/raids_events/raid_base_chance",
@@ -3919,6 +3923,141 @@ function force_respawn_all_rival_camps()
     return stalker_camp_builder.force_respawn_all_rival_camps()
 end
 
+local KNOWN_RIVAL_MAP_SPOTS = {
+    "red_location", "green_location", "blue_location",
+    "homestead_outpost_hostile", "homestead_outpost_friendly",
+    "homestead_outpost_abandoned", "homestead_outpost_mutant",
+    "paw_pin_redskull", "paw_pin_whtsimple32", "paw_pin_redpush32", "paw_pin_yelpush32", "paw_pin_redmodern32", "paw_pin_redround32",
+    "paw_badge_hr_bandit", "paw_badge_hr_monolith", "paw_badge_hr_killer",
+    "paw_badge_hr_army", "paw_badge_hr_stalker", "paw_badge_hr_dolg",
+    "paw_badge_hr_freedom", "paw_badge_hr_csky", "paw_badge_hr_ecolog",
+    "paw_badge_hr_greh", "paw_badge_hr_isg", "paw_badge_hr_renegade",
+    "paw_badge_bandit", "paw_badge_monolith", "paw_badge_killer",
+    "paw_badge_army", "paw_badge_stalker", "paw_badge_dolg",
+    "paw_badge_freedom", "paw_badge_csky", "paw_badge_ecolog",
+    "paw_badge_greh", "paw_badge_isg", "paw_badge_renegade",
+    "paw_crosshair_red", "paw_crosshair_green", "paw_crosshair_white",
+    "deadbody_location_skul",
+}
+
+local KNOWN_CAMP_MAP_SPOTS = {
+    "green_location", "homestead_camp_hub", "paw_pin_stalker32", "treasure_player",
+}
+
+local function has_paw_pins()
+    return (_G.utils_catspaw_mapspots ~= nil or _G.catsy_paw_mcm ~= nil)
+end
+stalker_camp_builder.has_paw_pins = has_paw_pins
+
+function get_settlement_map_spot_type()
+    local style = (stalker_camp_builder.cfg and stalker_camp_builder.cfg.settlement_map_spot_style) or 0
+    if style == 1 then
+        if has_paw_pins() then
+            return "paw_pin_stalker32"
+        end
+        return "homestead_camp_hub"
+    elseif style == 2 then
+        return "green_location"
+    else
+        return "homestead_camp_hub"
+    end
+end
+stalker_camp_builder.get_settlement_map_spot_type = get_settlement_map_spot_type
+
+function get_outpost_map_spot_type(camp, is_hostile)
+    local style = (stalker_camp_builder.cfg and stalker_camp_builder.cfg.outpost_map_spot_style) or 0
+
+    if style == 3 then
+        if camp.status == "mutant_nest" then
+            return "red_location"
+        elseif camp.status == "unoccupied" then
+            return "blue_location"
+        else
+            return is_hostile and "red_location" or "green_location"
+        end
+    end
+
+    if style == 2 and has_paw_pins() then
+        if camp.status == "mutant_nest" then
+            return "paw_pin_redskull"
+        elseif camp.status == "unoccupied" then
+            return "paw_pin_whtsimple32"
+        else
+            return is_hostile and "paw_pin_redpush32" or "paw_pin_yelpush32"
+        end
+    end
+
+    if style == 1 then
+        if camp.status == "mutant_nest" then
+            return has_paw_pins() and "paw_pin_redskull" or "homestead_outpost_mutant"
+        elseif camp.status == "unoccupied" then
+            return "homestead_outpost_abandoned"
+        else
+            return is_hostile and "homestead_outpost_hostile" or "homestead_outpost_friendly"
+        end
+    end
+
+    -- Default (Style 0): Faction Badges & Insignias
+    if camp.status == "mutant_nest" then
+        return has_paw_pins() and "paw_pin_redskull" or "homestead_outpost_mutant"
+    elseif camp.status == "unoccupied" then
+        return has_paw_pins() and "paw_pin_whtsimple32" or "homestead_outpost_abandoned"
+    end
+
+    local fac = camp.faction
+    if fac and has_paw_pins() then
+        local fac_paw_badge = "paw_badge_hr_" .. fac
+        if fac == "bandit" or fac == "monolith" or fac == "killer" or fac == "army"
+           or fac == "stalker" or fac == "dolg" or fac == "freedom" or fac == "csky"
+           or fac == "ecolog" or fac == "greh" or fac == "isg" or fac == "renegade" then
+            return fac_paw_badge
+        elseif fac == "zombied" then
+            return "paw_pin_redskull"
+        end
+    end
+
+    return is_hostile and "homestead_outpost_hostile" or "homestead_outpost_friendly"
+end
+stalker_camp_builder.get_outpost_map_spot_type = get_outpost_map_spot_type
+
+function remove_all_rival_map_spots(chest_id)
+    if not chest_id then return end
+    for _, spot in ipairs(KNOWN_RIVAL_MAP_SPOTS) do
+        if level.map_has_object_spot(chest_id, spot) ~= 0 then
+            pcall(function() level.map_remove_object_spot(chest_id, spot) end)
+        end
+    end
+end
+stalker_camp_builder.remove_all_rival_map_spots = remove_all_rival_map_spots
+
+function sync_rival_camp_map_spot(camp)
+    if not (camp and camp.chest_id) then return end
+    local sb = stalker_camp_builder
+    local show_rival = (sb.cfg.show_rival_camp_map_spots ~= false)
+    remove_all_rival_map_spots(camp.chest_id)
+    if not show_rival then return end
+
+    local actor = db.actor
+    local actor_comm = actor and actor:character_community() or "stalker"
+    local rel = camp.faction and relation_registry.community_relation(camp.faction, actor_comm) or -1000
+    local is_hostile = (rel <= -1000)
+
+    local spot_type = get_outpost_map_spot_type(camp, is_hostile)
+    local target_label = "Abandoned Outpost: " .. (camp.name or "Outpost")
+
+    if camp.status == "mutant_nest" then
+        target_label = "Mutant Nest: " .. (camp.name or "Outpost")
+    elseif camp.status ~= "unoccupied" and camp.faction then
+        local fac_name = game.translate_string(camp.faction)
+        target_label = (is_hostile and "Hostile Outpost (" or "Occupied Outpost (") .. fac_name .. "): " .. (camp.name or "Outpost")
+    end
+
+    pcall(function()
+        level.map_add_object_spot_ser(camp.chest_id, spot_type, target_label)
+    end)
+end
+stalker_camp_builder.sync_rival_camp_map_spot = sync_rival_camp_map_spot
+
 local last_sync_map_spots_tg = 0
 function sync_all_camp_map_spots(force)
     local tg = time_global()
@@ -3931,21 +4070,21 @@ function sync_all_camp_map_spots(force)
     local sim = alife()
     if not sim then return end
 
-    local actor = db.actor
-
+    local camp_spot = get_settlement_map_spot_type()
     for hub_id, camp in pairs(sb.active_camps) do
         local se_hub = sim:object(hub_id)
         if se_hub then
             local c_name = camp.name or "Settlement"
             local label = "Settlement: " .. c_name
 
-            -- Player settlements are camps, not stashes. Using treasure_player causes
-            -- generic route/news systems to call settlement waypoints "stashes".
-            if level.map_has_object_spot(hub_id, "treasure_player") ~= 0 then
-                level.map_remove_object_spot(hub_id, "treasure_player")
+            -- Remove obsolete/competing map spots on camp hub
+            for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
+                if spot ~= camp_spot and level.map_has_object_spot(hub_id, spot) ~= 0 then
+                    pcall(function() level.map_remove_object_spot(hub_id, spot) end)
+                end
             end
-            if level.map_has_object_spot(hub_id, "green_location") == 0 then
-                level.map_add_object_spot_ser(hub_id, "green_location", label)
+            if level.map_has_object_spot(hub_id, camp_spot) == 0 then
+                pcall(function() level.map_add_object_spot_ser(hub_id, camp_spot, label) end)
             end
             if camp.zone_id and level.map_has_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location") ~= 0 then
                 level.map_remove_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location")
@@ -3968,31 +4107,9 @@ function sync_all_camp_map_spots(force)
                     end
                 end
                 if show_rival then
-                    local target_spot = "blue_location"
-                    local target_label = "Abandoned Outpost: " .. (camp.name or "Camp")
-
-                    if camp.status == "mutant_nest" then
-                        target_spot = "red_location"
-                        target_label = "Mutant Nest: " .. (camp.name or "Camp")
-                    elseif camp.status ~= "unoccupied" and camp.faction then
-                        local actor_comm = actor and db.actor:character_community() or "stalker"
-                        local rel = relation_registry.community_relation(camp.faction, actor_comm)
-                        local is_hostile = (rel <= -1000)
-                        target_spot = is_hostile and "red_location" or "green_location"
-                        local fac_name = game.translate_string(camp.faction)
-                        target_label = (is_hostile and "Rival Camp (" or "Occupied Outpost (") .. fac_name .. "): " .. (camp.name or "Camp")
-                    end
-
-                    if level.map_has_object_spot(camp.chest_id, target_spot) == 0 then
-                        pcall(function() level.map_remove_object_spot(camp.chest_id, "red_location") end)
-                        pcall(function() level.map_remove_object_spot(camp.chest_id, "green_location") end)
-                        pcall(function() level.map_remove_object_spot(camp.chest_id, "blue_location") end)
-                        level.map_add_object_spot_ser(camp.chest_id, target_spot, target_label)
-                    end
+                    sync_rival_camp_map_spot(camp)
                 else
-                    pcall(function() level.map_remove_object_spot(camp.chest_id, "red_location") end)
-                    pcall(function() level.map_remove_object_spot(camp.chest_id, "green_location") end)
-                    pcall(function() level.map_remove_object_spot(camp.chest_id, "blue_location") end)
+                    remove_all_rival_map_spots(camp.chest_id)
                 end
             end
         end

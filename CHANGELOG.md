@@ -21,6 +21,14 @@
 ### 🏷️ UI Polish: Outposts Terminology:
 - **Renamed "Rival Camps" Tab to "Outposts" (`st_pda_tab_rivals`, `st_pda_rivals_title`)**: Updated tab labels, headers, and guide sections from "Rival Camps" to "Outposts", properly reflecting that neutral and allied factions (Loners, Clear Sky, Duty, Freedom, Ecologists) can also occupy wilderness outposts.
 
+### 📍 Dynamic Map Spots & PAW Pin/Insignia Integration (Community / Queen Jadwiga):
+- **Universal Base & Outpost Markers (`map_spots_homestead.xml`)**: Replaced generic plain dots with distinctive tactical markers. Dedicated `homestead_camp_hub` displays an authentic emerald base icon for settlements.
+- **Dynamic Faction Crests & PAW Auto-Detection**: When running alongside PAW (Personal Adjustable Waypoint, standard in G.A.M.M.A.), outposts dynamically render high-res faction crests (Bandits, Monolith, Mercenaries, Loners, Duty, Freedom, Ecologists, Clear Sky, Military, Sin, etc.), red skulls for Mutant Nests, and neutral pins for Abandoned Outposts.
+- **MCM Customization**: Added full MCM settings under General and Rivals allowing players to select their preferred icon style:
+  - **Settlement Map Marker**: Tactical Base (Recommended) / PAW Stalker Pin / Classic Green Dot.
+  - **Outpost Map Marker**: Faction Insignias (Recommended) / Tactical Status Outposts / PAW Pushpins / Classic Colored Dots.
+- **DXML Engine Safety**: Mapspot definitions are dynamically injected at runtime via `modxml_stalker_camp_builder.script`, ensuring zero missing-texture crashes even if PAW is not installed.
+
 ## v1.2.1 — Community Hotfix: Ghost Companions & Settler Idle Animations
 
 ### 👻 "Ghost Companion" Desync Elimination (Community / OnariX):

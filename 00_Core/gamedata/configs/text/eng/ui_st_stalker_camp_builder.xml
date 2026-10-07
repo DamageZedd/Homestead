@@ -1081,6 +1081,39 @@
     <string id="ui_mcm_stalker_camp_builder_show_rival_camp_map_spots_desc">
         <text>When ON, rival and occupied camps are shown as map markers. Turn OFF to hide them from the PDA map.</text>
     </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_map_spot_style">
+        <text>Settlement Map Marker Icon</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_map_spot_style_desc">
+        <text>Select the map marker icon for player-established settlements. Tactical Base uses a fortified base marker with camp name, PAW Stalker Pin uses a dedicated stalker waypoint pin (if PAW installed), Classic uses the standard green dot.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_base">
+        <text>Tactical Base Icon (Recommended)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_paw_stalker">
+        <text>PAW Stalker Pin</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_classic">
+        <text>Classic Green Dot</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_map_spot_style">
+        <text>Outpost Map Marker Icon</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_map_spot_style_desc">
+        <text>Select the map marker icon for dynamic wilderness outposts. Faction Insignia renders authentic crests for Bandits, Monolith, Mercenaries, Loners, Duty, Freedom, Ecologists, etc. Tactical Outposts uses color-coded base icons. PAW Pushpins uses tactical pins.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_faction">
+        <text>Faction Insignias &amp; Crests (Recommended)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_tactical">
+        <text>Tactical Status Outposts</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_paw_pins">
+        <text>PAW Modern Pushpins</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_classic">
+        <text>Classic Colored Dots</text>
+    </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_furniture">
         <text>Rival Camp Furniture</text>
     </string>

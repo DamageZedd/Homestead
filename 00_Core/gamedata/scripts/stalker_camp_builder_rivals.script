@@ -674,9 +674,7 @@ function stalker_camp_builder.update_rival_camps()
                 local same_level = (camp.level == level_name)
 
                 if (camp.level and sb.is_underground_level(camp.level)) or (camp.smart_name and sb.is_underground_smart(camp.smart_name)) then
-                    level.map_remove_object_spot(camp.chest_id, "red_location")
-                    level.map_remove_object_spot(camp.chest_id, "green_location")
-                    level.map_remove_object_spot(camp.chest_id, "blue_location")
+                    sb.remove_all_rival_map_spots(camp.chest_id)
                     sb.release_camp_decorations(camp)
                     if camp.squad_id then
                         local squad = sim_alao:object(camp.squad_id)
@@ -839,11 +837,7 @@ function stalker_camp_builder.update_rival_camps()
                                 camp.cleared = true
                                 camp.despawn_chest_when_empty = true
 
-                                level.map_remove_object_spot(camp.chest_id, "red_location")
-                                level.map_remove_object_spot(camp.chest_id, "green_location")
-                                if sb.cfg.show_rival_camp_map_spots ~= false then
-                                    level.map_add_object_spot_ser(camp.chest_id, "blue_location", "Abandoned Outpost: " .. camp.name)
-                                end
+                                sb.sync_rival_camp_map_spot(camp)
 
                                 if actor then
                                     news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_moved_on"), camp.name), nil, "general_stalker", 10000)
@@ -959,13 +953,7 @@ function stalker_camp_builder.update_rival_camps()
                                             local rel = relation_registry.community_relation(camp.faction, actor_comm)
                                             local is_hostile = (rel <= -1000)
                                             camp.cleared = not is_hostile
-                                            local spot_type = is_hostile and "red_location" or "green_location"
-                                            level.map_remove_object_spot(camp.chest_id, "red_location")
-                                            level.map_remove_object_spot(camp.chest_id, "green_location")
-                                            level.map_remove_object_spot(camp.chest_id, "blue_location")
-                                            if sb.cfg.show_rival_camp_map_spots ~= false then
-                                                level.map_add_object_spot_ser(camp.chest_id, spot_type, (is_hostile and "Rival Camp (" or "Occupied Camp (") .. new_fac_name .. "): " .. camp.name)
-                                            end
+                                            sb.sync_rival_camp_map_spot(camp)
                                             if actor then
                                                 news_manager.send_tip(actor, sformat(game.translate_string("st_zone_skirmish_cleansed"), new_fac_name, camp.name, old_fac_name), nil, is_hostile and "red_danger" or "general_stalker", 12000)
                                             end
@@ -984,11 +972,7 @@ function stalker_camp_builder.update_rival_camps()
                         camp.cleared = true
                         camp.despawn_chest_when_empty = true
 
-                        level.map_remove_object_spot(camp.chest_id, "red_location")
-                        level.map_remove_object_spot(camp.chest_id, "green_location")
-                        if sb.cfg.show_rival_camp_map_spots ~= false then
-                            level.map_add_object_spot_ser(camp.chest_id, "blue_location", "Abandoned Outpost: " .. camp.name)
-                        end
+                        sb.sync_rival_camp_map_spot(camp)
 
                         if actor then
                             local faction_name = old_faction and game.translate_string(old_faction) or "occupying"
@@ -1017,19 +1001,13 @@ function stalker_camp_builder.update_rival_camps()
                         camp.setup_sec = current_sec
                         camp.setup_duration = mrandom(21600, 64800) -- 6 to 18 game hours
 
-                        level.map_remove_object_spot(camp.chest_id, "blue_location")
-
                         local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
                         local rel = relation_registry.community_relation(camp.faction, actor_comm)
                         local is_hostile = (rel <= -1000)
                         camp.cleared = not is_hostile
-
-                        local spot_type = is_hostile and "red_location" or "green_location"
                         local faction_name = game.translate_string(camp.faction)
-                        local label = (is_hostile and "Rival Camp (" or "Occupied Camp (") .. faction_name .. "): " .. camp.name
-                        if sb.cfg.show_rival_camp_map_spots ~= false then
-                            level.map_add_object_spot_ser(camp.chest_id, spot_type, label)
-                        end
+
+                        sb.sync_rival_camp_map_spot(camp)
 
                         if actor then
                             if is_hostile then
@@ -1073,10 +1051,7 @@ function stalker_camp_builder.update_rival_camps()
                 end
 
             else
-                level.map_remove_object_spot(camp.chest_id, "red_location")
-                level.map_remove_object_spot(camp.chest_id, "green_location")
-                level.map_remove_object_spot(camp.chest_id, "blue_location")
-
+                sb.remove_all_rival_map_spots(camp.chest_id)
                 sb.release_camp_decorations(camp)
 
                 local lvl = camp.level or level_name
@@ -1357,9 +1332,7 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
             if (camp.level and sb.is_underground_level(camp.level))
                 or (camp.smart_name and sb.is_underground_smart(camp.smart_name))
             then
-                level.map_remove_object_spot(camp.chest_id, "red_location")
-                level.map_remove_object_spot(camp.chest_id, "green_location")
-                level.map_remove_object_spot(camp.chest_id, "blue_location")
+                sb.remove_all_rival_map_spots(camp.chest_id)
                 sb.release_camp_decorations(camp)
                 if camp.squad_id then
                     local squad = sim:object(camp.squad_id)
@@ -1800,13 +1773,7 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                         local actor_comm = actor and db.actor:character_community() or "stalker"
                         local rel = relation_registry.community_relation(occupant_faction, actor_comm)
                         local is_hostile = (rel <= -1000)
-
-                        local spot_type = is_hostile and "red_location" or "green_location"
                         local faction_name = game.translate_string(occupant_faction)
-                        local label = (is_hostile and "Hostile Outpost (" or "Occupied Outpost (") .. faction_name .. "): " .. name
-                        if sb.cfg.show_rival_camp_map_spots ~= false then
-                            level.map_add_object_spot_ser(se_chest.id, spot_type, label)
-                        end
 
 local function spawn_rival_camp_defenses_and_decor(camp_pos, lvid, gvid, target_level, occupant_faction)
     if not rival_decor_enabled() then return {}, mrandom() * math.pi * 2 end
@@ -1953,6 +1920,8 @@ end
                             end
                         end
 
+                        sb.sync_rival_camp_map_spot(sb.rival_camps[camp_key])
+
                         if actor then
                             news_manager.send_tip(actor, sformat(game.translate_string("st_recon_new_camp_established"), translated_level, faction_name), nil, "general_stalker", 10000)
                         end
@@ -1973,9 +1942,7 @@ function stalker_camp_builder.force_respawn_all_rival_camps()
 
     for key, camp in pairs(sb.rival_camps) do
         if type(camp) == "table" and camp.chest_id then
-            level.map_remove_object_spot(camp.chest_id, "red_location")
-            level.map_remove_object_spot(camp.chest_id, "green_location")
-            level.map_remove_object_spot(camp.chest_id, "blue_location")
+            sb.remove_all_rival_map_spots(camp.chest_id)
 
             if camp.squad_id then
                 local squad = sim:object(camp.squad_id)
@@ -2367,12 +2334,7 @@ function stalker_camp_builder.zombify_rival_camp(camp)
         camp.faction = "zombied"
         camp.cleared = false
 
-        level.map_remove_object_spot(camp.chest_id, "green_location")
-        level.map_remove_object_spot(camp.chest_id, "blue_location")
-        level.map_remove_object_spot(camp.chest_id, "red_location")
-        if sb.cfg.show_rival_camp_map_spots ~= false then
-            level.map_add_object_spot_ser(camp.chest_id, "red_location", "Zombified Outpost: " .. camp.name)
-        end
+        sb.sync_rival_camp_map_spot(camp)
 
         if db.actor then
             local lvl_name = game.translate_string(camp.level or level.name())
@@ -2428,12 +2390,7 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
         camp.squad_id = mutant_squad.id
     end
 
-    level.map_remove_object_spot(camp.chest_id, "green_location")
-    level.map_remove_object_spot(camp.chest_id, "blue_location")
-    level.map_remove_object_spot(camp.chest_id, "red_location")
-    if sb.cfg.show_rival_camp_map_spots ~= false then
-        level.map_add_object_spot_ser(camp.chest_id, "red_location", "Mutant Nest: " .. camp.name)
-    end
+    sb.sync_rival_camp_map_spot(camp)
 
     if db.actor then
         local lvl_name = game.translate_string(camp.level or level.name())

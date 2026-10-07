@@ -1081,6 +1081,39 @@
     <string id="ui_mcm_stalker_camp_builder_show_rival_camp_map_spots_desc">
         <text>Когда ВКЛЮЧЕНО, вражеские и занятые лагеря отображаются в виде маркеров на карте. Отключите, чтобы скрыть их с карты ПДА.</text>
     </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_map_spot_style">
+        <text>Иконка лагеря игрока на карте</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_map_spot_style_desc">
+        <text>Выберите стиль метки на карте КПК для созданных игроком лагерей. Тактическая база использует укрепленную эмблему базы, Метка сталкера PAW использует силуэт сталкера (при установленном PAW), Классическая точка использует стандартную зеленую метку.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_base">
+        <text>Тактическая база (Рекомендуется)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_paw_stalker">
+        <text>Метка сталкера PAW</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settlement_spot_classic">
+        <text>Классическая зеленая точка</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_map_spot_style">
+        <text>Иконка аванпостов на карте</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_map_spot_style_desc">
+        <text>Выберите стиль меток на карте КПК для динамических аванпостов. Шевроны группировок отображает гербы Бандитов, Монолита, Наемников, Одиночек, Долга, Свободы и т.д. Тактические базы использует цветные метки баз. Булавки PAW использует тактические кнопки.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_faction">
+        <text>Шевроны и гербы группировок (Рекомендуется)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_tactical">
+        <text>Тактические цветные базы</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_paw_pins">
+        <text>Тактические булавки PAW</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_outpost_spot_classic">
+        <text>Классические цветные точки</text>
+    </string>
     <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min">
         <text>Интервал работы электрика (мин)</text>
     </string>

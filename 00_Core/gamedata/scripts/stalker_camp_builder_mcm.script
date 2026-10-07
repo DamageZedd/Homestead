@@ -34,6 +34,13 @@ function on_mcm_load()
             { id = "enforce_territory_safety", type = "check", val = 1, def = true },
             { id = "camp_rest_bonus", type = "check", val = 1, def = true },
             { id = "fast_travel_cost", type = "track", val = 2, min = 0, max = 20000, step = 500, def = 2000 },
+            { id = "settlement_map_spot_style", type = "list", val = 2, def = 0,
+              content = {
+                  { 0, "ui_mcm_stalker_camp_builder_settlement_spot_base" },
+                  { 1, "ui_mcm_stalker_camp_builder_settlement_spot_paw_stalker" },
+                  { 2, "ui_mcm_stalker_camp_builder_settlement_spot_classic" },
+              }
+            },
         }) },
 
         -- 2. Jobs & Production
@@ -91,6 +98,14 @@ function on_mcm_load()
             { id = "rival_camp_hospitality", type = "check", val = 1, def = true },
             { id = "rival_friendly_takeover", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50 },
             { id = "show_rival_camp_map_spots", type = "check", val = 1, def = true },
+            { id = "outpost_map_spot_style", type = "list", val = 2, def = 0,
+              content = {
+                  { 0, "ui_mcm_stalker_camp_builder_outpost_spot_faction" },
+                  { 1, "ui_mcm_stalker_camp_builder_outpost_spot_tactical" },
+                  { 2, "ui_mcm_stalker_camp_builder_outpost_spot_paw_pins" },
+                  { 3, "ui_mcm_stalker_camp_builder_outpost_spot_classic" },
+              }
+            },
             { id = "rival_camp_furniture", type = "check", val = 1, def = true },
         }) },
 
