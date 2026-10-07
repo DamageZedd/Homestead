@@ -1,0 +1,44 @@
+; ============================================================================
+; Homestead Settler BEH Logic Scheme
+; Keeps settlers firmly anchored to their workstation rally vertex while
+; ensuring full dialog, trade, and interaction with the player.
+; ============================================================================
+
+[logic]
+active = beh@settler
+post_combat_time = 0,0
+
+[beh@settler]
+combat_ignore_keep_when_attacked = true
+combat_ignore_cond = {=check_enemy_name(actor)} true, false
+meet = meet@settler
+gather_items_enabled = false
+corpse_detection_enabled = false
+help_wounded_enabled = false
+behavior_state = beh_wait
+target = nil
+walk_dist = 100
+jog_dist = 220
+wait_anim = guard
+walk_anim = patrol
+jog_anim = patrol
+run_anim = panic
+delay_anim = guard
+
+[meet@settler]
+abuse = false
+close_distance = 4
+close_anim = guard
+close_snd_hello = nil
+close_snd_bye = nil
+close_victim = actor
+far_distance = 6
+far_anim = nil
+far_snd = nil
+far_victim = actor
+use = true
+allow_break = true
+trade_enable = true
+meet_dialog = nil
+snd_on_use = nil
+meet_on_talking = true

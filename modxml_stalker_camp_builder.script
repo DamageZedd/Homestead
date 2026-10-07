@@ -1,0 +1,559 @@
+-- DXML Dialog Injector for Stalker Camp Builder Mod
+
+local dialogues = [[
+<dialog id="recruit_to_camp_dialog">
+    <precondition>stalker_camp_builder.can_recruit</precondition>
+    <phrase_list>
+        <phrase id="0">
+            <text>st_recruit_to_camp_ask</text>
+            <next>10</next>
+            <next>20</next>
+            <next>30</next>
+            <next>40</next>
+        </phrase>
+        <phrase id="10">
+            <text>st_recruit_to_camp_accept</text>
+            <precondition>stalker_camp_builder.recruitment_roll_success</precondition>
+            <next>1</next>
+            <next>2</next>
+            <next>3</next>
+            <next>4</next>
+        </phrase>
+        <phrase id="20">
+            <text>st_recruit_to_camp_reject</text>
+            <precondition>stalker_camp_builder.recruitment_roll_fail</precondition>
+            <next>99</next>
+        </phrase>
+        <phrase id="30">
+            <text>st_recruit_no_camps</text>
+            <precondition>stalker_camp_builder.no_camps_exist</precondition>
+            <next>99</next>
+        </phrase>
+        <phrase id="40">
+            <text>st_recruit_camps_full</text>
+            <precondition>stalker_camp_builder.camps_are_full</precondition>
+            <next>99</next>
+        </phrase>
+        <phrase id="99">
+            <text>st_recruit_to_camp_close</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="1">
+            <text_functor>stalker_camp_builder.get_camp_slot_1_text</text_functor>
+            <precondition>stalker_camp_builder.camp_slot_1_exists</precondition>
+            <action>stalker_camp_builder.recruit_to_camp_slot_1</action>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="2">
+            <text_functor>stalker_camp_builder.get_camp_slot_2_text</text_functor>
+            <precondition>stalker_camp_builder.camp_slot_2_exists</precondition>
+            <action>stalker_camp_builder.recruit_to_camp_slot_2</action>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="3">
+            <text_functor>stalker_camp_builder.get_camp_slot_3_text</text_functor>
+            <precondition>stalker_camp_builder.camp_slot_3_exists</precondition>
+            <action>stalker_camp_builder.recruit_to_camp_slot_3</action>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="4">
+            <text_functor>stalker_camp_builder.get_camp_slot_4_text</text_functor>
+            <precondition>stalker_camp_builder.camp_slot_4_exists</precondition>
+            <action>stalker_camp_builder.recruit_to_camp_slot_4</action>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="manage_camp_dialog">
+    <precondition>stalker_camp_builder.is_camp_survivor</precondition>
+    <phrase_list>
+        <phrase id="0">
+            <text>st_manage_camp_ask</text>
+            <next>100</next>
+        </phrase>
+        <phrase id="100">
+            <text>st_manage_camp_answer</text>
+            <next>1</next>
+            <next>2</next>
+            <next>3</next>
+            <next>6</next>
+            <next>8</next>
+            <next>9</next>
+            <next>10</next>
+            <next>17</next>
+            <next>50</next>
+            <next>5</next>
+        </phrase>
+        <phrase id="1">
+            <text>st_job_scavenge_ask</text>
+            <action>stalker_camp_builder.set_scavenge_job</action>
+            <next>11</next>
+        </phrase>
+        <phrase id="11">
+            <text>st_job_scavenge_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="2">
+            <text>st_job_craft_ask</text>
+            <action>stalker_camp_builder.set_craft_job</action>
+            <next>22</next>
+        </phrase>
+        <phrase id="22">
+            <text>st_job_craft_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="3">
+            <text>st_job_repair_ask</text>
+            <action>stalker_camp_builder.set_repair_job</action>
+            <next>33</next>
+        </phrase>
+        <phrase id="33">
+            <text>st_job_repair_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="4">
+            <text>st_job_idle_ask</text>
+            <action>stalker_camp_builder.set_idle_job</action>
+            <next>44</next>
+        </phrase>
+        <phrase id="44">
+            <text>st_job_idle_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="5">
+            <precondition>stalker_camp_builder.can_recruit_back</precondition>
+            <text>st_recruit_back_ask</text>
+            <action>stalker_camp_builder.recruit_back</action>
+            <next>55</next>
+        </phrase>
+        <phrase id="55">
+            <text>st_recruit_back_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="6">
+            <text>st_job_guard_ask</text>
+            <action>stalker_camp_builder.set_guard_job</action>
+            <next>66</next>
+        </phrase>
+        <phrase id="66">
+            <text>st_job_guard_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="8">
+            <text>st_job_cook_ask</text>
+            <action>stalker_camp_builder.set_cook_job</action>
+            <next>88</next>
+        </phrase>
+        <phrase id="88">
+            <text>st_job_cook_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="9">
+            <text>st_job_medic_ask</text>
+            <action>stalker_camp_builder.set_medic_job</action>
+            <next>99</next>
+        </phrase>
+        <phrase id="99">
+            <text>st_job_medic_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="10">
+            <text>st_job_electrician_ask</text>
+            <action>stalker_camp_builder.set_electrician_job</action>
+            <next>101</next>
+        </phrase>
+        <phrase id="101">
+            <text>st_job_electrician_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="17">
+            <text>st_job_hunter_ask</text>
+            <action>stalker_camp_builder.set_hunter_job</action>
+            <next>171</next>
+        </phrase>
+        <phrase id="171">
+            <text>st_job_hunter_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="15">
+            <text>st_camp_tech_use_workbench</text>
+            <action>stalker_camp_builder.open_technician_workbench</action>
+            <next>16</next>
+        </phrase>
+        <phrase id="16">
+            <text>st_manage_camp_close_reply</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="50">
+            <text>st_dialog_auto_sort_ask</text>
+            <action>stalker_camp_builder.dialog_auto_sort_supplies</action>
+            <next>51</next>
+        </phrase>
+        <phrase id="51">
+            <text>st_dialog_auto_sort_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+                <phrase id="60">
+            <text>st_dialog_hold_position_ask</text>
+            <action>stalker_camp_builder.dialog_set_survivor_position_to_actor</action>
+            <next>61</next>
+        </phrase>
+        <phrase id="61">
+            <text>st_dialog_hold_position_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="62">
+            <precondition>stalker_camp_builder.survivor_has_custom_position</precondition>
+            <text>st_dialog_clear_position_ask</text>
+            <action>stalker_camp_builder.dialog_clear_survivor_position</action>
+            <next>63</next>
+        </phrase>
+        <phrase id="63">
+            <text>st_dialog_clear_position_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="7">
+            <text>st_camp_status_ask</text>
+            <next>77</next>
+        </phrase>
+        <phrase id="77">
+            <text_functor>stalker_camp_builder.get_camp_status_text</text_functor>
+            <next>100</next>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="return_to_settlement_dialog">
+    <precondition>stalker_camp_builder.can_return_to_settlement</precondition>
+    <phrase_list>
+        <phrase id="0">
+            <text_functor>stalker_camp_builder.get_return_to_settlement_text</text_functor>
+            <action>stalker_camp_builder.return_to_settlement</action>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="camp_trader_dialog">
+    <precondition>stalker_camp_builder.is_camp_trader</precondition>
+    <phrase_list>
+        <phrase id="0">
+            <text>st_camp_trader_ask</text>
+            <next>1</next>
+        </phrase>
+        <phrase id="1">
+            <text>st_camp_trader_answer</text>
+            <action>stalker_camp_builder.start_camp_trader_trade</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="camp_medic_dialog">
+    <precondition>stalker_camp_builder.is_camp_medic</precondition>
+    <phrase_list>
+        <!-- 0: Actor initiates: "Doc, I need some medical assistance." -->
+        <phrase id="0">
+            <text>st_camp_medic_need_help</text>
+            <next>1</next>
+        </phrase>
+
+        <!-- 1: NPC replies: "Sure thing. What's hurting you, Stalker?" -->
+        <phrase id="1">
+            <text>st_camp_medic_need_treat_reply</text>
+            <next>2</next>
+            <next>3</next>
+            <next>4</next>
+            <next>5</next>
+            <next>6</next>
+            <next>60</next>
+            <next>62</next>
+            <next>7</next>
+        </phrase>
+
+        <!-- 2: Actor selects: "Patch wounds & stop bleeding (1,850 RU)" -->
+        <phrase id="2">
+            <text>st_camp_medic_heal_wounds_text</text>
+            <action>stalker_camp_builder.medic_heal_wounds</action>
+            <next>20</next>
+        </phrase>
+
+        <!-- 3: Actor selects: "Cure radiation poisoning (1,480 RU)" -->
+        <phrase id="3">
+            <text>st_camp_medic_cure_rad_text</text>
+            <action>stalker_camp_builder.medic_cure_rad</action>
+            <next>20</next>
+        </phrase>
+
+        <!-- 4: Actor selects: "Full medical treatment (3,350 RU)" -->
+        <phrase id="4">
+            <text>st_camp_medic_full_treat_text</text>
+            <action>stalker_camp_builder.medic_full_treat</action>
+            <next>20</next>
+        </phrase>
+
+        <!-- 5: Actor selects: "Do you have medical supplies for trade?" -->
+        <phrase id="5">
+            <text>st_camp_medic_trade_ask</text>
+            <action>stalker_camp_builder.start_camp_medic_trade</action>
+        </phrase>
+
+        <!-- 6: Actor selects: "I brought a Drug-Making Kit" (if has drugkit) -->
+        <phrase id="6">
+            <precondition>stalker_camp_builder.actor_has_drugkit</precondition>
+            <text>st_camp_medic_drugkit_ask</text>
+            <action>stalker_camp_builder.give_medic_drugkit</action>
+            <next>21</next>
+        </phrase>
+
+        <!-- 60: Actor selects: "Hold this position / Work right here" -->
+        <phrase id="60">
+            <text>st_dialog_hold_position_ask</text>
+            <action>stalker_camp_builder.dialog_set_survivor_position_to_actor</action>
+            <next>61</next>
+        </phrase>
+        <phrase id="61">
+            <text>st_dialog_hold_position_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+
+        <!-- 62: Actor selects: "Clear station position" -->
+        <phrase id="62">
+            <precondition>stalker_camp_builder.survivor_has_custom_position</precondition>
+            <text>st_dialog_clear_position_ask</text>
+            <action>stalker_camp_builder.dialog_clear_survivor_position</action>
+            <next>63</next>
+        </phrase>
+        <phrase id="63">
+            <text>st_dialog_clear_position_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+
+        <!-- 7: Actor selects: "Never mind." -->
+        <phrase id="7">
+            <text>st_camp_medic_treat_back</text>
+            <next>22</next>
+        </phrase>
+
+        <!-- 20: NPC replies after treatment -->
+        <phrase id="20">
+            <text>st_camp_medic_heal_done</text>
+        </phrase>
+
+        <!-- 21: NPC replies after receiving drugkit -->
+        <phrase id="21">
+            <text>st_camp_medic_drugkit_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+
+        <!-- 22: NPC replies on goodbye -->
+        <phrase id="22">
+            <text>st_manage_camp_close_reply</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="camp_technician_dialog">
+    <precondition>stalker_camp_builder.is_camp_repairer</precondition>
+    <phrase_list>
+        <!-- 0: Actor initiates: "Can you help me with my gear?" -->
+        <phrase id="0">
+            <text>st_camp_tech_ask</text>
+            <next>1</next>
+        </phrase>
+
+        <!-- 1: NPC replies: "Sure thing. What do you need done?" (Second Screen) -->
+        <phrase id="1">
+            <text>st_camp_tech_reply</text>
+            <next>10</next>
+            <next>15</next>
+            <next>20</next>
+            <next>30</next>
+            <next>31</next>
+            <next>32</next>
+            <next>99</next>
+        </phrase>
+
+        <!-- 10: Actor selects: "Can you modify or repair my equipment?" -->
+        <phrase id="10">
+            <text>st_camp_tech_upgrade_ask</text>
+            <action>stalker_camp_builder.open_technician_upgrade_ui</action>
+        </phrase>
+
+        <!-- 15: Actor selects: "Open Workshop / Workbench" -->
+        <phrase id="15">
+            <text>st_camp_tech_use_workbench</text>
+            <action>stalker_camp_builder.open_technician_workbench</action>
+            <next>99</next>
+        </phrase>
+
+        <!-- 20: Actor selects: "Do you have spare parts or tools for trade?" -->
+        <phrase id="20">
+            <text>st_camp_tech_trade_ask</text>
+            <action>stalker_camp_builder.start_camp_tech_trade</action>
+        </phrase>
+
+        <!-- 30: Actor selects: Deliver Basic Tools -->
+        <phrase id="30">
+            <precondition>stalker_camp_builder.actor_has_toolkit1</precondition>
+            <text>st_camp_tech_tools1_ask</text>
+            <action>stalker_camp_builder.give_tech_toolkit1</action>
+            <next>33</next>
+        </phrase>
+
+        <!-- 31: Actor selects: Deliver Advanced Tools -->
+        <phrase id="31">
+            <precondition>stalker_camp_builder.actor_has_toolkit2</precondition>
+            <text>st_camp_tech_tools2_ask</text>
+            <action>stalker_camp_builder.give_tech_toolkit2</action>
+            <next>33</next>
+        </phrase>
+
+        <!-- 32: Actor selects: Deliver Expert Tools -->
+        <phrase id="32">
+            <precondition>stalker_camp_builder.actor_has_toolkit3</precondition>
+            <text>st_camp_tech_tools3_ask</text>
+            <action>stalker_camp_builder.give_tech_toolkit3</action>
+            <next>33</next>
+        </phrase>
+
+        <!-- 33: NPC replies after toolkit delivery -->
+        <phrase id="33">
+            <text>st_camp_tech_tools_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+
+        <!-- 99: Actor selects: "Never mind." -->
+        <phrase id="99">
+            <text>st_manage_camp_close</text>
+            <next>100</next>
+        </phrase>
+
+        <!-- 100: NPC replies on goodbye -->
+        <phrase id="100">
+            <text>st_manage_camp_close_reply</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+]]
+
+function on_xml_read()
+    local ipairs_ = ipairs
+    local sfind = string.find
+    -- v1.1.7: when the "No PDA Tab" FOMOD option is chosen (05_NoPDATab flag
+    -- installed), skip ONLY the PDA tab-bar / interactive-PDA injections.
+    -- The NPC recruit/manage dialogs below must still be injected.
+    -- Checked lazily inside the callback: X-Ray loads scripts lazily, so the
+    -- flag global may not exist yet when on_xml_read() first registers us.
+    local function pda_ui_enabled()
+        return homestead_no_pda_tab_flag == nil
+    end
+    RegisterScriptCallback("on_xml_read", function(xml_file_name, xml_obj)
+        if (xml_file_name == [[gameplay\dialogs.xml]]) or (xml_file_name == [[gameplay/dialogs.xml]]) or sfind(xml_file_name, "gameplay[\\/]dialogs%.xml") then
+            xml_obj:insertFromXMLString(dialogues)
+        end
+        if not pda_ui_enabled() then return end
+        if sfind(xml_file_name, "ui[\\/]pda.*%.xml") and not sfind(xml_file_name, "pda_apps", 1, true) and not sfind(xml_file_name, "pda_xcvb", 1, true) then
+            local tabs = xml_obj:query("tab")
+            if tabs then
+                for _, tab_el in ipairs_(tabs) do
+                    -- Only process the main navigation tab bar (identified by containing eptTasks)
+                    local is_main_tab_bar = false
+                    local buttons = {}
+                    local exists = false
+                    if tab_el.kids then
+                        for _, child in ipairs_(tab_el.kids) do
+                            local el_data = xml_obj:getElement(child)
+                            if el_data and el_data.name == "button" and el_data.attr then
+                                if el_data.attr.id == "eptTasks" then
+                                    is_main_tab_bar = true
+                                end
+                                if el_data.attr.id == "eptSettlement" then
+                                    exists = true
+                                end
+                                -- Ignore off-screen dummy/placeholder buttons (e.g. MAC's or other
+                                -- PDA-tab addons' x=1000 width=0 invisible buttons) so they don't get
+                                -- counted in total_buttons/step or repositioned into the visible bar.
+                                local btn_x = tonumber(el_data.attr.x) or 0
+                                if btn_x < 800 then
+                                    buttons[#buttons+1] = child
+                                end
+                            end
+                        end
+                    end
+
+                    if is_main_tab_bar and not exists then
+                        -- Calculate responsive button widths and positions so all tabs fit cleanly within 550px header
+                        local total_buttons = #buttons + 1
+                        local max_tab_width = 548
+                        local btn_width = math.min(69, math.floor(max_tab_width / total_buttons) + 10)
+                        local step = math.floor((max_tab_width - btn_width) / math.max(1, total_buttons - 1))
+                        if step > 78 then step = 78 end
+
+                        -- Reposition and rescale existing tabs seamlessly with authentic texture overlap
+                        for idx, btn in ipairs_(buttons) do
+                            local cur_x = (idx - 1) * step
+                            xml_obj:setElementAttr(btn, { x = tostring(cur_x), width = tostring(btn_width) })
+                        end
+
+                        local next_x = #buttons * step
+
+                        -- Inject visible Settlement tab button cleanly inside 550px bounds
+                        local button_xml = string.format([[
+                            <button x="%d" y="0" width="%d" height="27" id="eptSettlement" frame_mode="0">
+                                <text align="c" vert_align="c" x="0" y="0" font="letterica16">pda_btn_settlement</text>
+                                <texture>ui_inGame2_pda_button</texture>
+                                <text_color>
+                                    <t r="255" g="255" b="255"/>
+                                    <d r="255" g="255" b="255"/>
+                                    <e r="200" g="200" b="200"/>
+                                    <h r="170" g="170" b="170"/>
+                                </text_color>
+                            </button>
+                        ]], next_x, btn_width)
+
+                        xml_obj:insertFromXMLString(button_xml, tab_el, #tab_el.kids + 1)
+                    end
+                end
+            end
+        elseif sfind(xml_file_name, "ui[\\/]pda_xcvb.*%.xml") then
+            local left_cont = xml_obj:query("left_container")
+            if left_cont and left_cont[1] then
+                xml_obj:setElementAttr(left_cont[1], { height = "370" })
+                local btn_xml = [[
+                    <menu_btn_8 x="0" y="330" width="130" height="35" check_mode="0">
+                        <text complex_mode="1" align="c" vert_align="c" font="letterica18">pda_btn_settlement</text>
+                        <texture>ui_inter_pda_btn</texture>
+                    </menu_btn_8>
+                ]]
+                xml_obj:insertFromXMLString(btn_xml, left_cont[1])
+            end
+        end
+    end)
+end
+
+function on_game_start()
+    RegisterScriptCallback("on_specific_character_dialog_list", function(character_id, dialog_list)
+        if not dialog_list then return end
+        if not dialog_list:has("recruit_to_camp_dialog") then
+            dialog_list:add("recruit_to_camp_dialog")
+        end
+        if not dialog_list:has("manage_camp_dialog") then
+            dialog_list:add("manage_camp_dialog")
+        end
+        if not dialog_list:has("camp_trader_dialog") then
+            dialog_list:add("camp_trader_dialog")
+        end
+        if not dialog_list:has("camp_medic_dialog") then
+            dialog_list:add("camp_medic_dialog")
+        end
+        if not dialog_list:has("camp_technician_dialog") then
+            dialog_list:add("camp_technician_dialog")
+        end
+        if not dialog_list:has("return_to_settlement_dialog") then
+            dialog_list:add("return_to_settlement_dialog")
+        end
+    end)
+end

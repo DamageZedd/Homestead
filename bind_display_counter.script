@@ -1,0 +1,191 @@
+local CHANNEL_MIN = 1
+local CHANNEL_MAX = 11
+local CHANNEL_OFF = 0
+local CHANNEL_PREVIEW_TIME = 3.0
+local KNOB_ANIM_PREFIX = "knob_"
+local display_counter_wrappers = {}
+local DIGIT_MESH_TENS = 11
+local DIGIT_MESH_ONES = 10
+local TEX_PREFIX = "items\\mtl_display_counter_nixie_"
+local TEX_OFF = "items\\mtl_display_counter_nixie_off"
+
+local function get_data(obj_id)
+    return hf_obj_manager.get_data(obj_id) or {}
+end
+
+local function set_data(obj_id, fields)
+    hf_obj_manager.update_data(obj_id, fields)
+end
+
+local function get_turret_channel_bus()
+    _G.hf_turret_channels = _G.hf_turret_channels or {}
+    return _G.hf_turret_channels
+end
+
+local function ensure_defaults(obj_id)
+    local d = get_data(obj_id)
+    if d.channel == nil then
+        set_data(obj_id, { channel = CHANNEL_OFF })
+        d.channel = CHANNEL_OFF
+    end
+    return d
+end
+
+local function channel_to_text(channel)
+    if channel == CHANNEL_OFF then
+        return "off"
+    end
+    return tostring(channel)
+end
+
+local function anim_name_for_channel(channel)
+    return string.format("%s%d", KNOB_ANIM_PREFIX, channel)
+end
+
+local function digit_texture(d)
+    if d == nil then
+        return TEX_OFF
+    end
+    return string.format("%s%d", TEX_PREFIX, d)
+end
+
+function cycle_display_counter_channel(obj_id)
+    local d = ensure_defaults(obj_id)
+    local channel = tonumber(d.channel) or CHANNEL_OFF
+
+    if channel < CHANNEL_OFF or channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+
+    channel = channel + 1
+    if channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+
+    set_data(obj_id, { channel = channel })
+    local wrp = display_counter_wrappers[obj_id]
+    if wrp then
+        wrp:apply_channel_animation(channel)
+        wrp.preview_t = CHANNEL_PREVIEW_TIME
+        wrp:apply_display_for_channel(channel)
+        wrp:play_switch_sound()
+    end
+end
+
+function init(obj)
+    obj:bind_object(display_counter_wrapper(obj).binder)
+end
+
+class "display_counter_wrapper" (bind_hf_base.hf_binder_wrapper)
+
+function display_counter_wrapper:__init(obj)
+    super(obj)
+    local obj_id = self.object:id()
+    local d = ensure_defaults(obj_id)
+    self.snd_switch = sound_object([[gun_turret_sounds\alarm_system_switch]])
+    self.preview_t = 0
+    display_counter_wrappers[obj_id] = self
+    local channel = tonumber(d.channel) or CHANNEL_OFF
+    self:apply_channel_animation(channel)
+    self:apply_display_for_channel(channel)
+end
+
+function display_counter_wrapper:apply_channel_animation(channel)
+    local name = anim_name_for_channel(channel)
+    if self.cur_anim == name then
+        return
+    end
+    self.cur_anim = name
+    self.object:play_cycle(name)
+end
+
+-- Generic 2-digit display path for future channel value mirroring (e.g. ammo).
+function display_counter_wrapper:apply_display_number(value, powered)
+    local tex_tens = TEX_OFF
+    local tex_ones = TEX_OFF
+
+    if powered then
+        local n = math.floor(tonumber(value) or 0)
+        if n < 0 then
+            n = 0
+        end
+        if n > 99 then
+            n = 99
+        end
+
+        local tens = math.floor(n / 10)
+        local ones = n % 10
+        tex_tens = digit_texture(tens)
+        tex_ones = digit_texture(ones)
+        self.object:set_shader(DIGIT_MESH_TENS, [[models\lightplanes]], tex_tens)
+        self.object:set_shader(DIGIT_MESH_ONES, [[models\lightplanes]], tex_ones)
+    else
+        self.object:set_shader(DIGIT_MESH_TENS, [[models\model]], TEX_OFF)
+        self.object:set_shader(DIGIT_MESH_ONES, [[models\model]], TEX_OFF)
+    end
+
+
+end
+
+function display_counter_wrapper:apply_display_for_channel(channel)
+    local powered = channel ~= CHANNEL_OFF
+    self:apply_display_number(channel, powered)
+end
+
+function display_counter_wrapper:update(delta)
+    bind_hf_base.hf_binder_wrapper.update(self, delta)
+
+    local dt = delta
+    if dt > 1.0 then
+        dt = dt / 1000.0
+    end
+
+    self.preview_t = math.max(0, (self.preview_t or 0) - dt)
+
+    local d = ensure_defaults(self.object:id())
+    local channel = tonumber(d.channel) or CHANNEL_OFF
+    if channel < CHANNEL_OFF or channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+
+    if self.preview_t > 0 then
+        self:apply_display_for_channel(channel)
+        return
+    end
+
+    if channel == CHANNEL_OFF then
+        self:apply_display_number(0, false)
+        return
+    end
+
+    local bus = get_turret_channel_bus()
+    local entry = bus[channel]
+    if entry and entry.ammo ~= nil then
+        self:apply_display_number(entry.ammo, true)
+    else
+        self:apply_display_number(0, false)
+    end
+end
+
+function display_counter_wrapper:play_switch_sound()
+    if not self.snd_switch then
+        return
+    end
+
+    self.snd_switch:play_no_feedback(
+        self.object,
+        sound_object.s3d,
+        0,
+        self.object:position(),
+        1,
+        random_float(0.9, 1.1)
+    )
+end
+
+function display_counter_wrapper:net_destroy()
+    display_counter_wrappers[self.object:id()] = nil
+    if self.snd_switch and self.snd_switch:playing() then
+        self.snd_switch:stop()
+    end
+    bind_hf_base.hf_binder_wrapper.net_destroy(self)
+end

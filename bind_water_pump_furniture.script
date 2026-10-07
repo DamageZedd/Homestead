@@ -1,0 +1,11 @@
+-- bind_water_pump_furniture.script
+-- Compatibility stub for GAMMA Hideout Furniture versions that expect
+-- a dedicated water pump binder. Delegates to bind_hf_base which is
+-- the generic HF binder shipped with all HF builds.
+-- Homestead v0.9.72
+
+function init(obj)
+    if bind_hf_base and bind_hf_base.init then
+        return bind_hf_base.init(obj)
+    end
+end

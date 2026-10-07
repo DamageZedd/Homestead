@@ -1,0 +1,378 @@
+-- Homestead: Settlement tab integration for Standard 2D and Interactive 3D PDA
+-- Monkeypatches CustomPDAX to add slot 8 (Settlement) to the left-rail for non-MAC users.
+-- When clicked, it redirects to the standalone Settlements subdialog.
+
+function on_game_start()
+    -- Safely monkeypatch bind_hf_base's is_pickupable to prevent crashes on non-player placed furniture and protect rival camp decor
+    if bind_hf_base and bind_hf_base.hf_binder_wrapper then
+        bind_hf_base.hf_binder_wrapper.is_pickupable = function(self)
+            if not (self and self.object) then return true end
+            local obj_id = self.object:id()
+            if stalker_camp_builder and stalker_camp_builder.is_rival_camp_object and stalker_camp_builder.is_rival_camp_object(obj_id) then
+                return false
+            end
+            local data = hf_obj_manager and hf_obj_manager.get_data and hf_obj_manager.get_data(obj_id)
+            if not data then
+                return true
+            end
+            if data.is_world_obj then
+                return false
+            end
+            return true
+        end
+    end
+
+    -- Protect player settlements and settlers from Surge and Psi-Storm fatalities
+    if surge_manager and surge_manager.CSurgeManager then
+        local og_pos_in_cover = surge_manager.CSurgeManager.pos_in_cover
+        surge_manager.CSurgeManager.pos_in_cover = function(self, pos, by_name)
+            if pos and stalker_camp_builder then
+                local in_camp = false
+                pcall(function()
+                    if (stalker_camp_builder.is_pos_in_active_camp and stalker_camp_builder.is_pos_in_active_camp(pos))
+                        or (stalker_camp_builder.is_settler_at_pos and stalker_camp_builder.is_settler_at_pos(pos)) then
+                        in_camp = true
+                    end
+                end)
+                if in_camp then
+                    return by_name and "homestead_settlement_cover" or true
+                end
+            end
+            if og_pos_in_cover then
+                local ok, result = pcall(og_pos_in_cover, self, pos, by_name)
+                if ok then return result end
+            end
+            return false
+        end
+    end
+
+    if psi_storm_manager and psi_storm_manager.CPsiStormManager then
+        local og_psi_pos_in_cover = psi_storm_manager.CPsiStormManager.pos_in_cover
+        if og_psi_pos_in_cover then
+            psi_storm_manager.CPsiStormManager.pos_in_cover = function(self, pos, by_name)
+                if pos and stalker_camp_builder then
+                    local in_camp = false
+                    pcall(function()
+                        if (stalker_camp_builder.is_pos_in_active_camp and stalker_camp_builder.is_pos_in_active_camp(pos))
+                            or (stalker_camp_builder.is_settler_at_pos and stalker_camp_builder.is_settler_at_pos(pos)) then
+                            in_camp = true
+                        end
+                    end)
+                    if in_camp then
+                        return by_name and "homestead_settlement_cover" or true
+                    end
+                end
+                local ok, result = pcall(og_psi_pos_in_cover, self, pos, by_name)
+                if ok then return result end
+                return false
+            end
+        end
+    end
+
+
+    -- Safely wrap tasks_guide guider companion checks to prevent crashes when NPCs have no squad
+    if tasks_guide then
+        if tasks_guide.is_guider_companion then
+            local original_is_guider = tasks_guide.is_guider_companion
+            tasks_guide.is_guider_companion = function(actor, npc)
+                local real_npc = dialogs.who_is_npc(actor, npc)
+                local squad = get_object_squad(real_npc)
+                if not squad then
+                    return false
+                end
+                return original_is_guider(actor, npc)
+            end
+        end
+        if tasks_guide.is_not_guider_companion then
+            local original_is_not_guider = tasks_guide.is_not_guider_companion
+            tasks_guide.is_not_guider_companion = function(actor, npc)
+                local real_npc = dialogs.who_is_npc(actor, npc)
+                local squad = get_object_squad(real_npc)
+                if not squad then
+                    return true
+                end
+                return original_is_not_guider(actor, npc)
+            end
+        end
+    end
+
+    -- Engine Hardening: Safely wrap _G.get_object_by_id to handle offline objects cleanly
+    -- In X-Ray, querying an offline object ID returns nil, which is standard engine behavior.
+    -- Vanilla/modded _g.script prints '!ERROR get_object_by_id | no game object recieved from id',
+    -- causing immense false alarm log spam whenever waypoint managers (PAW), companion monitors,
+    -- or inventory scanners legitimately check an object that is currently offline.
+    if _G.get_object_by_id then
+        local og_get_object_by_id = _G.get_object_by_id
+        _G.get_object_by_id = function(id)
+            if not (id and type(id) == "number") then
+                return nil
+            end
+            if id == AC_ID then
+                return db.actor
+            end
+            local obj = (db.storage and db.storage[id] and db.storage[id].object) or (level and level.object_by_id and level.object_by_id(id))
+            return obj
+        end
+    end
+
+    -- Universal Map Marker / Waypoint Safety Wrapper (Catspaw PAW)
+    -- Catspaw's safename() checks monsters via get_object_by_id(id), failing and logging errors when monsters are offline.
+    -- Fall back to se_obj:section_name() so creature names are recognized and displayed properly without error spam.
+    if tasks_placeable_waypoints and tasks_placeable_waypoints.safename then
+        local og_safename = tasks_placeable_waypoints.safename
+        tasks_placeable_waypoints.safename = function(id)
+            if not (id and type(id) == "number") then return og_safename(id) end
+            local se_obj = alife_object(id)
+            if se_obj then
+                local cls = se_obj:clsid()
+                if IsMonster and IsMonster(nil, cls) then
+                    local obj = level and level.object_by_id and level.object_by_id(id)
+                    local section = (obj and obj:section()) or (se_obj and se_obj:section_name())
+                    if section then
+                        local special_cases = {
+                            dog             = "blind_dog",
+                            bird            = "crow",
+                            giant           = "pseudogiant",
+                            SM_KARLIK       = "karlik",
+                            SM_LURKER       = "lurker",
+                            SM_POLTER_G     = "poltergeist",
+                            SM_PYRO_G       = "pyrogeist",
+                            SM_PSEUDO_G     = "pseudogeist",
+                            SM_PSYSUCKER    = "psysucker",
+                        }
+                        local text
+                        if string.find(section, "rotan") then
+                            text = "rat"
+                        elseif string.find(section, "psy_dog") then
+                            text = "psydog"
+                        else
+                            local what = ini_sys:r_string_ex(section, "kind") or ini_sys:r_string_ex(section, "species") or nil
+                            text = special_cases[what] or what
+                        end
+                        if text and game and game.translate_string then
+                            return game.translate_string("encyclopedia_mutants_" .. text)
+                        end
+                    end
+                end
+            end
+            return og_safename(id)
+        end
+    end
+
+    -- Hook vanilla subdialog handler so eptSettlement is handled correctly.
+    -- v1.1.7: skipped when the "No PDA Tab" FOMOD option is installed
+    -- (05_NoPDATab flag) -- previously the Settlement tab still appeared and
+    -- errored on open because its UI XML ships only with the PDA component.
+    if homestead_no_pda_tab_flag == nil then
+        local og_set_active_subdialog = pda.set_active_subdialog
+        function pda.set_active_subdialog(section)
+            local pda_menu = ActorMenu.get_pda_menu()
+            if pda_menu and pda_menu:GetTabControl() and (section ~= "eptNPC") then
+                pda_menu:GetTabControl():Show(true)
+            end
+            if section == "eptSettlement" then
+                CreateTimeEvent("homestead_pda", "restore_tabs_subdialog", 0.05, function()
+                    local menu = ActorMenu.get_pda_menu()
+                    if menu and menu:GetTabControl() then
+                        menu:GetTabControl():Show(true)
+                    end
+                    return true
+                end)
+                return ui_stalker_camp_builder_pda.get_ui()
+            end
+            if og_set_active_subdialog then
+                return og_set_active_subdialog(section)
+            end
+        end
+    end
+
+    -- Engine Scheme Hardening: Ensure 'beh' scheme is registered across all stalker stypes
+    -- Prevents "!ERROR: ... trying to use a scheme not intended for stype scheme=beh stype=nil"
+    if schemes_by_stype then
+        for s = 0, 4 do
+            schemes_by_stype[s] = schemes_by_stype[s] or {}
+            schemes_by_stype[s]["beh"] = true
+        end
+    end
+    if schemes and not schemes["beh"] then
+        schemes["beh"] = "axr_beh"
+    end
+
+    -- Safeguard xr_logic.activate_by_section against missing st.stype and missing loading flag
+    if xr_logic and xr_logic.activate_by_section then
+        local og_activate_by_section = xr_logic.activate_by_section
+        xr_logic.activate_by_section = function(npc, ini, section, gulag_name, loading, ...)
+            if npc and db.storage then
+                local id = npc:id()
+                if db.storage[id] and not db.storage[id].stype then
+                    db.storage[id].stype = (modules and modules.stype_stalker) or 0
+                end
+            end
+            if loading == nil then
+                loading = false
+            end
+            return og_activate_by_section(npc, ini, section, gulag_name, loading, ...)
+        end
+    end
+
+    -- Safeguard axr_companions.set_companion_squad_move_mode against non-table st.beh (Error 1048)
+    if axr_companions and axr_companions.set_companion_squad_move_mode then
+        local og_set_move_mode = axr_companions.set_companion_squad_move_mode
+        axr_companions.set_companion_squad_move_mode = function(mode, npc, squad)
+            if squad and squad.squad_members then
+                pcall(function()
+                    for k in squad:squad_members() do
+                        if k and k.id and db.storage and db.storage[k.id] then
+                            local s = db.storage[k.id]
+                            if s.beh ~= nil and type(s.beh) ~= "table" then
+                                s.beh = {}
+                            end
+                        end
+                    end
+                end)
+            end
+            local ok, err = pcall(og_set_move_mode, mode, npc, squad)
+            if not ok then
+                pcall(function()
+                    squad = squad or (npc and get_object_squad(npc))
+                    if squad and squad.squad_members then
+                        local t = {"set_companion_to_wait_state", "set_companion_to_follow_state"}
+                        local f = axr_companions[t[mode]]
+                        if f then
+                            for k in squad:squad_members() do
+                                local s = db.storage and db.storage[k.id]
+                                if s and type(s.beh) == "table" and k.id == squad:commander_id() then
+                                    s.beh.rally_lvid = nil
+                                end
+                                local member = s and s.object
+                                if member and member:alive() then
+                                    pcall(f, member)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end
+
+    if axr_companions and axr_companions.cycle_companions_move_mode then
+        local og_cycle = axr_companions.cycle_companions_move_mode
+        axr_companions.cycle_companions_move_mode = function(key)
+            if db.storage then
+                pcall(function()
+                    for id, s in pairs(db.storage) do
+                        if s and s.beh ~= nil and type(s.beh) ~= "table" then
+                            s.beh = {}
+                        end
+                    end
+                end)
+            end
+            pcall(og_cycle, key)
+        end
+    end
+
+    -- Safeguard axr_beh action planner execution against broken/nil desired_target
+    if axr_beh and axr_beh.action_beh and axr_beh.action_beh.execute then
+        local og_beh_execute = axr_beh.action_beh.execute
+        axr_beh.action_beh.execute = function(self)
+            if self and self.st then
+                if self.st.beh ~= nil and type(self.st.beh) ~= "table" then
+                    self.st.beh = {}
+                end
+            end
+            pcall(og_beh_execute, self)
+        end
+    end
+
+    -- If Interactive PDA is not installed, or if Mod App Creator is active with our patch, we don't need to patch the left rail
+    local enable_tab = true
+    if ui_mcm then
+        enable_tab = ui_mcm.get("stalker_camp_builder/qol_debug/enable_pda_tab")
+        if enable_tab == nil then enable_tab = true end
+    end
+    if not (pda_inter_gui and pda_inter_gui.CustomPDAX) or (mac_mcm and stalker_camp_builder_mac_flag) or (not enable_tab) then
+        return
+    end
+
+    local GUI_CLASS = pda_inter_gui.CustomPDAX
+    local SLOT = 8
+
+    local SLOT_TOP = 10
+    local SLOT_STEP_MAX = 40
+
+    local function slot_count()
+        local n = 0
+        for i = 1, pda_inter_gui.main_menu_btns or 7 do
+            if pda_inter_gui.is_tab_enabled(i) then n = n + 1 end
+        end
+        if pda_inter_gui.pgc_compat_enabled and pda_inter_gui.pgc_compat_enabled() then
+            n = n + 1
+        end
+        return n
+    end
+
+    -- 1. BuildMainMenu: init our button alongside slots 1-7
+    local _orig_BuildMainMenu = GUI_CLASS.BuildMainMenu
+    function GUI_CLASS:BuildMainMenu(xml)
+        _orig_BuildMainMenu(self, xml)
+
+        self.pda_t[SLOT] = {}
+        self.pda_t[SLOT].btn = xml:Init3tButton("left_container:menu_btn_8", self.left_cont)
+        self:Register(self.pda_t[SLOT].btn, "menu_btn_8")
+
+        self.pda_t[SLOT].btn:Show(false)
+        self.pda_t[SLOT].enabled = false
+    end
+
+    -- 2. InitCallBacks: wire our button click
+    local _orig_InitCallBacks = GUI_CLASS.InitCallBacks
+    function GUI_CLASS:InitCallBacks()
+        _orig_InitCallBacks(self)
+        GUI_CLASS["OnClickMainMenu_8"] = function(s) s:OnClickMainMenu(SLOT) end
+        self:AddCallback("menu_btn_8", ui_events.BUTTON_CLICKED, GUI_CLASS.OnClickMainMenu_8, self)
+    end
+
+    -- 3. RefreshTabVisibility: position and show slot 8 below all others
+    local _orig_RefreshTabVis = GUI_CLASS.RefreshTabVisibility
+    function GUI_CLASS:RefreshTabVisibility()
+        _orig_RefreshTabVis(self)
+        local t8 = self.pda_t and self.pda_t[SLOT]
+        if not (t8 and t8.btn) then return end
+
+        local visual_slot = slot_count()
+        local step = self.slot_step or SLOT_STEP_MAX
+
+        t8.btn:SetWndPos(vector2():set(0, SLOT_TOP + visual_slot * step))
+        t8.btn:Show(true)
+        t8.enabled = true
+        self.tab_visual_positions = self.tab_visual_positions or {}
+        self.tab_visual_positions[SLOT] = visual_slot
+    end
+
+    -- 4. OnClickMainMenu: redirect slot 8 to eptSettlement subdialog
+    local _orig_OnClickMainMenu = GUI_CLASS.OnClickMainMenu
+    function GUI_CLASS:OnClickMainMenu(num)
+        if num == SLOT then
+            local pda_menu = ActorMenu.get_pda_menu()
+            if pda_menu then
+                pda_menu:SetActiveSubdialog("eptSettlement")
+            end
+            return
+        end
+        return _orig_OnClickMainMenu(self, num)
+    end
+
+    -- Guarantee homestead disconnect grace is engaged on level change and net destroy
+    if RegisterScriptCallback then
+        local function engage_homestead_disconnect_grace()
+            if stalker_camp_builder then
+                stalker_camp_builder.homestead_is_disconnecting = true
+                stalker_camp_builder.homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
+            end
+        end
+        RegisterScriptCallback("on_before_level_changing", engage_homestead_disconnect_grace)
+        RegisterScriptCallback("on_level_changing", engage_homestead_disconnect_grace)
+        RegisterScriptCallback("actor_on_net_destroy", engage_homestead_disconnect_grace)
+    end
+end

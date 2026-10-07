@@ -1,0 +1,59 @@
+-- bind_workshop_furniture.script
+-- Homestead Settlement Builder & GAMMA Hideout Furniture compatibility
+-- Enables native engine use callback on placeable workbenches and stashes.
+
+function init(obj)
+    obj:bind_object(hf_workshop_wrapper(obj).binder)
+end
+
+class "hf_workshop_wrapper" (bind_hf_base.hf_binder_wrapper)
+
+function hf_workshop_wrapper:__init(obj)
+    super(obj)
+    if self.object and self.object.set_callback then
+        self.object:set_callback(callback.use_object, self.use_callback, self)
+    end
+end
+
+function hf_workshop_wrapper:use_callback(obj, who)
+    if not obj then return end
+    if ui_furniture_workshop and ui_furniture_workshop.start_dialog then
+        ui_furniture_workshop.start_dialog(obj:id())
+    end
+end
+
+function hf_workshop_wrapper:net_destroy()
+    if self.object and self.object.set_callback then
+        self.object:set_callback(callback.use_object, nil)
+    end
+    bind_hf_base.hf_binder_wrapper.net_destroy(self)
+end
+
+function hf_workshop_wrapper:pickup()
+    -- If this workbench is a Homestead settlement hub, picking it up through
+    -- the normal Hideout Furniture interaction must perform the same registry
+    -- cleanup as the PDA "Dismantle Camp" button. Otherwise the physical
+    -- hub disappears while active_camps keeps a ghost settlement entry.
+    local hub_id = self.object and self.object:id()
+    if hub_id and stalker_camp_builder and stalker_camp_builder.active_camps
+        and stalker_camp_builder.active_camps[hub_id]
+        and stalker_camp_builder.dismantle_camp then
+        pcall(function() stalker_camp_builder.dismantle_camp(hub_id) end)
+    end
+
+    local m_data = alife_storage_manager.get_state()
+    if m_data.workshop_stashes then
+        local id = m_data.workshop_stashes[self.object:id()]
+        if id then
+            local stash_obj = level and level.object_by_id and level.object_by_id(id)
+            if stash_obj then
+                stash_obj:iterate_inventory_box(function(temp, obj)
+                    stash_obj:transfer_item(obj, db.actor)
+                end, stash_obj)
+            end
+            m_data.workshop_stashes[self.object:id()] = nil
+            alife_release_id(id)
+        end
+    end
+    bind_hf_base.hf_binder_wrapper.pickup(self)
+end

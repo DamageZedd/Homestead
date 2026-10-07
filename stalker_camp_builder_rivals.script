@@ -1,0 +1,2324 @@
+-- v1.1.8: rival camp furniture is now an MCM toggle (default ON). Danzy's
+-- edit hard-coded RIVAL_DECOR_ENABLED = false; this replaces it with
+-- "Rival Camp Furniture" in MCM -> Rivals. OFF clears decor already placed
+-- at existing camps and stops new camps/tier upgrades from spawning more.
+local function rival_decor_enabled()
+    local sb = stalker_camp_builder
+    if sb and sb.cfg then return sb.cfg.rival_camp_furniture ~= false end
+    return true
+end
+
+local sformat = string.format
+local pairs_ = pairs
+local ipairs_ = ipairs
+local tostr = tostring
+local type_ = type
+local mmin = math.min
+local mmax = math.max
+local mfloor = math.floor
+local mabs = math.abs
+
+local function is_squad_alive(squad)
+    if not squad then return false end
+    if squad.npc_count then
+        local ok, count = pcall(function() return squad:npc_count() end)
+        if ok and count then
+            return count > 0
+        end
+    end
+    if squad.squad_members then
+        local ok_mem, members = pcall(function() return squad:squad_members() end)
+        if ok_mem and members then
+            for _ in members do
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function safe_teleport_object(id, gvid, lvid, pos, sim_override)
+    if not id or not gvid or not lvid or not pos then return end
+    local s = sim_override or sim or alife()
+    if not s then return end
+    local se_obj = s:object(id)
+    if not se_obj then return end
+    local cls = se_obj.clsid and se_obj:clsid()
+    local is_creature = cls and (IsStalker(nil, cls) or IsMonster(nil, cls))
+    if is_creature then
+        pcall(function()
+            if TeleportObject then
+                TeleportObject(id, pos, lvid, gvid)
+            elseif s.teleport_object then
+                s:teleport_object(id, gvid, lvid, pos)
+            end
+        end)
+    else
+        se_obj.position = pos
+        se_obj.m_level_vertex_id = lvid
+        se_obj.m_game_vertex_id = gvid
+    end
+end
+
+local function safe_teleport_squad(squad, gvid, lvid, pos, sim_override)
+    if not squad or not squad.id or not gvid or not lvid or not pos then return end
+    pcall(function()
+        if TeleportSquad then
+            TeleportSquad(squad, pos, lvid, gvid)
+        elseif TeleportObject then
+            TeleportObject(squad.id, pos, lvid, gvid)
+        else
+            local s = sim_override or sim or alife()
+            if s and s.teleport_object then
+                s:teleport_object(squad.id, gvid, lvid, pos)
+            end
+        end
+    end)
+end
+
+-- stalker_camp_builder_rivals.script
+
+local last_rival_spawn_scan_tg = 0
+local RIVAL_SPAWN_SCAN_INTERVAL_MS = 60000  -- 60 real seconds
+
+-- restrain_rival_squads -- pin rival camp squads in place via script_target
+local find_ground_anchor
+
+-- setup_rival_squad_positions -- Spawns/teleports squad members to tactical guard posts away from the blue box
+function stalker_camp_builder.setup_rival_squad_positions(squad, camp, sim_override)
+    if not squad or not camp or not camp.position then return end
+    local sb = stalker_camp_builder
+    local s = sim_override or sim or alife()
+    if not s then return end
+
+    local camp_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local camp_rot = camp.rotation or 0
+    local gvid = camp.game_vertex_id or (squad.m_game_vertex_id)
+    local lvid = camp.level_vertex_id or (squad.m_level_vertex_id)
+
+    -- Guard / sentry stations (local offsets relative to camp orientation)
+    -- All stations are at least 2.5m - 4.5m away from the central chest so NPCs NEVER stack on the blue box
+    local stations = {
+        { lx = 0.0,  lz = 3.6,  dir_yaw = 0.0 },              -- Station 1: Front barricade gate
+        { lx = -2.8, lz = 1.0,  dir_yaw = -math.pi * 0.35 },   -- Station 2: Left flank wall
+        { lx = 2.8,  lz = 1.0,  dir_yaw = math.pi * 0.35 },    -- Station 3: Right flank wall
+        { lx = 0.8,  lz = -1.6, dir_yaw = math.pi * 0.75 },    -- Station 4: Camp hearth / bivouac
+        { lx = -1.8, lz = 2.6,  dir_yaw = -0.2 },             -- Station 5: Left perimeter cover
+        { lx = 1.8,  lz = 2.6,  dir_yaw = 0.2 },              -- Station 6: Right perimeter cover
+    }
+
+    local cos_r = math.cos(camp_rot)
+    local sin_r = math.sin(camp_rot)
+    local member_idx = 0
+
+    for k in sb.safe_squad_members(squad) do
+        if k.id then
+            member_idx = member_idx + 1
+            local st = stations[((member_idx - 1) % #stations) + 1]
+            local wx = camp_pos.x + st.lx * cos_r - st.lz * sin_r
+            local wz = camp_pos.z + st.lx * sin_r + st.lz * cos_r
+
+            local target_lvid = lvid
+            local target_pos = vector():set(wx, camp_pos.y, wz)
+            if level and level.name() == camp.level then
+                local found_lvid, dvpos, d_surface_y
+                if find_ground_anchor then
+                    found_lvid, dvpos, d_surface_y = find_ground_anchor(wx, wz, camp_pos.y, camp_pos.y)
+                end
+                if found_lvid and (d_surface_y or (dvpos and dvpos.y)) then
+                    target_lvid = found_lvid
+                    target_pos:set(wx, (d_surface_y or dvpos.y) + 0.05, wz)
+                end
+            end
+
+            local se_npc = s:object(k.id)
+            if se_npc then
+                safe_teleport_object(k.id, gvid, target_lvid, target_pos, s)
+                se_npc.position = target_pos
+                se_npc.m_level_vertex_id = target_lvid
+                se_npc.m_game_vertex_id = gvid
+
+                local online_npc = level.object_by_id(k.id)
+                if online_npc and IsStalker(online_npc) and (not IsMonster(online_npc)) then
+                    pcall(function()
+                        if online_npc.set_npc_position then
+                            online_npc:set_npc_position(target_pos)
+                        end
+                        local dir_yaw = camp_rot + st.dir_yaw
+                        local dir_v = vector():set(math.sin(dir_yaw), 0, math.cos(dir_yaw))
+                        if online_npc.set_desired_direction then
+                            online_npc:set_desired_direction(dir_v)
+                        end
+                    end)
+                end
+            end
+
+            -- Immediately register into settler_lookup as rival
+            sb.settler_lookup[k.id] = {
+                hub_id = nil,
+                camp = nil,
+                survivor = nil,
+                is_rival = true,
+                rival_camp = camp,
+            }
+            if sb.non_settler_cache then
+                sb.non_settler_cache[k.id] = nil
+            end
+        end
+    end
+
+    squad.get_script_target = function(self) return self.id end
+end
+
+-- restrain_rival_squads -- pin rival camp squads in place via script_target and dislodge anyone stuck on the blue box
+function stalker_camp_builder.restrain_rival_squads()
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return end
+    for key, camp in pairs(sb.rival_camps) do
+        if type(camp) == "table" and camp.squad_id then
+            local squad = sim:object(camp.squad_id)
+            if squad then
+                squad.get_script_target = function(self)
+                    return self.id
+                end
+
+                -- Auto-dislodge NPCs in existing saves that are stuck on the blue box
+                if level and level.name() == camp.level and camp.position then
+                    local cp = camp.position
+                    local needs_dislodge = false
+                    for k in sb.safe_squad_members(squad) do
+                        if k.id then
+                            local online_npc = level.object_by_id(k.id)
+                            if online_npc and online_npc.position and online_npc.alive and online_npc:alive() then
+                                local np = online_npc:position()
+                                local dx = np.x - cp.x
+                                local dz = np.z - cp.z
+                                if (dx * dx + dz * dz) < 1.0 and (np.y - cp.y) > 0.25 then
+                                    needs_dislodge = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if needs_dislodge then
+                        sb.setup_rival_squad_positions(squad, camp, sim)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- create_squad_at_pos -- spawn a squad at the given position
+function stalker_camp_builder.create_squad_at_pos(section, pos, lvid, gvid)
+    local sb = stalker_camp_builder
+    local squad = alife():create(section, pos, lvid, gvid)
+    if squad then
+        squad:create_npc(nil, pos, lvid, gvid)
+        squad.get_script_target = function(self)
+            return self.id
+        end
+        local sim = alife()
+        for k in sb.safe_squad_members(squad) do
+            local se_obj = k.object or (k.id and sim:object(k.id))
+            if se_obj and SIMBOARD and SIMBOARD.setup_squad_and_group then
+                SIMBOARD:setup_squad_and_group(se_obj)
+            end
+        end
+        return squad
+    end
+    return nil
+end
+
+-- release_camp_decorations -- alife_release all decoration ids on a camp
+function stalker_camp_builder.release_camp_decorations(camp)
+    if camp and camp.decorations then
+        for _, id in ipairs(camp.decorations) do
+            local ok, se_decor = pcall(alife_object, id)
+            if ok and se_decor then
+                pcall(alife_release, se_decor)
+            end
+        end
+        camp.decorations = {}
+    end
+end
+
+-- find_nearby_squad_for_repopulation -- find a non-assigned squad near a camp
+function stalker_camp_builder.find_nearby_squad_for_repopulation(camp)
+    local sb = stalker_camp_builder
+    local camp_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local sim = alife()
+    if not (SIMBOARD and SIMBOARD.squads) then return nil end
+    for id, squad in pairs(SIMBOARD.squads) do
+        if squad and type(squad) == "table" and squad.position then
+            local dist_ok, dist = pcall(function() return squad.position:distance_to(camp_pos) end)
+            if dist_ok and dist <= 35 then
+                if squad.id ~= 0 and not (axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id]) then
+                    local already_used = false
+                    for other_key, other_camp in pairs(sb.rival_camps) do
+                        if other_camp.squad_id == squad.id then
+                            already_used = true
+                            break
+                        end
+                    end
+                    if not already_used then
+                        return squad
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local underground_levels = {
+    ["jupiter_underground"]   = true,
+    ["l03u_agr_underground"]  = true,
+    ["l04u_labx18"]           = true,
+    ["l08u_brainlab"]         = true,
+    ["l10u_bunker"]           = true,
+    ["l12u_control_monolith"] = true,
+    ["l12u_sarcofag"]         = true,
+    ["l13u_warlab"]           = true,
+    ["labx8"]                 = true,
+    ["fake_start"]            = true,
+    ["l11_hospital"]          = true,
+}
+
+local underground_smart_terrains = {
+    ["cit_kanaliz1"] = true,
+    ["cit_kanaliz2"] = true,
+    ["bar_dolg_bunker"] = true,
+    ["katacomb_smart_terrain"] = true,
+    ["gen_smart_terrain_lab_entrance"] = true,
+    ["gen_smart_terrain_lab_entrance_2"] = true,
+    ["pas_b400_tunnel"] = true,
+    ["warlab_common_consciousness_smart_terrain"] = true,
+    ["lx8_smart_terrain"] = true,
+    ["x162_st_burer"] = true,
+    ["x162_st_gigant"] = true,
+    ["x162_st_poltergeist"] = true,
+    ["x162_st_snork"] = true,
+}
+
+function stalker_camp_builder.is_underground_smart(name)
+    local sfind = string.find
+    if not name or name == "" then return true end
+    if underground_smart_terrains[name] then return true end
+    local s = string.lower(name)
+    if sfind(s, "kanaliz", 1, true)
+        or sfind(s, "catacomb", 1, true)
+        or sfind(s, "katacomb", 1, true)
+        or sfind(s, "bunker", 1, true)
+        or sfind(s, "tunnel", 1, true)
+        or sfind(s, "underground", 1, true)
+        or sfind(s, "podval", 1, true)
+        or sfind(s, "basement", 1, true)
+        or sfind(s, "collector", 1, true)
+        or sfind(s, "subway", 1, true)
+        or sfind(s, "metro", 1, true)
+        or sfind(s, "peshera", 1, true)
+        or sfind(s, "dolg_bunker", 1, true)
+        or sfind(s, "lab_entrance", 1, true)
+    then
+        return true
+    end
+    return false
+end
+
+function stalker_camp_builder.is_underground_level(lvl)
+    local sfind = string.find
+    if not lvl or lvl == "" then return true end
+    if underground_levels[lvl] then return true end
+    local lower_lvl = string.lower(lvl)
+    if sfind(lower_lvl, "underground", 1, true) or sfind(lower_lvl, "lab", 1, true) or sfind(lower_lvl, "bunker", 1, true) or sfind(lower_lvl, "sarcofag", 1, true) or sfind(lower_lvl, "warlab", 1, true) or sfind(lower_lvl, "hospital", 1, true) or sfind(lower_lvl, "^l%d%du_") then
+        return true
+    end
+    return false
+end
+
+-- get_smart_terrains_on_level -- list smart terrains whose game vertex is on
+-- DANZY EDIT: smart terrains never change during a session, so work out which
+-- map each one is on ONCE and reuse it. This used to re-scan every smart in the
+-- game (with string checks) for every map tried on each camp spawn -> stutter.
+local _smart_cache = nil      -- level_name -> { {obj=, name=}, ... }
+local _smart_levels = nil     -- list of surface level names
+local _smart_cache_count = -1
+
+local function build_smart_cache()
+    if not (SIMBOARD and SIMBOARD.smarts_by_names) then return false end
+    local count = 0
+    for _ in pairs(SIMBOARD.smarts_by_names) do count = count + 1 end
+    if _smart_cache and count == _smart_cache_count then return true end
+    local sim = alife()
+    local gg = game_graph()
+    if not (sim and gg) or count == 0 then return false end
+    local cache, levels = {}, {}
+    for name, smart in pairs(SIMBOARD.smarts_by_names) do
+        if smart and smart.m_game_vertex_id and not stalker_camp_builder.is_underground_smart(name) then
+            local ok, s_level = pcall(function()
+                return sim:level_name(gg:vertex(smart.m_game_vertex_id):level_id())
+            end)
+            if ok and s_level and s_level ~= "" and not stalker_camp_builder.is_underground_level(s_level) then
+                if not cache[s_level] then
+                    cache[s_level] = {}
+                    levels[#levels+1] = s_level
+                end
+                local t = cache[s_level]
+                t[#t+1] = { obj = smart, name = name }
+            end
+        end
+    end
+    _smart_cache, _smart_levels, _smart_cache_count = cache, levels, count
+    return true
+end
+
+function stalker_camp_builder.get_smart_terrains_on_level(level_name)
+    local smarts = {}
+    if stalker_camp_builder.is_underground_level(level_name) then return smarts end
+    if not build_smart_cache() then return smarts end
+    local list = _smart_cache[level_name]
+    if not list then return smarts end
+    local avail_tbl = simulation_objects and simulation_objects.available_by_id
+    for _, e in ipairs(list) do
+        local is_available = true
+        if avail_tbl then
+            local avail = avail_tbl[e.obj.id]
+            is_available = (avail == true) or (avail == nil)  -- nil = treat as available
+        end
+        if is_available then
+            smarts[#smarts+1] = { obj = e.obj, name = e.name }
+        end
+    end
+    return smarts
+end
+
+-- get_all_levels_with_smarts -- list level names that have at least one smart (surface only)
+function stalker_camp_builder.get_all_levels_with_smarts()
+    if not build_smart_cache() then return {} end
+    local list = {}
+    for i, lvl in ipairs(_smart_levels) do list[i] = lvl end
+    return list
+end
+
+-- get_enemy_faction_for -- pick a random enemy faction for the given faction
+function stalker_camp_builder.get_enemy_faction_for(faction, level_name)
+    local allowed_factions = level_name and stalker_camp_builder.get_level_factions(level_name) or {"stalker", "bandit", "csky", "army", "freedom", "dolg", "ecolog", "killer"}
+    local enemies = {}
+    for _, f in ipairs(allowed_factions) do
+        if f ~= faction then
+            local rel = relation_registry.community_relation(faction, f)
+            if rel and rel <= -1000 then
+                enemies[#enemies+1] = f
+            end
+        end
+    end
+    if #enemies > 0 then
+        return enemies[math.random(#enemies)]
+    end
+    local all_hostile_candidates = {"bandit", "killer", "monolith", "renegade", "freedom", "dolg", "army"}
+    for _, f in ipairs(all_hostile_candidates) do
+        if f ~= faction then
+            local rel = relation_registry.community_relation(faction, f)
+            if rel and rel <= -500 then
+                enemies[#enemies+1] = f
+            end
+        end
+    end
+    if #enemies > 0 then
+        return enemies[math.random(#enemies)]
+    end
+
+    if faction == "bandit" or faction == "renegade" then
+        return "stalker"
+    end
+    return "bandit"
+end
+
+-- find_wiping_squad -- find a hostile squad within 45m of the camp
+function stalker_camp_builder.find_wiping_squad(camp)
+    local sb = stalker_camp_builder
+    local camp_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local sim = alife()
+    if not (SIMBOARD and SIMBOARD.squads) then return nil end
+    for id, squad in pairs(SIMBOARD.squads) do
+        if squad and type(squad) == "table" and squad.position and squad.id ~= 0 and squad.id ~= camp.squad_id then
+            local dist_ok, dist = pcall(function() return squad.position:distance_to(camp_pos) end)
+            if dist_ok and dist <= 45 then
+                if not (axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id]) then
+                    local squad_comm = squad.get_squad_community and squad:get_squad_community() or squad.player_id
+                    if squad_comm and squad_comm ~= "" then
+                        local rel = relation_registry.community_relation(squad_comm, camp.faction)
+                        if rel and rel <= -1000 then
+                            return squad
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- squad_has_story_npc -- true if any squad member has a story_id (skip these
+function stalker_camp_builder.squad_has_story_npc(squad)
+    local sb = stalker_camp_builder
+    if not story_objects or not story_objects.story_id_by_object_id then return false end
+    for k in sb.safe_squad_members(squad) do
+        if story_objects.story_id_by_object_id[k.id] then
+            return true
+        end
+    end
+    return false
+end
+
+-- get_level_factions -- returns the list of factions appropriate for a level
+function stalker_camp_builder.get_level_factions(level_name)
+    local scorcher_off = has_alife_info("bar_deactivate_radar_done") or (warfare and warfare.has_warfare and warfare.has_warfare())
+
+    local level_faction_map = {
+        k00_marsh = {"csky", "bandit", "stalker", "army"},
+        l01_escape = {"stalker", "bandit", "army"},
+        l02_garbage = {"bandit", "stalker", "dolg", "freedom"},
+        l03_agroprom = {"army", "stalker", "bandit", "dolg"},
+        k01_darkscape = {"stalker", "bandit", "killer"},
+        k02_trucks_cemetery = {"bandit", "stalker", "dolg", "killer", "freedom"},
+        y04_pole = {"stalker", "bandit"},
+        l04_darkvalley = {"bandit", "freedom", "killer"},
+        l05_bar = {"dolg", "stalker"},
+        l06_rostok = {"killer", "dolg", "freedom", "stalker", "ecolog"},
+        l08_yantar = {"ecolog", "stalker", "killer"},
+        l09_deadcity = {"killer", "bandit", "stalker", "freedom"},
+
+        l07_military = scorcher_off and {"freedom", "dolg", "killer", "monolith", "stalker"} or {"freedom", "dolg", "killer", "stalker"},
+        jupiter = scorcher_off and {"stalker", "freedom", "dolg", "killer", "bandit", "ecolog", "monolith"} or {"stalker", "freedom", "dolg", "killer", "bandit", "ecolog"},
+        zaton = scorcher_off and {"stalker", "bandit", "killer", "dolg", "freedom", "monolith"} or {"stalker", "bandit", "killer", "dolg", "freedom"},
+
+        l10_radar = {"monolith", "freedom", "dolg", "stalker"},
+        l10_red_forest = {"monolith", "stalker", "freedom", "dolg", "killer"},
+        l10_limansk = {"monolith", "killer", "csky", "freedom"},
+        l11_hospital = {"monolith", "csky", "killer"},
+        l11_pripyat = {"monolith", "killer", "army", "stalker", "dolg", "freedom"},
+        pripyat = {"monolith", "killer", "army", "stalker", "dolg", "freedom"},
+        jupiter_underground = {"monolith", "killer", "zombied"},
+        l12_stancia = {"monolith", "army"},
+        l12_stancia_2 = {"monolith"},
+        l12u_sarcofag = {"monolith"},
+        l12u_control_monolith = {"monolith"},
+        l13_generators = {"monolith"},
+        l13u_warlab = {"monolith"}
+    }
+    local facs = level_name and level_faction_map[level_name]
+    local base_list = facs and #facs > 0 and facs or (scorcher_off and {"stalker", "bandit", "csky", "army", "freedom", "dolg", "ecolog", "killer", "monolith"} or {"stalker", "bandit", "csky", "army", "freedom", "dolg", "ecolog", "killer"})
+
+    local hour = level.get_time_hours()
+    local is_day = (hour >= 6 and hour < 20)
+    local weighted_facs = {}
+
+    for _, f in ipairs(base_list) do
+        weighted_facs[#weighted_facs+1] = f
+        if is_day then
+            if f == "dolg" or f == "army" or f == "ecolog" or f == "csky" then
+                weighted_facs[#weighted_facs+1] = f
+            end
+        else
+            if f == "bandit" or f == "killer" or f == "monolith" then
+                weighted_facs[#weighted_facs+1] = f
+            end
+        end
+    end
+
+    return weighted_facs
+end
+
+-- get_dynamic_squad_section_for_faction -- returns a valid sim squad section
+local FACTION_SQUAD_PREFIX = {
+    ["killer"] = "merc",
+    ["mercenary"] = "merc",
+    ["dolg"] = "duty",
+    ["duty"] = "duty",
+    ["military"] = "army",
+    ["army"] = "army",
+}
+
+function stalker_camp_builder.get_dynamic_squad_section_for_faction(faction)
+    local fac_prefix = FACTION_SQUAD_PREFIX[faction] or faction
+    local tier = (db.actor and db.actor:character_rank() >= 4000) and "_advanced" or "_novice"
+    local sec = fac_prefix .. "_sim_squad" .. tier
+    if ini_sys:section_exist(sec) then
+        return sec
+    end
+    if ini_sys:section_exist(fac_prefix .. "_sim_squad_novice") then
+        return fac_prefix .. "_sim_squad_novice"
+    end
+    if faction ~= fac_prefix then
+        if ini_sys:section_exist(faction .. "_sim_squad" .. tier) then
+            return faction .. "_sim_squad" .. tier
+        end
+        if ini_sys:section_exist(faction .. "_sim_squad_novice") then
+            return faction .. "_sim_squad_novice"
+        end
+    end
+    if ini_sys:section_exist("stalker_sim_squad_novice") then
+        return "stalker_sim_squad_novice"
+    end
+    return "bandit_sim_squad_novice"
+end
+
+-- update_rival_camps -- master rival-camp lifecycle manager.
+function stalker_camp_builder.update_rival_camps()
+    local ipairs_ = ipairs
+    local pairs_ = pairs
+    local mfloor = math.floor
+    local sformat = string.format
+    local mcos = math.cos
+    local mrandom = math.random
+    local msin = math.sin
+              local actor = db.actor
+          local sim_alao = alife()
+    local sb = stalker_camp_builder
+    local level_name = level.name()
+    if not level_name or level_name == "" then return end
+
+    local total_rival_camps = 0
+    for key, camp in pairs_(sb.rival_camps) do
+        if type(camp) == "table" and camp.chest_id then
+            total_rival_camps = total_rival_camps + 1
+        end
+    end
+
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+
+    if sb.update_active_convoys then sb.update_active_convoys() end
+    if sb.check_sos_rescue_reward then sb.check_sos_rescue_reward(actor) end
+
+    -- v1.1.8: rival furniture MCM toggle -- when OFF, clear decor already
+    -- placed at existing camps (release_camp_decorations is a no-op on
+    -- camps that have none, so this is cheap per tick).
+    if not rival_decor_enabled() then
+        for key, c in pairs_(sb.rival_camps) do
+            if type(c) == "table" and c.decorations and #c.decorations > 0 then
+                sb.release_camp_decorations(c)
+            end
+        end
+    end
+
+    local v_scratch_pos = vector()
+    for key, camp in pairs_(sb.rival_camps) do
+        if type(camp) == "table" and camp.chest_id then
+            local se_chest = alife_object(camp.chest_id)
+            if se_chest then
+                if not camp.position then
+                    camp.position = {x = se_chest.position.x, y = se_chest.position.y, z = se_chest.position.z}
+                end
+                if not camp.level_vertex_id then
+                    camp.level_vertex_id = se_chest.m_level_vertex_id
+                end
+                if not camp.game_vertex_id then
+                    camp.game_vertex_id = se_chest.m_game_vertex_id
+                end
+                if not camp.level then
+                    local gg = game_graph()
+                    camp.level = sim_alao:level_name(gg:vertex(se_chest.m_game_vertex_id):level_id())
+                end
+                local same_level = (camp.level == level_name)
+
+                if (camp.level and sb.is_underground_level(camp.level)) or (camp.smart_name and sb.is_underground_smart(camp.smart_name)) then
+                    level.map_remove_object_spot(camp.chest_id, "red_location")
+                    level.map_remove_object_spot(camp.chest_id, "green_location")
+                    level.map_remove_object_spot(camp.chest_id, "blue_location")
+                    sb.release_camp_decorations(camp)
+                    if camp.squad_id then
+                        local squad = sim_alao:object(camp.squad_id)
+                        if squad then alife_release(squad) end
+                    end
+                    alife_release(se_chest)
+                    sb.rival_camps[key] = nil
+                end
+
+                if camp.squad_id then
+                    local squad = alife_object(camp.squad_id)
+                    local has_alive = false
+                    if squad then
+                        local sim = sim_alao
+                        for k in sb.safe_squad_members(squad) do
+                            local is_alive = false
+                            local online_obj = level.object_by_id(k.id)
+                            if online_obj then
+                                is_alive = online_obj:alive()
+                            else
+                                local se_obj = k.object or (k.id and sim:object(k.id))
+                                if se_obj and se_obj:alive() then
+                                    is_alive = true
+                                end
+                            end
+                            if is_alive then
+                                has_alive = true
+                                break
+                            end
+                        end
+                    end
+                    if squad and has_alive then
+                        local lifespan = camp.setup_duration or (sb.cfg.rival_camp_setup_duration or 43200)
+                        if camp.setup_sec and (current_sec - camp.setup_sec >= lifespan) then
+                            camp.tier = camp.tier or 1
+                            local roll = mrandom(100)
+                            local did_upgrade = false
+                            local did_hold = false
+
+                            if camp.tier == 1 then
+                                if roll <= 70 and sb.cfg.rival_camp_progression ~= false then
+                                    sb.upgrade_rival_camp_tier(camp, 2)
+                                    camp.setup_sec = current_sec
+                                    camp.setup_duration = mrandom(21600, 64800) -- 6 to 18 in-game hours
+                                    did_upgrade = true
+                                end
+                            elseif camp.tier == 2 then
+                                if roll <= 85 and sb.cfg.rival_camp_progression ~= false then
+                                    sb.upgrade_rival_camp_tier(camp, 3)
+                                    camp.setup_sec = current_sec
+                                    camp.setup_duration = mrandom(28800, 86400) -- 8 to 24 in-game hours
+                                    did_upgrade = true
+                                end
+                            elseif camp.tier >= 3 then
+                                if roll <= 90 then
+                                    camp.setup_sec = current_sec
+                                    camp.setup_duration = mrandom(28800, 86400) -- 8 to 24 in-game hours
+                                    did_hold = true
+                                    local box_obj = level.object_by_id(camp.chest_id)
+                                    if box_obj then
+                                        local resupply_loot = {"ammo_5.45x39_fmj", "ammo_5.56x45_fmj", "ammo_7.62x39_fmj", "medkit_army", "bandage", "antirad", "conserva"}
+                                        for _ = 1, math.random(2, 4) do
+                                            local itm = resupply_loot[math.random(#resupply_loot)]
+                                            if ini_sys:section_exist(itm) then
+                                                pcall(alife_create_item, itm, box_obj)
+                                            end
+                                        end
+                                    end
+                                    if actor and same_level then
+                                        local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
+                                        news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_reinforced_stronghold"), fac_name, camp.name), nil, "general_stalker", 8000)
+                                    end
+                                end
+                            end
+
+                            if not did_upgrade and not did_hold then
+                                squad.get_script_target = nil
+
+                                local sim = sim_alao
+                                for k in sb.safe_squad_members(squad) do
+                                    if k.id then
+                                        sb.camp_npc_released[k.id] = nil
+                                    end
+                                end
+
+                                local best_base = nil
+                                local min_base_dist = math.huge
+                                local cx = camp.position and camp.position.x or 0
+                                local cy = camp.position and camp.position.y or 0
+                                local cz = camp.position and camp.position.z or 0
+                                if SIMBOARD and SIMBOARD.smarts_by_names then
+                                    for sname, smart in pairs_(SIMBOARD.smarts_by_names) do
+                                        if smart and smart.m_game_vertex_id and smart.position then
+                                            local s_level = sim:level_name(game_graph():vertex(smart.m_game_vertex_id):level_id())
+                                            if s_level == camp.level and not sb.is_underground_level(s_level) then
+                                                local dx = smart.position.x - cx
+                                                local dy = smart.position.y - cy
+                                                local dz = smart.position.z - cz
+                                                local d = math.sqrt(dx*dx + dy*dy + dz*dz)
+                                                if d < min_base_dist and d > 20 then
+                                                    min_base_dist = d
+                                                    best_base = smart
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                                if best_base and SIMBOARD and SIMBOARD.assign_squad_to_smart then
+                                    pcall(function() SIMBOARD:assign_squad_to_smart(squad, best_base.id) end)
+                                end
+
+                                camp.status = "unoccupied"
+                                camp.unoccupied_time = current_sec
+                                camp.ruins_decay_time = mrandom(7200, 18000) -- 2 to 5 game hours
+                                local old_faction = camp.faction
+                                camp.faction = nil
+                                camp.squad_id = nil
+                                camp.cleared = true
+                                camp.despawn_chest_when_empty = true
+
+                                level.map_remove_object_spot(camp.chest_id, "red_location")
+                                level.map_remove_object_spot(camp.chest_id, "green_location")
+                                if sb.cfg.show_rival_camp_map_spots ~= false then
+                                    level.map_add_object_spot_ser(camp.chest_id, "blue_location", "Abandoned Outpost: " .. camp.name)
+                                end
+
+                                if actor then
+                                    news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_moved_on"), camp.name), nil, "general_stalker", 10000)
+                                end
+                            end
+                        else
+                            squad.get_script_target = function(self)
+                                return self.id
+                            end
+
+                            camp.heat = (camp.heat or 0) + 1
+                            if camp.heat >= 25 then
+                                camp.heat = 5
+                                if mrandom(100) <= 20 and same_level then
+                                    local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
+                                    local msec = mutant_types[mrandom(#mutant_types)]
+                                    local m_dist = mrandom(40, 75)
+                                    local m_ang = mrandom() * math.pi * 2
+                                    v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
+                                    local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
+                                    if mlvid and mgpos then
+                                        sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id)
+                                    end
+                                end
+                            end
+
+                            if sb.cfg.rival_camp_progression ~= false and camp.status ~= "mutant_nest" then
+                                camp.tier = camp.tier or 1
+                                camp.setup_sec = camp.setup_sec or current_sec
+                                local age_hours = (current_sec - camp.setup_sec) / 3600
+
+                                local t2_hours = sb.cfg.rival_camp_tier2_hours or 4
+                                local t3_hours = sb.cfg.rival_camp_tier3_hours or 8
+
+                                if camp.tier == 1 and age_hours >= t2_hours then
+                                    sb.upgrade_rival_camp_tier(camp, 2)
+                                elseif camp.tier == 2 and age_hours >= t3_hours then
+                                    sb.upgrade_rival_camp_tier(camp, 3)
+                                end
+                            end
+
+                            if sb.cfg.rival_camp_convoys ~= false and (camp.tier or 1) >= 2 and camp.status ~= "mutant_nest" then
+                                local convoy_interval = (sb.cfg.rival_camp_convoy_interval_hours or 6) * 3600
+                                camp.last_convoy_time = camp.last_convoy_time or current_sec
+                                if (current_sec - camp.last_convoy_time) >= convoy_interval then
+                                    camp.last_convoy_time = current_sec
+                                    sb.dispatch_rival_camp_convoy(camp)
+                                end
+                            end
+
+                            if mrandom(1000) <= 5 then -- 0.5% roll every 10s tick
+                                local actor_dist = 999
+                                if actor and camp.position then
+                                    local act_p = actor:position()
+                                    local dx = act_p.x - camp.position.x
+                                    local dy = act_p.y - camp.position.y
+                                    local dz = act_p.z - camp.position.z
+                                    actor_dist = math.sqrt(dx*dx + dy*dy + dz*dz)
+                                end
+
+                                if sb.cfg.rival_camp_distress_calls ~= false and not camp.sos_broadcasted and camp.status ~= "mutant_nest" then
+                                    local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
+                                    local rel = relation_registry.community_relation(camp.faction or "stalker", actor_comm)
+                                    if rel > -1000 then
+                                        camp.sos_broadcasted = true
+                                        camp.sos_active = true
+                                        camp.sos_time = current_sec
+                                        local faction_name = game.translate_string(camp.faction or "stalker")
+                                        local lvl_name = game.translate_string(camp.level or level_name)
+                                        if actor then
+                                            news_manager.send_tip(actor, sformat(game.translate_string("st_mayday_forces_taking_fire"), faction_name, camp.name, lvl_name), nil, "red_danger", 14000)
+                                        end
+                                    end
+                                end
+
+                                if camp.status ~= "mutant_nest" then
+                                    sb.trigger_allied_reinforcement(camp)
+                                end
+
+                                if not same_level or actor_dist > 150 then
+                                    local is_mutant_attack = (mrandom(100) <= 20)
+                                    if is_mutant_attack and camp.status ~= "mutant_nest" then
+                                        sb.transform_to_mutant_nest(camp, "simulation_bloodsucker")
+                                    else
+                                        local enemy_fac = nil
+                                        if camp.status == "mutant_nest" then
+                                            local level_facs = sb.get_level_factions(camp.level or level_name)
+                                            if level_facs and #level_facs > 0 then
+                                                enemy_fac = level_facs[mrandom(#level_facs)]
+                                            end
+                                        else
+                                            enemy_fac = sb.get_enemy_faction_for(camp.faction or "stalker", camp.level or level_name)
+                                        end
+
+                                        if enemy_fac and mrandom(100) <= 45 then
+                                            local old_fac_name = (camp.status == "mutant_nest") and "a mutant pack" or game.translate_string(camp.faction or "stalker")
+                                            local new_fac_name = game.translate_string(enemy_fac)
+                                            camp.status = nil -- Cleared mutant nest, back to active outpost!
+                                            camp.faction = enemy_fac
+                                            camp.setup_sec = current_sec
+                                            camp.setup_duration = mrandom(21600, 64800)
+                                            camp.tier = 1
+
+                                            local squad_pos = v_scratch_pos:set(camp.position.x, camp.position.y, camp.position.z)
+                                            local squad_sec = sb.get_dynamic_squad_section_for_faction(enemy_fac)
+                                            local new_squad = sb.create_squad_at_pos(squad_sec, squad_pos, camp.level_vertex_id, camp.game_vertex_id)
+                                            if new_squad then
+                                                camp.squad_id = new_squad.id
+                                                sb.setup_rival_squad_positions(new_squad, camp, sim_alao)
+                                            end
+
+                                            local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
+                                            local rel = relation_registry.community_relation(camp.faction, actor_comm)
+                                            local is_hostile = (rel <= -1000)
+                                            camp.cleared = not is_hostile
+                                            local spot_type = is_hostile and "red_location" or "green_location"
+                                            level.map_remove_object_spot(camp.chest_id, "red_location")
+                                            level.map_remove_object_spot(camp.chest_id, "green_location")
+                                            level.map_remove_object_spot(camp.chest_id, "blue_location")
+                                            if sb.cfg.show_rival_camp_map_spots ~= false then
+                                                level.map_add_object_spot_ser(camp.chest_id, spot_type, (is_hostile and "Rival Camp (" or "Occupied Camp (") .. new_fac_name .. "): " .. camp.name)
+                                            end
+                                            if actor then
+                                                news_manager.send_tip(actor, sformat(game.translate_string("st_zone_skirmish_cleansed"), new_fac_name, camp.name, old_fac_name), nil, is_hostile and "red_danger" or "general_stalker", 12000)
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    else
+                        camp.status = "unoccupied"
+                        camp.unoccupied_time = current_sec
+                        camp.ruins_decay_time = mrandom(7200, 18000) -- 2 to 5 game hours
+                        local old_faction = camp.faction
+                        camp.faction = nil
+                        camp.squad_id = nil
+                        camp.cleared = true
+                        camp.despawn_chest_when_empty = true
+
+                        level.map_remove_object_spot(camp.chest_id, "red_location")
+                        level.map_remove_object_spot(camp.chest_id, "green_location")
+                        if sb.cfg.show_rival_camp_map_spots ~= false then
+                            level.map_add_object_spot_ser(camp.chest_id, "blue_location", "Abandoned Outpost: " .. camp.name)
+                        end
+
+                        if actor then
+                            local faction_name = old_faction and game.translate_string(old_faction) or "occupying"
+                            news_manager.send_tip(actor, sformat(game.translate_string("st_recon_garrison_eliminated"), camp.name, faction_name), nil, "general_stalker", 10000)
+                        end
+                    end
+                elseif camp.status == "unoccupied" then
+                    local occupant_squad = nil
+                    local occupant_faction = nil
+                    if mrandom(100) <= (sb.cfg.rival_friendly_takeover or 25) then
+                        local level_facs = sb.get_level_factions(camp.level or level_name)
+                        occupant_faction = level_facs[mrandom(#level_facs)]
+                        local camp_pos = v_scratch_pos:set(camp.position.x, camp.position.y, camp.position.z)
+                        local squad_sec = sb.get_dynamic_squad_section_for_faction(occupant_faction)
+                        occupant_squad = sb.create_squad_at_pos(squad_sec, camp_pos, camp.level_vertex_id, camp.game_vertex_id)
+                    end
+
+                    if occupant_squad then
+                        camp.status = nil
+                        camp.unoccupied_time = nil
+                        camp.squad_id = occupant_squad.id
+                        sb.setup_rival_squad_positions(occupant_squad, camp, sim_alao)
+                        camp.faction = occupant_faction
+                        camp.cleared = false
+                        camp.despawn_chest_when_empty = nil
+                        camp.setup_sec = current_sec
+                        camp.setup_duration = mrandom(21600, 64800) -- 6 to 18 game hours
+
+                        level.map_remove_object_spot(camp.chest_id, "blue_location")
+
+                        local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
+                        local rel = relation_registry.community_relation(camp.faction, actor_comm)
+                        local is_hostile = (rel <= -1000)
+                        camp.cleared = not is_hostile
+
+                        local spot_type = is_hostile and "red_location" or "green_location"
+                        local faction_name = game.translate_string(camp.faction)
+                        local label = (is_hostile and "Rival Camp (" or "Occupied Camp (") .. faction_name .. "): " .. camp.name
+                        if sb.cfg.show_rival_camp_map_spots ~= false then
+                            level.map_add_object_spot_ser(camp.chest_id, spot_type, label)
+                        end
+
+                        if actor then
+                            if is_hostile then
+                                news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_occupied_hostile"), camp.name, faction_name), nil, "red_danger", 12000)
+                            else
+                                news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_claimed_friendly"), camp.name, faction_name), nil, "general_stalker", 10000)
+                            end
+                        end
+                    else
+                        local is_empty = true
+                        local box_obj = level.object_by_id(camp.chest_id)
+                        if box_obj then
+                            local function check_empty(temp, item)
+                                is_empty = false
+                            end
+                            sb.safe_iterate_inventory_box(box_obj, check_empty)
+                        end
+
+                        local player_far = true
+                        if actor and same_level and camp.position then
+                            local apos = actor:position()
+                            local cpos = camp.position
+                            local dx = apos.x - cpos.x
+                            local dy = apos.y - cpos.y
+                            local dz = apos.z - cpos.z
+                            if (dx * dx + dy * dy + dz * dz) <= 3600 then
+                                player_far = false
+                            end
+                        end
+
+                        local decay_duration = camp.ruins_decay_time or 10800
+                        local time_expired = camp.unoccupied_time and (current_sec - camp.unoccupied_time >= decay_duration)
+
+                        if player_far and ((box_obj and is_empty) or time_expired) then
+                            local se_chest_to_del = alife_object(camp.chest_id)
+                            if se_chest_to_del then
+                                alife_release(se_chest_to_del)
+                            end
+                        end
+                    end
+                end
+
+            else
+                level.map_remove_object_spot(camp.chest_id, "red_location")
+                level.map_remove_object_spot(camp.chest_id, "green_location")
+                level.map_remove_object_spot(camp.chest_id, "blue_location")
+
+                sb.release_camp_decorations(camp)
+
+                local lvl = camp.level or level_name
+                local next_spawn_time = game.get_game_time()
+
+                local cooldown_hours = mrandom(2, 4)
+                local duration = game.CTime()
+                duration:set(0, 0, 0, cooldown_hours, 0, 0, 0)
+                next_spawn_time:add(duration)
+
+                local start_time = game.CTime()
+                local next_spawn_sec = next_spawn_time:diffSec(start_time)
+                sb.dismantled_levels[lvl] = next_spawn_sec
+
+                if camp.squad_id then
+                    local squad = alife_object(camp.squad_id)
+                    if squad then
+                        squad.get_script_target = nil
+                        for k in sb.safe_squad_members(squad) do
+                            if k.id then
+                                sb.camp_npc_released[k.id] = nil
+                            end
+                        end
+                    end
+                end
+
+                if actor then
+                    news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_destroyed"), camp.name), nil, "general_stalker", 10000)
+                end
+
+                sb.rival_camps[key] = nil
+            end
+        end
+    end
+
+    local now_tg_spawn = time_global()
+
+    local is_surge = (surge_manager and surge_manager.is_started and surge_manager.is_started()) or false
+    local is_psi = (psi_storm_manager and psi_storm_manager.is_started and psi_storm_manager.is_started()) or false
+    local surge_active_now = is_surge or is_psi
+
+    if sb.surge_was_active and not surge_active_now then
+        if mrandom(100) <= 65 and total_rival_camps < sb.cfg.max_rival_camps then
+            local levels_list = sb.get_all_levels_with_smarts()
+            if #levels_list > 0 then
+                local shuffled = {}
+                for _, lvl in ipairs_(levels_list) do shuffled[#shuffled+1] = lvl end
+                for i = #shuffled, 2, -1 do local j = mrandom(i); shuffled[i], shuffled[j] = shuffled[j], shuffled[i] end
+                for _, target_lvl in ipairs_(shuffled) do
+                    if sb.spawn_single_rival_camp(target_lvl) then
+                        if actor then
+                            news_manager.send_tip(actor, game.translate_string("st_recon_post_emission_expedition"), nil, "general_stalker", 10000)
+                        end
+                        break
+                    end
+                end
+            end
+        end
+    end
+    sb.surge_was_active = surge_active_now
+
+    sb.faction_retaliation_timers = sb.faction_retaliation_timers or {}
+    for retal_faction, target_retal_sec in pairs_(sb.faction_retaliation_timers) do
+        if current_sec >= target_retal_sec then
+            sb.faction_retaliation_timers[retal_faction] = nil
+            if total_rival_camps < sb.cfg.max_rival_camps then
+                local levels_list = sb.get_all_levels_with_smarts()
+                if #levels_list > 0 then
+                    local shuffled = {}
+                    for _, lvl in ipairs_(levels_list) do shuffled[#shuffled+1] = lvl end
+                    for i = #shuffled, 2, -1 do local j = mrandom(i); shuffled[i], shuffled[j] = shuffled[j], shuffled[i] end
+                    for _, target_lvl in ipairs_(shuffled) do
+                        if sb.spawn_single_rival_camp(target_lvl, retal_faction) then
+                            if actor then
+                                local fac_name = game.translate_string(retal_faction)
+                                news_manager.send_tip(actor, sformat(game.translate_string("st_recon_retaliatory_expedition"), fac_name), nil, "red_danger", 10000)
+                            end
+                            break
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local base_interval_hours = sb.cfg.rival_camp_spawn_interval_hours or 3
+    local spawn_interval_game_sec = sb.next_rival_spawn_interval_sec
+    local spawn_chance = sb.cfg.rival_camp_spawn_chance or 33
+
+    if not spawn_interval_game_sec then
+        if total_rival_camps == 0 then
+            -- Guarantee one initial wilderness outpost attempt on fresh games.
+            -- Previously a fresh game could lose the first 50% roll and then
+            -- appear to have no rival-camp system for several in-game hours.
+            spawn_interval_game_sec = 1
+            spawn_chance = 100
+        elseif total_rival_camps <= 3 then
+            spawn_interval_game_sec = mrandom(5400, 7200)
+            spawn_chance = 50
+        elseif total_rival_camps >= 8 then
+            spawn_interval_game_sec = mrandom(14400, 21600)
+            spawn_chance = 25
+        else
+            local min_s = mfloor(base_interval_hours * 2400)
+            local max_s = mfloor(base_interval_hours * 5400)
+            spawn_interval_game_sec = mrandom(min_s, max_s)
+        end
+
+        if actor and actor.character_rank then
+            local rank = actor:character_rank() or 0
+            if rank >= 5000 then
+                spawn_interval_game_sec = mfloor(spawn_interval_game_sec * 0.85)
+            elseif rank < 1500 then
+                spawn_interval_game_sec = mfloor(spawn_interval_game_sec * 1.25)
+            end
+        end
+        sb.next_rival_spawn_interval_sec = spawn_interval_game_sec
+    end
+
+    local last_attempt_sec = sb.last_rival_spawn_attempt_sec or 0
+    local game_time_elapsed = current_sec - last_attempt_sec
+
+    if total_rival_camps < sb.cfg.max_rival_camps
+        and (now_tg_spawn - last_rival_spawn_scan_tg) >= RIVAL_SPAWN_SCAN_INTERVAL_MS
+        and (game_time_elapsed >= spawn_interval_game_sec or last_attempt_sec == 0)
+    then
+        last_rival_spawn_scan_tg = now_tg_spawn
+        sb.last_rival_spawn_attempt_sec = current_sec
+        sb.next_rival_spawn_interval_sec = nil
+
+        local roll = mrandom(100)
+        if sb.cfg.debug_logging then
+            printf("[Homestead] Rival spawn attempt: camps=%d chance=%d roll=%d", total_rival_camps, spawn_chance, roll)
+        end
+
+        if roll <= spawn_chance then
+            local levels_list = sb.get_all_levels_with_smarts()
+            if #levels_list > 0 then
+                local shuffled_levels = {}
+                for i, lvl in ipairs_(levels_list) do
+                    shuffled_levels[#shuffled_levels+1] = lvl
+                end
+                for i = #shuffled_levels, 2, -1 do
+                    local j = mrandom(i)
+                    shuffled_levels[i], shuffled_levels[j] = shuffled_levels[j], shuffled_levels[i]
+                end
+
+                local spawned = false
+                for _, target_level in ipairs_(shuffled_levels) do
+                    if total_rival_camps >= sb.cfg.max_rival_camps then break end
+                    if sb.spawn_single_rival_camp(target_level) then
+                        spawned = true
+                        if sb.cfg.debug_logging then
+                            printf("[Homestead] Rival camp spawned on %s", tostring(target_level))
+                        end
+                        break
+                    end
+                end
+                if (not spawned) and sb.cfg.debug_logging then
+                    printf("[Homestead] Rival spawn attempt found no valid off-level site")
+                end
+            end
+        end
+    end
+
+    sb.restrain_rival_squads()
+end
+
+-- find_ground_anchor -- high-precision visual and AI grid surface detection.
+find_ground_anchor = function(x, z, ref_y, smart_y)
+    local sb = stalker_camp_builder
+    local base_y = ref_y or smart_y or 0
+    local target_lvid = nil
+    local target_vpos = nil
+    local surface_y = nil
+
+    if sb.get_surface_y then
+        surface_y = sb.get_surface_y(x, z, base_y, 4.0, 8.0)
+    end
+
+    if not surface_y and sb.get_surface_y then
+        local probe_base = smart_y or base_y
+        surface_y = sb.get_surface_y(x, z, probe_base, 15.0, 25.0)
+    end
+
+    if not surface_y and sb.get_surface_y then
+        local high_y = math.max(base_y, smart_y or base_y) + 10.0
+        surface_y = sb.get_surface_y(x, z, high_y, 5.0, 45.0)
+    end
+
+    if level and level.vertex_id then
+        local pos_check = vector():set(x, surface_y or base_y, z)
+        local lvid = level.vertex_id(pos_check)
+        if lvid and lvid < 4294967295 and lvid ~= -1 then
+            local vpos = level.vertex_position(lvid)
+            if vpos then
+                local dx = x - vpos.x
+                local dz = z - vpos.z
+                if (dx * dx + dz * dz) <= 25.0 then
+                    target_lvid = lvid
+                    target_vpos = vpos
+                    if not surface_y and sb.get_surface_y then
+                        surface_y = sb.get_surface_y(x, z, vpos.y, 2.5, 5.0)
+                    end
+                end
+            end
+        end
+
+        if not target_lvid and sb.get_ground_vertex_and_pos then
+            local vlvid, vgpos = sb.get_ground_vertex_and_pos(pos_check, surface_y or base_y, 6.0)
+            if vlvid and vlvid < 4294967295 and vlvid ~= -1 then
+                target_lvid = vlvid
+                target_vpos = vgpos
+                if not surface_y and vgpos and sb.get_surface_y then
+                    surface_y = sb.get_surface_y(x, z, vgpos.y, 2.5, 5.0)
+                end
+            end
+        end
+    end
+
+    -- The downward ray can hit a tree, rock overhang or roof above the spot.
+    -- If it disagrees with the walkable ground height right here, trust the ground.
+    if surface_y and target_vpos then
+        local hdx = x - target_vpos.x
+        local hdz = z - target_vpos.z
+        if (hdx * hdx + hdz * hdz) <= 2.25 and math.abs(surface_y - target_vpos.y) > 0.5 then
+            surface_y = target_vpos.y
+        end
+    end
+
+    local final_y = surface_y or (target_vpos and target_vpos.y) or base_y
+    return target_lvid, target_vpos, final_y, surface_y
+end
+
+-- snap_rival_camps_to_ground -- precision surface anchoring for chests,
+function stalker_camp_builder.snap_rival_camps_to_ground()
+    local sb = stalker_camp_builder
+    if not sb or not sb.rival_camps then return end
+    local level_name = level.name()
+    if not level_name or level_name == "" then return end
+
+    local sim = alife()
+    if not sim then return end
+
+    -- DANZY EDIT (v1.1.8: now MCM-gated): clear furniture already placed at existing rival camps (all maps).
+    if not rival_decor_enabled() then
+        for _, c in pairs(sb.rival_camps) do
+            if type(c) == "table" and c.decorations and #c.decorations > 0 then
+                sb.release_camp_decorations(c)
+            end
+        end
+    end
+
+    local has_work = false
+    for _, c in pairs(sb.rival_camps) do
+        if type(c) == "table" and c.level == level_name and c.chest_id then
+            if (not c.ground_snapped_v4) or (not c.snapped)
+                or (c.smart_name and sb.is_underground_smart(c.smart_name))
+                or (c.level and sb.is_underground_level(c.level))
+            then
+                has_work = true
+                break
+            end
+        end
+    end
+    if not has_work then return end
+
+    local purged_any = false
+    local v_target_chest = vector()
+    local v_new_decor = vector()
+    local v_decor_angle = vector()
+
+    for key, camp in pairs(sb.rival_camps) do
+        if type(camp) == "table" and camp.level == level_name and camp.chest_id then
+            if not rival_decor_enabled() and camp.decorations and #camp.decorations > 0 then
+                sb.release_camp_decorations(camp)
+            end
+            if (camp.level and sb.is_underground_level(camp.level))
+                or (camp.smart_name and sb.is_underground_smart(camp.smart_name))
+            then
+                level.map_remove_object_spot(camp.chest_id, "red_location")
+                level.map_remove_object_spot(camp.chest_id, "green_location")
+                level.map_remove_object_spot(camp.chest_id, "blue_location")
+                sb.release_camp_decorations(camp)
+                if camp.squad_id then
+                    local squad = sim:object(camp.squad_id)
+                    if squad then alife_release(squad) end
+                end
+                local se_c = sim:object(camp.chest_id)
+                if se_c then alife_release(se_c) end
+                sb.rival_camps[key] = nil
+                purged_any = true
+            else
+                local se_chest = sim:object(camp.chest_id)
+                if se_chest then
+                    local pos = se_chest.position
+                    local parent_smart = (camp.smart_name and SIMBOARD and SIMBOARD.smarts_by_names) and SIMBOARD.smarts_by_names[camp.smart_name]
+                    local smart_y = parent_smart and parent_smart.position.y
+
+                    local clvid, cvpos, c_surface_y = find_ground_anchor(pos.x, pos.z, pos.y, smart_y)
+                    local target_lvid = clvid or se_chest.m_level_vertex_id
+                    if (not target_lvid or target_lvid >= 4294967295 or target_lvid == -1) and parent_smart then
+                        target_lvid = parent_smart.m_level_vertex_id
+                    end
+
+                    local target_x = pos.x
+                    local target_z = pos.z
+                    if cvpos and ((target_x - cvpos.x)^2 + (target_z - cvpos.z)^2 > 9.0) then
+                        target_x = cvpos.x
+                        target_z = cvpos.z
+                    end
+
+                    local target_chest_y = c_surface_y + 0.08
+                    local target_chest_pos = v_target_chest:set(target_x, target_chest_y, target_z)
+
+                    local gvid = se_chest.m_game_vertex_id
+                    if level.cross_table and level.cross_table() and target_lvid and target_lvid < 4294967295 and target_lvid ~= -1 then
+                        pcall(function()
+                            gvid = level.cross_table():vertex(target_lvid):game_vertex_id()
+                        end)
+                    end
+
+                    local is_underground = (pos.y < (c_surface_y - 0.04))
+                    local height_diff = math.abs(pos.y - target_chest_y)
+                    local needs_snap = (not camp.ground_snapped_v4) or (not camp.snapped) or is_underground or (height_diff > 0.10)
+
+                    if needs_snap then
+                        se_chest.position = target_chest_pos
+                        se_chest.m_level_vertex_id = target_lvid
+                        se_chest.m_game_vertex_id = gvid
+
+                        camp.position = { x = target_x, y = target_chest_y, z = target_z }
+                        camp.level_vertex_id = target_lvid
+                        camp.game_vertex_id = gvid
+                    end
+
+                    if camp.decorations then
+                        local surviving = {}
+                        for _, dec_id in ipairs(camp.decorations) do
+                            local se_decor = sim:object(dec_id)
+                            if se_decor then
+                                local dpos = se_decor.position
+                                local dlvid, dvpos, d_surface_y, d_has_vis = find_ground_anchor(dpos.x, dpos.z, dpos.y, target_chest_y)
+                                if not d_has_vis then
+                                    local dlvid2, dvpos2, d_surface_y2, d_has_vis2 = find_ground_anchor(dpos.x, dpos.z, target_chest_y, target_chest_y)
+                                    if d_has_vis2 then
+                                        dlvid = dlvid2 or dlvid
+                                        dvpos = dvpos2 or dvpos
+                                        d_surface_y = d_surface_y2
+                                        d_has_vis = true
+                                    end
+                                end
+                                local final_dlvid = dlvid or target_lvid
+                                if not final_dlvid or final_dlvid >= 4294967295 or final_dlvid == -1 then
+                                    final_dlvid = target_lvid
+                                end
+
+                                local dgvid = gvid
+                                if level.cross_table and level.cross_table() and final_dlvid and final_dlvid < 4294967295 and final_dlvid ~= -1 then
+                                    pcall(function()
+                                        dgvid = level.cross_table():vertex(final_dlvid):game_vertex_id()
+                                    end)
+                                end
+
+                                local sec = se_decor:section_name() or ""
+                                local clearance = 0.03
+                                local final_decor_y = d_surface_y + clearance
+                                local decor_is_underground = (dpos.y < (d_surface_y - 0.15))
+                                local decor_is_floating = (dpos.y > (d_surface_y + 0.15))
+
+                                local should_reanchor = needs_snap or decor_is_underground or decor_is_floating
+
+                                if should_reanchor and sec ~= "" and ini_sys:section_exist(sec) then
+                                    local new_dpos = v_new_decor:set(dpos.x, final_decor_y, dpos.z)
+                                    local old_angle = se_decor.angle or v_decor_angle:set(0, math.random() * math.pi * 2, 0)
+                                    alife_release(se_decor)
+                                    local new_se = sim:create(sec, new_dpos, final_dlvid, dgvid)
+                                    if new_se then
+                                        new_se.angle = old_angle
+                                        surviving[#surviving + 1] = new_se.id
+                                    end
+                                elseif should_reanchor then
+                                    alife_release(se_decor)
+                                else
+                                    surviving[#surviving + 1] = dec_id
+                                    local cl_decor = level.object_by_id(dec_id)
+                                    if cl_decor then
+                                        pcall(function()
+                                            local ps = cl_decor:get_physics_shell()
+                                            if ps then ps:freeze() end
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                        camp.decorations = surviving
+                    end
+
+                    if camp.squad_id then
+                        local squad = sim:object(camp.squad_id)
+                        if squad then
+                            local squad_online = false
+                            for k in sb.safe_squad_members(squad) do
+                                if k.id and level.object_by_id(k.id) then
+                                    squad_online = true
+                                    break
+                                end
+                            end
+
+                            if not squad_online then
+                                squad.position = target_chest_pos
+                                squad.m_level_vertex_id = target_lvid
+                                squad.m_game_vertex_id = gvid
+                                for k in sb.safe_squad_members(squad) do
+                                    local se_npc = k.object or (k.id and sim:object(k.id))
+                                    if se_npc then
+                                        se_npc.position = target_chest_pos
+                                        se_npc.m_level_vertex_id = target_lvid
+                                        se_npc.m_game_vertex_id = gvid
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    camp.snapped = true
+                    camp.ground_snapped_v2 = true
+                    camp.ground_snapped_v4 = true
+                end
+            end
+        end
+    end
+
+    if purged_any and sb.sync_all_camp_map_spots then
+        sb.sync_all_camp_map_spots(true)
+    end
+end
+
+-- force_respawn_all_rival_camps -- debug: dismantle all and re-spawn
+
+-- spawn_single_rival_camp -- attempt to establish 1 rival camp on target_level
+function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_faction)
+    local ipairs_ = ipairs
+    local pairs_ = pairs
+    local type_ = type
+    local mcos = math.cos
+    local mrandom = math.random
+    local msin = math.sin
+    local actor = db.actor
+    local sim_alao = alife()
+    local sb = stalker_camp_builder
+    local level_name = level.name()
+    if not sim_alao or not target_level or target_level == "" then return false end
+    if sb.is_underground_level(target_level) then return false end
+    -- DANZY EDIT: never spawn a new camp on the map the player is on (avoids the
+    -- hitch of NPCs loading in nearby). Camps appear on other maps instead.
+    if target_level == level_name then return false end
+
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+
+    local camps_here = 0
+    for _, c in pairs_(sb.rival_camps) do
+        if type_(c) == "table" and c.level == target_level and c.chest_id then
+            camps_here = camps_here + 1
+        end
+    end
+
+    local max_camps_per_map = sb.cfg.rival_camps_per_level_max or 3
+    if camps_here >= max_camps_per_map then return false end
+
+    local next_spawn_sec = sb.dismantled_levels[target_level]
+    if next_spawn_sec and current_sec < next_spawn_sec then return false end
+
+    local smarts = sb.get_smart_terrains_on_level(target_level)
+    if not smarts or #smarts == 0 then return false end
+
+    local shuffled_smarts = {}
+    for _, s in ipairs_(smarts) do
+        shuffled_smarts[#shuffled_smarts+1] = s
+    end
+    for i = #shuffled_smarts, 2, -1 do
+        local j = mrandom(i)
+        shuffled_smarts[i], shuffled_smarts[j] = shuffled_smarts[j], shuffled_smarts[i]
+    end
+
+    local pos = vector()
+    local v_chest_angle = vector()
+    local dpos = vector()
+    local snapped_dpos = vector()
+    local d_angle = vector()
+
+    local level_facs_once = sb.get_level_factions(target_level)
+    local smarts_tried = 0
+    for _, smart_entry in ipairs_(shuffled_smarts) do
+        local smart = smart_entry.obj
+        local smart_name = smart_entry.name
+
+        local smart_camp_count = 0
+        for _, camp in pairs_(sb.rival_camps) do
+            if type_(camp) == "table" and camp.smart_name == smart_name then
+                smart_camp_count = smart_camp_count + 1
+            end
+        end
+
+        if smart_camp_count < 1 and target_level == level_name then
+            smarts_tried = smarts_tried + 1
+            if smarts_tried > 4 then break end  -- DANZY EDIT: cap ground probing per spawn (stutter)
+        end
+        if smart_camp_count < 1 then
+            local level_facs = level_facs_once
+            local occupant_faction = specific_faction or level_facs[mrandom(#level_facs)]
+
+            if occupant_faction then
+                local attempts = 0
+                local lvid, gvid
+                local valid_pos = false
+                local min_dist = sb.cfg.rival_camp_spawn_dist_min or 25
+                local max_dist = sb.cfg.rival_camp_spawn_dist_max or 250
+                local min_spacing_sqr = ((sb.cfg.rival_camp_min_spacing or 35) ^ 2)
+
+                while attempts < 25 and not valid_pos do
+                    attempts = attempts + 1
+                    local angle = mrandom() * math.pi * 2
+
+                    if target_level == level_name then
+                        local dist = mrandom(25, math.min(max_dist, 55))
+                        pos:set(
+                            smart.position.x + dist * mcos(angle),
+                            smart.position.y,
+                            smart.position.z + dist * msin(angle)
+                        )
+                        local clvid, cvpos, c_surface_y = find_ground_anchor(pos.x, pos.z, smart.position.y, smart.position.y)
+                        if clvid and c_surface_y then
+                            pos.y = c_surface_y + 0.08
+                            local actor_dist = db.actor and pos:distance_to(db.actor:position()) or 999
+                            local req_dist = (attempts <= 15) and (sb.cfg.player_spawn_safety or 100) or 40
+                            if actor_dist > req_dist and math.abs(c_surface_y - smart.position.y) <= 8.0 then
+                                local far_from_player_camps = true
+                                for hub_id, _ in pairs_(sb.active_camps) do
+                                    local hub_obj = alife_object(hub_id)
+                                    if hub_obj and hub_obj.position:distance_to_sqr(pos) < 1600 then
+                                        far_from_player_camps = false
+                                        break
+                                    end
+                                end
+                                if far_from_player_camps then
+                                    lvid = clvid
+                                    gvid = smart.m_game_vertex_id
+                                    if level.cross_table and level.cross_table() and lvid and lvid < 4294967295 and lvid ~= -1 then
+                                        pcall(function()
+                                            gvid = level.cross_table():vertex(lvid):game_vertex_id()
+                                        end)
+                                    end
+                                    valid_pos = true
+                                end
+                            end
+                        end
+                    else
+                        local dist = mrandom(20, 35)
+                        pos:set(
+                            smart.position.x + dist * mcos(angle),
+                            smart.position.y,
+                            smart.position.z + dist * msin(angle)
+                        )
+                        lvid = smart.m_level_vertex_id
+                        gvid = smart.m_game_vertex_id
+                        valid_pos = true
+                    end
+
+                    if valid_pos then
+                        local far_from_rivals = true
+                        local px, py, pz = pos.x, pos.y, pos.z
+                        for _, rcamp in pairs_(sb.rival_camps) do
+                            if type_(rcamp) == "table" and rcamp.position and rcamp.level == target_level then
+                                local rpos = rcamp.position
+                                local rx = (rpos.x or 0) - px
+                                local ry = (rpos.y or 0) - py
+                                local rz = (rpos.z or 0) - pz
+                                if (rx * rx + ry * ry + rz * rz) < min_spacing_sqr then
+                                    far_from_rivals = false
+                                    break
+                                end
+                            end
+                        end
+                        if not far_from_rivals then
+                            valid_pos = false
+                        end
+                    end
+                end
+
+                if valid_pos then
+                    local chest_section = ini_sys:section_exist("placeable_blue_box") and "placeable_blue_box" or "inventory_box"
+                    local se_chest = sim_alao:create(chest_section, pos, lvid, gvid)
+                    if se_chest then
+                        local rot = mrandom() * math.pi * 2
+                        v_chest_angle:set(0, rot, 0)
+                        se_chest.angle = v_chest_angle
+
+                        local cpos = se_chest.position
+                        local clvid = se_chest.m_level_vertex_id
+                        local cgvi = se_chest.m_game_vertex_id
+                        if treasure_manager and treasure_manager.set_random_stash then
+                            treasure_manager.set_random_stash(true, "", nil, se_chest.id)
+                            local is_gamma_mode = (stalker_camp_builder_gamma_flag ~= nil) or (grok_stashes_on_corpses ~= nil)
+                            if not is_gamma_mode then
+                                local items_str = treasure_manager.caches[se_chest.id]
+                                if items_str and type_(items_str) == "string" then
+                                    local spawned_items = str_explode(items_str, ",")
+                                    for i = 1, #spawned_items do
+                                        local item_sec = spawned_items[i]
+                                        if item_sec and item_sec ~= "" and ini_sys:section_exist(item_sec) then
+                                            sim_alao:create(item_sec, cpos, clvid, cgvi, se_chest.id)
+                                        end
+                                    end
+                                end
+                                treasure_manager.caches[se_chest.id] = nil
+                            end
+                        else
+                            local initial_loot = {"medkit", "antirad", "conserva", "vodka", "ammo_9x18_fmj", "wpn_pm"}
+                            for _, item in ipairs_(initial_loot) do
+                                sim_alao:create(item, cpos, clvid, cgvi, se_chest.id)
+                            end
+                        end
+
+                        if actor and actor.character_rank then
+                            local rank = actor:character_rank() or 0
+                            local bonus_count = math.min(3, math.floor(rank / 2000) + 1)
+                            local high_level_loot = {
+                                "ammo_5.45x39_fmj", "ammo_5.56x45_fmj", "ammo_7.62x39_fmj",
+                                "medkit_army", "antirad", "specops_outfit",
+                                "wpn_ak74", "wpn_l85", "wpn_lr300",
+                                "grenade_rgd5", "grenade_f1",
+                                "elite_detector", "vodka", "tushonka"
+                            }
+                            local mid_level_loot = {
+                                "ammo_9x18_fmj", "ammo_9x19_fmj", "ammo_12x70_buck",
+                                "medkit", "bandage", "antirad",
+                                "wpn_pm", "wpn_fort", "wpn_bm16",
+                                "conserva", "vodka", "bread"
+                            }
+                            local loot_table = (rank >= 5000) and high_level_loot or mid_level_loot
+                            for i = 1, bonus_count do
+                                local sec = loot_table[mrandom(#loot_table)]
+                                if sec and ini_sys:section_exist(sec) then
+                                    sim_alao:create(sec, cpos, clvid, cgvi, se_chest.id)
+                                end
+                            end
+                        end
+
+                        local translated_level = game.translate_string(target_level)
+                        local suffixes = {" Outpost", " Enclave", " Camp", " Hideout"}
+                        local name = translated_level .. suffixes[mrandom(#suffixes)] .. " #" .. tostring(mrandom(10, 99))
+
+                        local actor_comm = actor and db.actor:character_community() or "stalker"
+                        local rel = relation_registry.community_relation(occupant_faction, actor_comm)
+                        local is_hostile = (rel <= -1000)
+
+                        local spot_type = is_hostile and "red_location" or "green_location"
+                        local faction_name = game.translate_string(occupant_faction)
+                        local label = (is_hostile and "Rival Camp (" or "Occupied Camp (") .. faction_name .. "): " .. name
+                        if sb.cfg.show_rival_camp_map_spots ~= false then
+                            level.map_add_object_spot_ser(se_chest.id, spot_type, label)
+                        end
+
+local function get_rival_camp_theme_sections(faction)
+    local fac = faction or "stalker"
+    local walls = {"placeable_wall", "placeable_wall02"}
+    local barricades = {"placeable_wall_divider", "placeable_wooden_board", "placeable_metal_plate"}
+    local cover_prop = "placeable_barrel_metal"
+    local stove_sec = "placeable_stove1"
+    local seat_sec = "placeable_stool"
+    local table_sec = "placeable_table1"
+    local crate_sec = "placeable_box_wood"
+
+    if fac == "bandit" or fac == "renegade" or fac == "greh" then
+        walls = {"placeable_wall_metal", "placeable_wall02_metal", "placeable_wall"}
+        barricades = {"placeable_wooden_board", "placeable_metal_plate", "placeable_wall_divider"}
+        stove_sec = "placeable_stove1"
+        seat_sec = "placeable_stool"
+        table_sec = "placeable_table_2"
+    elseif fac == "army" or fac == "dolg" or fac == "killer" or fac == "monolith" or fac == "isg" then
+        walls = {"placeable_wall02_metal", "placeable_wall_metal", "placeable_wall_divider"}
+        barricades = {"placeable_wall_divider", "placeable_metal_plate", "placeable_barrel_metal"}
+        stove_sec = "placeable_stove2"
+        seat_sec = "placeable_chair"
+        table_sec = "placeable_metal_table1"
+        crate_sec = "placeable_prop_ammo_box"
+    else -- loner, csky, freedom, ecolog
+        walls = {"placeable_wall", "placeable_wall02", "placeable_wall_metal"}
+        barricades = {"placeable_wall_divider", "placeable_wooden_plank", "placeable_barrel_metal"}
+        stove_sec = "placeable_stove1"
+        seat_sec = "placeable_fchair"
+        table_sec = "placeable_table1"
+        crate_sec = "placeable_box_wood"
+    end
+
+    local function pick_existing(list, fallback)
+        for _, s in ipairs(list) do
+            if ini_sys:section_exist(s) then return s end
+        end
+        return ini_sys:section_exist(fallback) and fallback or nil
+    end
+
+    return {
+        wall_main = pick_existing(walls, "placeable_wall"),
+        wall_flank = pick_existing(barricades, "placeable_wall_divider"),
+        cover = pick_existing({cover_prop, "placeable_box_wood"}, "placeable_barrel_metal"),
+        stove = pick_existing({stove_sec, "placeable_stove1", "placeable_barrel_metal"}, "placeable_barrel_metal"),
+        bed = pick_existing({"placeable_bed_1", "placeable_bed_2"}, "placeable_bed_1"),
+        seat = pick_existing({seat_sec, "placeable_stool", "placeable_chair"}, "placeable_stool"),
+        table = pick_existing({table_sec, "placeable_table1", "placeable_table_2"}, "placeable_table1"),
+        crate = pick_existing({crate_sec, "placeable_box_wood"}, "placeable_box_wood"),
+        ammo = pick_existing({"placeable_prop_ammo_box", "placeable_box_wood"}, "placeable_box_wood"),
+        radio = pick_existing({"placeable_radio", "placeable_gas_lamp"}, "placeable_radio"),
+        lamp = pick_existing({"placeable_gas_lamp", "placeable_metal_torch", "placeable_lamp1"}, "placeable_gas_lamp"),
+        barrier_plate = pick_existing({"placeable_metal_plate", "placeable_wooden_board", "placeable_wooden_plank"}, "placeable_wooden_board"),
+    }
+end
+
+local function spawn_rival_camp_defenses_and_decor(camp_pos, lvid, gvid, target_level, occupant_faction)
+    if not rival_decor_enabled() then return {}, mrandom() * math.pi * 2 end
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return {}, 0 end
+
+    local theme = get_rival_camp_theme_sections(occupant_faction)
+    local camp_rot = mrandom() * math.pi * 2
+    local cos_r = math.cos(camp_rot)
+    local sin_r = math.sin(camp_rot)
+    local level_name = level.name()
+    local is_same_level = (target_level == level_name)
+
+    -- Fortified tactical layout: perimeter defensive walls, chokepoint barricades, hearth & logistics
+    local elements = {
+        -- 1. DEFENSIVE PERIMETER WALLS & BARRICADES
+        { section = theme.wall_main,    lx = 0.0,  lz = -3.2, yaw = 0.0 },              -- Main defensive rear wall
+        { section = theme.wall_flank,   lx = -3.0, lz = -0.6, yaw = math.pi * 0.5 },     -- Left flank wall / barrier
+        { section = theme.wall_flank,   lx = 3.0,  lz = -0.6, yaw = -math.pi * 0.5 },    -- Right flank wall / barrier
+        
+        -- 2. FRONT COMBAT COVER & BARRICADE (Chokepoint with entrance opening)
+        { section = theme.cover,        lx = -1.6, lz = 2.8,  yaw = 0.0 },              -- Front left cover barrel
+        { section = theme.barrier_plate,lx = -2.1, lz = 2.9,  yaw = math.pi * 0.1 },    -- Front left protective barrier
+        { section = theme.cover,        lx = 1.6,  lz = 2.8,  yaw = 0.0 },              -- Front right cover barrel
+        { section = theme.barrier_plate,lx = 2.1,  lz = 2.9,  yaw = -math.pi * 0.1 },   -- Front right protective barrier
+
+        -- 3. HEARTH & LIVING (Inside the sheltered perimeter)
+        { section = theme.stove,        lx = 0.0,  lz = 0.4,  yaw = 0.0 },              -- Central heating stove
+        { section = theme.seat,         lx = 1.0,  lz = 0.5,  yaw = -math.pi * 0.6 },   -- Seat facing stove
+        { section = theme.bed,          lx = -1.8, lz = -2.0, yaw = math.pi * 0.25 },   -- Sleeping cot tucked along back wall
+
+        -- 4. SUPPLY & COMMAND DEPOT
+        { section = theme.crate,        lx = 1.8,  lz = -2.0, yaw = -math.pi * 0.15 },  -- Large supply crate
+        { section = theme.ammo,         lx = 2.1,  lz = -1.0, yaw = 0.0 },              -- Ammo crate
+        { section = theme.table,        lx = -0.8, lz = -1.8, yaw = 0.0 },              -- Tactical planning table
+        { section = theme.radio,        lx = -0.8, lz = -1.8, yaw = 0.0 },              -- Field radio
+        { section = theme.lamp,         lx = 0.0,  lz = 1.2,  yaw = 0.0 },              -- Camp lighting
+    }
+
+    local decor_ids = {}
+    local spawned_positions = {}
+    local MIN_DIST_SQ = 0.7 * 0.7
+    local tolerance = sb.cfg.rival_camp_slope_tolerance or 2.5
+    local clearance = 0.03
+
+    local dpos = vector()
+    local d_angle = vector()
+
+    for _, elem in ipairs(elements) do
+        local sec = elem.section
+        if sec and sec ~= "" and ini_sys:section_exist(sec) then
+            local wx = camp_pos.x + elem.lx * cos_r - elem.lz * sin_r
+            local wz = camp_pos.z + elem.lx * sin_r + elem.lz * cos_r
+            local wy = camp_pos.y
+            local dec_lvid = lvid
+            local valid = true
+
+            if is_same_level then
+                local found_lvid, dvpos, surface_y = find_ground_anchor(wx, wz, camp_pos.y, camp_pos.y)
+                local final_y = surface_y or (dvpos and dvpos.y) or camp_pos.y
+                if final_y and math.abs(final_y - camp_pos.y) <= (tolerance + 1.2) then
+                    wy = final_y + clearance
+                    dec_lvid = found_lvid or lvid
+                else
+                    valid = false
+                end
+            end
+
+            if valid then
+                for _, sp in ipairs(spawned_positions) do
+                    local dx = wx - sp.x
+                    local dz = wz - sp.z
+                    if (dx * dx + dz * dz) < MIN_DIST_SQ and sec ~= theme.radio and sec ~= theme.lamp then
+                        valid = false
+                        break
+                    end
+                end
+            end
+
+            if valid then
+                dpos:set(wx, wy, wz)
+                local se_dec = sim:create(sec, dpos, dec_lvid, gvid)
+                if se_dec then
+                    local total_yaw = camp_rot + (elem.yaw or 0)
+                    d_angle:set(0, total_yaw, 0)
+                    se_dec.angle = d_angle
+                    decor_ids[#decor_ids + 1] = se_dec.id
+                    spawned_positions[#spawned_positions + 1] = { x = wx, y = wy, z = wz }
+                end
+            end
+        end
+    end
+
+    return decor_ids, camp_rot
+end
+
+                        local decor_ids, camp_rot = spawn_rival_camp_defenses_and_decor(pos, lvid, gvid, target_level, occupant_faction)
+
+                        local squad_sec = sb.get_dynamic_squad_section_for_faction(occupant_faction)
+                        local occupant_squad = sb.create_squad_at_pos(squad_sec, pos, lvid, gvid)
+                        local squad_id_val = occupant_squad and occupant_squad.id or 0
+
+                        local camp_key = "rival_camp_" .. tostring(se_chest.id)
+                        sb.rival_camps[camp_key] = {
+                            chest_id = se_chest.id,
+                            squad_id = squad_id_val,
+                            faction = occupant_faction,
+                            name = name,
+                            smart_name = smart_name,
+                            cleared = not is_hostile,
+                            decorations = decor_ids,
+                            rotation = camp_rot,
+                            level = target_level,
+                            position = {x = pos.x, y = pos.y, z = pos.z},
+                            level_vertex_id = lvid,
+                            game_vertex_id = gvid,
+                            snapped = (target_level == level_name),
+                            ground_snapped_v2 = (target_level == level_name),
+                            ground_snapped_v4 = (target_level == level_name),
+                            setup_sec = current_sec,
+                            setup_duration = mrandom(21600, 64800),
+                            tier = 1
+                        }
+
+                        if occupant_squad then
+                            sb.setup_rival_squad_positions(occupant_squad, sb.rival_camps[camp_key], sim_alao)
+                        end
+
+                        if actor then
+                            news_manager.send_tip(actor, sformat(game.translate_string("st_recon_new_camp_established"), translated_level, faction_name), nil, "general_stalker", 10000)
+                        end
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- force_respawn_all_rival_camps -- debug: dismantle all and re-spawn 1-4 camps
+function stalker_camp_builder.force_respawn_all_rival_camps()
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return end
+
+    for key, camp in pairs(sb.rival_camps) do
+        if type(camp) == "table" and camp.chest_id then
+            level.map_remove_object_spot(camp.chest_id, "red_location")
+            level.map_remove_object_spot(camp.chest_id, "green_location")
+            level.map_remove_object_spot(camp.chest_id, "blue_location")
+
+            if camp.squad_id then
+                local squad = sim:object(camp.squad_id)
+                if squad then
+                    squad.get_script_target = nil
+                    for k in sb.safe_squad_members(squad) do
+                        if k.id then
+                            sb.camp_npc_released[k.id] = nil
+                            local se_npc = sim:object(k.id)
+                            if se_npc then alife_release(se_npc) end
+                        end
+                    end
+                    alife_release(squad)
+                end
+            end
+
+            local se_chest = sim:object(camp.chest_id)
+            if se_chest then
+                alife_release(se_chest)
+            end
+
+            sb.release_camp_decorations(camp)
+        end
+    end
+
+    sb.rival_camps = {}
+    sb.dismantled_levels = {}
+
+    local target_count = math.random(2, 4)
+    local spawned_count = 0
+    local level_name = level.name()
+
+    if level_name and level_name ~= "" and not sb.is_underground_level(level_name) then
+        local current_smarts = sb.get_smart_terrains_on_level(level_name)
+        if current_smarts and #current_smarts > 0 then
+            if sb.spawn_single_rival_camp(level_name) then
+                spawned_count = spawned_count + 1
+            end
+        end
+    end
+
+    local levels_list = sb.get_all_levels_with_smarts()
+    if #levels_list > 0 then
+        local shuffled_levels = {}
+        for _, lvl in ipairs(levels_list) do
+            if lvl ~= level_name then
+                shuffled_levels[#shuffled_levels+1] = lvl
+            end
+        end
+        for i = #shuffled_levels, 2, -1 do
+            local j = math.random(i)
+            shuffled_levels[i], shuffled_levels[j] = shuffled_levels[j], shuffled_levels[i]
+        end
+
+        for _, target_level in ipairs(shuffled_levels) do
+            if spawned_count >= target_count then break end
+            if sb.spawn_single_rival_camp(target_level) then
+                spawned_count = spawned_count + 1
+            end
+        end
+    end
+
+    sb.snap_rival_camps_to_ground()
+    sb.restrain_rival_squads()
+    if sb.sync_all_camp_map_spots then sb.sync_all_camp_map_spots(true) end
+
+    if db.actor then
+        news_manager.send_tip(db.actor, string.format(game.translate_string("st_debug_refreshed_rival_camps"), spawned_count), nil, "general_stalker", 10000)
+    end
+end
+
+-- 1. CAMP PROGRESSION & TIER EVOLUTION (Tier 1 -> Tier 2 -> Tier 3)
+function stalker_camp_builder.upgrade_rival_camp_tier(camp, new_tier)
+    local mrandom = math.random
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or not camp or not camp.chest_id then return end
+
+    camp.tier = new_tier
+    local chest_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local lvid = camp.level_vertex_id
+    local gvid = camp.game_vertex_id
+    local level_name = level.name()
+    local same_level = (camp.level == level_name)
+
+    camp.decorations = camp.decorations or {}
+
+    if new_tier == 2 then
+        local theme = get_rival_camp_theme_sections(camp.faction)
+        local camp_rot = camp.rotation or 0
+        local cos_r = math.cos(camp_rot)
+        local sin_r = math.sin(camp_rot)
+
+        -- Tier 2 Reinforced Outpost: extra defensive plates, ammo reserve, perimeter torch
+        local t2_elements = {
+            { section = theme.barrier_plate, lx = -2.8, lz = 2.0,  yaw = math.pi * 0.4 },
+            { section = theme.barrier_plate, lx = 2.8,  lz = 2.0,  yaw = -math.pi * 0.4 },
+            { section = theme.cover,         lx = 0.0,  lz = 3.6,  yaw = 0.0 },
+            { section = theme.lamp,          lx = -1.6, lz = 2.8,  yaw = 0.0 },
+            { section = theme.ammo,          lx = -1.8, lz = -1.2, yaw = 0.0 },
+        }
+
+        local dpos = vector()
+        local d_angle = vector()
+        local tolerance = sb.cfg.rival_camp_slope_tolerance or 2.5
+        local clearance = 0.03
+
+        if rival_decor_enabled() then
+            for _, elem in ipairs(t2_elements) do
+                local sec = elem.section
+                if sec and ini_sys:section_exist(sec) then
+                    local wx = chest_pos.x + elem.lx * cos_r - elem.lz * sin_r
+                    local wz = chest_pos.z + elem.lx * sin_r + elem.lz * cos_r
+                    local wy = chest_pos.y
+                    local dec_lvid = lvid
+                    local valid = true
+
+                    if same_level then
+                        local found_lvid, dvpos, d_surface_y = find_ground_anchor(wx, wz, chest_pos.y, chest_pos.y)
+                        local final_y = d_surface_y or (dvpos and dvpos.y) or chest_pos.y
+                        if final_y and math.abs(final_y - chest_pos.y) <= (tolerance + 1.2) then
+                            wy = final_y + clearance
+                            dec_lvid = found_lvid or lvid
+                        else
+                            valid = false
+                        end
+                    end
+
+                    if valid then
+                        dpos:set(wx, wy, wz)
+                        local se_dec = sim:create(sec, dpos, dec_lvid, gvid)
+                        if se_dec then
+                            d_angle:set(0, camp_rot + (elem.yaw or 0), 0)
+                            se_dec.angle = d_angle
+                            camp.decorations[#camp.decorations + 1] = se_dec.id
+                        end
+                    end
+                end
+            end
+        end
+
+        local box_obj = level.object_by_id(camp.chest_id)
+        if box_obj then
+            local t2_loot = {"medkit_army", "bandage", "antirad", "ammo_5.45x39_fmj", "ammo_5.56x45_fmj", "conserva", "vodka"}
+            for _ = 1, mrandom(2, 4) do
+                local itm = t2_loot[mrandom(#t2_loot)]
+                if ini_sys:section_exist(itm) then
+                    pcall(alife_create_item, itm, box_obj)
+                end
+            end
+        end
+
+        if not same_level then
+            camp.snapped = false
+            camp.ground_snapped_v4 = false
+        end
+
+        if db.actor and same_level then
+            local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
+            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_reinforced_outpost"), fac_name, camp.name), nil, "general_stalker", 10000)
+        end
+
+    elseif new_tier == 3 then
+        local theme = get_rival_camp_theme_sections(camp.faction)
+        local camp_rot = camp.rotation or 0
+        local cos_r = math.cos(camp_rot)
+        local sin_r = math.sin(camp_rot)
+
+        -- Tier 3 Fortified Stronghold: heavy fortified rear wall, second shelter cot, heavy logistics
+        local t3_elements = {
+            { section = theme.wall_main,     lx = -2.2, lz = -3.2, yaw = math.pi * 0.1 },
+            { section = theme.wall_main,     lx = 2.2,  lz = -3.2, yaw = -math.pi * 0.1 },
+            { section = theme.cover,         lx = -3.4, lz = 0.0,  yaw = 0.0 },
+            { section = theme.cover,         lx = 3.4,  lz = 0.0,  yaw = 0.0 },
+            { section = theme.bed,           lx = -2.2, lz = 0.8,  yaw = math.pi * 0.5 },
+            { section = theme.crate,         lx = 0.8,  lz = -2.2, yaw = 0.0 },
+        }
+
+        local dpos = vector()
+        local d_angle = vector()
+        local tolerance = sb.cfg.rival_camp_slope_tolerance or 2.5
+        local clearance = 0.03
+
+        if rival_decor_enabled() then
+            for _, elem in ipairs(t3_elements) do
+                local sec = elem.section
+                if sec and ini_sys:section_exist(sec) then
+                    local wx = chest_pos.x + elem.lx * cos_r - elem.lz * sin_r
+                    local wz = chest_pos.z + elem.lx * sin_r + elem.lz * cos_r
+                    local wy = chest_pos.y
+                    local dlvid = lvid
+                    local valid = true
+
+                    if same_level then
+                        local dlvid_f, dvpos_f, d_surface_y_f = find_ground_anchor(wx, wz, chest_pos.y, chest_pos.y)
+                        local final_y = d_surface_y_f or (dvpos_f and dvpos_f.y) or chest_pos.y
+                        if final_y and math.abs(final_y - chest_pos.y) <= (tolerance + 1.2) then
+                            wy = final_y + clearance
+                            dlvid = dlvid_f or lvid
+                        else
+                            valid = false
+                        end
+                    end
+
+                    if valid then
+                        dpos:set(wx, wy, wz)
+                        local se_dec = sim:create(sec, dpos, dlvid, gvid)
+                        if se_dec then
+                            d_angle:set(0, camp_rot + (elem.yaw or 0), 0)
+                            se_dec.angle = d_angle
+                            camp.decorations[#camp.decorations + 1] = se_dec.id
+                        end
+                    end
+                end
+            end
+        end
+
+        local box_obj = level.object_by_id(camp.chest_id)
+        if box_obj then
+            local t3_loot = {"medkit_scientic", "stimpack_army", "drug_psy_blockade", "ammo_7.62x54_7h1", "ammo_7.62x51_fmj", "af_iam", "cocaine"}
+            for _ = 1, mrandom(3, 5) do
+                local itm = t3_loot[mrandom(#t3_loot)]
+                if ini_sys:section_exist(itm) then
+                    pcall(alife_create_item, itm, box_obj)
+                end
+            end
+        end
+
+        local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
+        local reinforce_squad = sb.create_squad_at_pos(squad_sec, chest_pos, lvid, gvid)
+        if reinforce_squad then
+            sb.setup_rival_squad_positions(reinforce_squad, camp, sim)
+        end
+
+        if not same_level then
+            camp.snapped = false
+            camp.ground_snapped_v4 = false
+        end
+
+        if db.actor then
+            local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
+            local lvl_name = game.translate_string(camp.level or level_name)
+            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_expanded_stronghold"), fac_name, camp.name, lvl_name), nil, "general_stalker", 12000)
+        end
+    end
+end
+
+-- 2. SUPPLY CONVOYS & COURIER RUNS
+stalker_camp_builder.active_convoys = stalker_camp_builder.active_convoys or {}
+
+function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or not camp or not camp.chest_id or not camp.level then return end
+
+    local smarts = sb.get_smart_terrains_on_level(camp.level)
+    if not smarts or #smarts == 0 then return end
+
+    local start_smart = smarts[math.random(#smarts)].obj
+    if not start_smart then return end
+
+    local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
+    local start_pos = start_smart.position
+    local start_lvid = start_smart.m_level_vertex_id
+    local start_gvid = start_smart.m_game_vertex_id
+
+    local courier_squad = sb.create_squad_at_pos(squad_sec, start_pos, start_lvid, start_gvid)
+    if courier_squad then
+        sb.active_convoys[courier_squad.id] = {
+            squad_id = courier_squad.id,
+            target_camp_chest = camp.chest_id,
+            target_pos = {x = camp.position.x, y = camp.position.y, z = camp.position.z},
+            target_lvid = camp.level_vertex_id,
+            target_gvid = camp.game_vertex_id,
+            faction = camp.faction,
+            dispatch_time = game.get_game_time():diffSec(game.CTime()),
+            level = camp.level
+        }
+    end
+end
+
+function stalker_camp_builder.update_active_convoys()
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return end
+
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+
+    for squad_id, convoy in pairs(sb.active_convoys) do
+        local squad = sim:object(squad_id)
+        if not squad or not is_squad_alive(squad) then
+            sb.active_convoys[squad_id] = nil
+        else
+            local dx = squad.position.x - convoy.target_pos.x
+            local dy = squad.position.y - convoy.target_pos.y
+            local dz = squad.position.z - convoy.target_pos.z
+            local dist_sqr = dx*dx + dy*dy + dz*dz
+
+            if dist_sqr <= 400.0 or (current_sec - convoy.dispatch_time > 7200) then
+                local box_obj = level.object_by_id(convoy.target_camp_chest)
+                if box_obj then
+                    local delivery_items = {"conserva", "kolbasa", "vodka", "bandage", "medkit", "ammo_5.45x39_fmj", "ammo_5.56x45_fmj"}
+                    for _ = 1, math.random(3, 5) do
+                        local itm = delivery_items[math.random(#delivery_items)]
+                        if ini_sys:section_exist(itm) then
+                            pcall(alife_create_item, itm, box_obj)
+                        end
+                    end
+                end
+
+                squad.get_script_target = nil
+                sb.active_convoys[squad_id] = nil
+            end
+        end
+    end
+end
+
+-- 3. SURGE ZOMBIFICATION & MUTANT NEST SYSTEM
+function stalker_camp_builder.process_rival_camp_surge(is_peak)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or sb.cfg.rival_camp_surge_effects == false then return end
+
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+
+    for key, camp in pairs(sb.rival_camps) do
+        if type(camp) == "table" and camp.chest_id and camp.squad_id and camp.status ~= "unoccupied" and camp.status ~= "mutant_nest" and camp.faction ~= "zombied" then
+            if math.random(100) <= 25 then
+                sb.zombify_rival_camp(camp)
+            end
+        end
+    end
+end
+
+function stalker_camp_builder.zombify_rival_camp(camp)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or not camp or not camp.chest_id then return end
+
+    if camp.squad_id then
+        local old_squad = sim:object(camp.squad_id)
+        if old_squad then
+            for k in sb.safe_squad_members(old_squad) do
+                if k.id then
+                    local se_obj = sim:object(k.id)
+                    if se_obj then alife_release(se_obj) end
+                end
+            end
+            alife_release(old_squad)
+        end
+    end
+
+    local squad_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local zomb_squad = sb.create_squad_at_pos("zombied_sim_squad_novice", squad_pos, camp.level_vertex_id, camp.game_vertex_id)
+    if zomb_squad then
+        camp.squad_id = zomb_squad.id
+        camp.faction = "zombied"
+        camp.cleared = false
+
+        level.map_remove_object_spot(camp.chest_id, "green_location")
+        level.map_remove_object_spot(camp.chest_id, "blue_location")
+        level.map_remove_object_spot(camp.chest_id, "red_location")
+        if sb.cfg.show_rival_camp_map_spots ~= false then
+            level.map_add_object_spot_ser(camp.chest_id, "red_location", "Zombified Outpost: " .. camp.name)
+        end
+
+        if db.actor then
+            local lvl_name = game.translate_string(camp.level or level.name())
+            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_psy_surge_zombified"), camp.name, lvl_name), nil, "red_danger", 14000)
+        end
+    end
+end
+
+function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or not camp or not camp.chest_id then return end
+
+    mutant_type = mutant_type or "simulation_bloodsucker"
+
+    camp.status = "mutant_nest"
+    camp.faction = "monster"
+    camp.cleared = false
+    camp.unoccupied_time = nil
+    camp.despawn_chest_when_empty = nil
+
+    local squad_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local mutant_squad = sb.create_squad_at_pos(mutant_type, squad_pos, camp.level_vertex_id, camp.game_vertex_id)
+    if mutant_squad then
+        camp.squad_id = mutant_squad.id
+    end
+
+    level.map_remove_object_spot(camp.chest_id, "green_location")
+    level.map_remove_object_spot(camp.chest_id, "blue_location")
+    level.map_remove_object_spot(camp.chest_id, "red_location")
+    if sb.cfg.show_rival_camp_map_spots ~= false then
+        level.map_add_object_spot_ser(camp.chest_id, "red_location", "Mutant Nest: " .. camp.name)
+    end
+
+    if db.actor then
+        local lvl_name = game.translate_string(camp.level or level.name())
+        news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_mutant_overrun_den"), camp.name, lvl_name), nil, "red_danger", 12000)
+    end
+end
+
+-- 4. ALLIED REINFORCEMENTS & RETALIATION HIT SQUADS
+function stalker_camp_builder.trigger_allied_reinforcement(defending_camp)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim or not defending_camp or not defending_camp.position then return end
+
+    local def_pos = vector():set(defending_camp.position.x, defending_camp.position.y, defending_camp.position.z)
+    for key, other_camp in pairs(sb.rival_camps) do
+        if type(other_camp) == "table" and other_camp ~= defending_camp and other_camp.squad_id and other_camp.faction == defending_camp.faction and other_camp.level == defending_camp.level and other_camp.position then
+            local dx = defending_camp.position.x - other_camp.position.x
+            local dy = defending_camp.position.y - other_camp.position.y
+            local dz = defending_camp.position.z - other_camp.position.z
+            if (dx*dx + dy*dy + dz*dz) <= 30625 then
+                local ally_squad = sim:object(other_camp.squad_id)
+                if ally_squad then
+                    for k in sb.safe_squad_members(ally_squad) do
+                        if k.id and level.object_by_id(k.id) then
+                            sb.camp_npc_move_to(k.id, def_pos, defending_camp.level_vertex_id)
+                        end
+                    end
+                    break
+                end
+            end
+        end
+    end
+end
+
+-- 5. SOS RESCUE REWARD & GRATITUDE
+function stalker_camp_builder.check_sos_rescue_reward(actor)
+    local sb = stalker_camp_builder
+    if not actor then return end
+
+    local actor_pos = actor:position()
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+
+    for key, camp in pairs(sb.rival_camps) do
+        if type(camp) == "table" and camp.sos_active and camp.chest_id and camp.position and camp.level == level.name() then
+            local dx = actor_pos.x - camp.position.x
+            local dy = actor_pos.y - camp.position.y
+            local dz = actor_pos.z - camp.position.z
+            local dist_sqr = dx*dx + dy*dy + dz*dz
+
+            if dist_sqr <= 1600.0 and camp.squad_id then
+                local squad = alife_object(camp.squad_id)
+                if squad and is_squad_alive(squad) then
+                    camp.sos_active = false
+                    camp.sos_broadcasted = false
+
+                    local reward_rubles = math.random(3000, 5500)
+                    dialogs.relocate_money_to_actor(db.actor, nil, reward_rubles)
+
+                    local faction_name = camp.faction and game.translate_string(camp.faction) or "Stalkers"
+                    news_manager.send_tip(actor, string.format(game.translate_string("st_recon_rescue_complete"), faction_name, reward_rubles), nil, "general_stalker", 12000)
+                end
+            elseif current_sec - (camp.sos_time or current_sec) > 7200 then
+                camp.sos_active = false
+                camp.sos_broadcasted = false
+            end
+        end
+    end
+end

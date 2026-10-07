@@ -1,0 +1,56 @@
+-- Homestead: Mod App Creator (MAC) Compatibility Patch
+-- 100% Self-Contained within Homestead
+stalker_camp_builder_mac_flag = true
+
+local function restore_tab_bar()
+    local pda_menu = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
+    if pda_menu and pda_menu:GetTabControl() then
+        pda_menu:GetTabControl():Show(true)
+    end
+end
+
+local function safe_get_ui()
+    restore_tab_bar()
+    -- Schedule next-frame restore to guarantee C++ engine doesn't re-hide it post-return
+    CreateTimeEvent("homestead_pda", "restore_top_tabs", 0.05, function()
+        restore_tab_bar()
+        return true
+    end)
+    return ui_stalker_camp_builder_pda.get_ui()
+end
+
+function on_game_start()
+    -- v1.1.7: if the "No PDA Tab" FOMOD option is installed (05_NoPDATab
+    -- flag), do not register the MAC Settlement app -- the PDA UI XML is not
+    -- present in that configuration and opening the app would error.
+    if homestead_no_pda_tab_flag ~= nil then
+        return
+    end
+
+    -- 1. Register app with safe UI getter
+    if mac_mcm and mac_mcm.add_app then
+        mac_mcm.add_app("app_settlement", {
+            name = "pda_btn_settlement",
+            texture = "app_settlement",
+            tab = "eptSettlement",
+            func = safe_get_ui
+        })
+    end
+
+    -- 2. Monkeypatch MAC's OnAppClicked in memory to restore tab control when clicking any app
+    if mac_mcm and mac_mcm.pda_laucher_tab then
+        local og_on_app_clicked = mac_mcm.pda_laucher_tab.OnAppClicked
+        if og_on_app_clicked then
+            mac_mcm.pda_laucher_tab.OnAppClicked = function(self)
+                restore_tab_bar()
+                local res = og_on_app_clicked(self)
+                restore_tab_bar()
+                CreateTimeEvent("homestead_pda", "restore_top_tabs_click", 0.05, function()
+                    restore_tab_bar()
+                    return true
+                end)
+                return res
+            end
+        end
+    end
+end

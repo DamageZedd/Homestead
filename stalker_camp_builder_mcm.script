@@ -1,0 +1,130 @@
+-- Homestead (Stalker Settlement Builder) Mod Configuration Menu
+--
+-- NOTE: Do NOT add 'stalker_camp_builder = stalker_camp_builder or {}' here.
+-- In X-Ray, each .script file gets its own environment table. The MCM script's
+-- env is stalker_camp_builder_mcm, NOT stalker_camp_builder. Writing
+-- 'stalker_camp_builder = stalker_camp_builder or {}' creates a field
+-- stalker_camp_builder_mcm.stalker_camp_builder (which is nil), then
+-- overwrites _G.stalker_camp_builder with an empty table -- destroying the
+-- real module. The main stalker_camp_builder.script creates the table.
+
+local function prepare_group(items)
+    for _, item in ipairs(items) do
+        if item.id and item.type ~= "slide" and item.type ~= "desc" and item.type ~= "line" and not item.hint then
+            item.hint = "stalker_camp_builder_" .. item.id
+        end
+    end
+    return items
+end
+
+function on_mcm_load()
+    return { id = "stalker_camp_builder", gr = {
+        -- 1. General Settings
+        { id = "general", sh = true, text = "ui_mcm_stalker_camp_builder_general", gr = prepare_group({
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_stalker_camp_builder_title", size = {512, 50}, spacing = 20 },
+            { id = "general_header", type = "desc", text = "ui_mcm_stalker_camp_builder_general_desc", clr = {255, 255, 255, 255} },
+            { id = "boundary_dist", type = "track", val = 2, min = 20, max = 100, step = 5, def = 50 },
+            { id = "npc_leash_radius", type = "track", val = 2, min = 3, max = 50, step = 1, def = 10 },
+            { id = "hub_min_dist", type = "track", val = 2, min = 50, max = 300, step = 10, def = 100 },
+            { id = "defense_cap", type = "track", val = 2, min = 30, max = 500, step = 10, def = 150 },
+            { id = "max_survivors_player_camp", type = "track", val = 2, min = 1, max = 25, step = 1, def = 12 },
+            { id = "base_recruit_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 15 },
+            { id = "recruitment_rank_requirements", type = "check", val = 1, def = true },
+            { id = "recruitment_cost_mult", type = "track", val = 2, min = 0.0, max = 3.0, step = 0.1, def = 1.0 },
+            { id = "enforce_territory_safety", type = "check", val = 1, def = true },
+            { id = "camp_rest_bonus", type = "check", val = 1, def = true },
+            { id = "fast_travel_cost", type = "track", val = 2, min = 0, max = 20000, step = 500, def = 2000 },
+        }) },
+
+        -- 2. Jobs & Production
+        { id = "jobs", sh = true, text = "ui_mcm_stalker_camp_builder_jobs", gr = prepare_group({
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_stalker_camp_builder_title", size = {512, 50}, spacing = 20 },
+            { id = "jobs_header", type = "desc", text = "ui_mcm_stalker_camp_builder_jobs_desc", clr = {255, 255, 255, 255} },
+            { id = "enable_surplus_cap", type = "check", val = 1, def = true },
+            { id = "realtime_job_cook_interval_min",     type = "track", val = 2, min = 1,   max = 60,  step = 1, def = 15 },
+            { id = "realtime_job_craft_interval_min",    type = "track", val = 2, min = 2,   max = 120, step = 1, def = 20 },
+            { id = "realtime_job_repair_interval_min",   type = "track", val = 2, min = 1,   max = 90,  step = 1, def = 15 },
+            { id = "realtime_job_scavenge_interval_min", type = "track", val = 2, min = 5,   max = 240, step = 1, def = 35 },
+            { id = "realtime_job_hunter_interval_min",   type = "track", val = 2, min = 5,   max = 240, step = 1, def = 30 },
+            { id = "medic_job_interval_min",             type = "track", val = 2, min = 2,   max = 60,  step = 1, def = 25 },
+            { id = "electrician_job_interval_min",       type = "track", val = 2, min = 3,   max = 60,  step = 1, def = 15 },
+            { id = "realtime_job_woodcutter_interval_min", type = "track", val = 2, min = 2,   max = 120, step = 1, def = 20 },
+            { id = "realtime_job_brewer_interval_min",     type = "track", val = 2, min = 2,   max = 120, step = 1, def = 20 },
+            { id = "realtime_job_scrapper_interval_min",   type = "track", val = 2, min = 2,   max = 120, step = 1, def = 20 },
+            { id = "line_rates", type = "line" },
+            { id = "hunter_min_meat", type = "track", val = 2, min = 1, max = 10, step = 1, def = 1 },
+            { id = "hunter_max_meat", type = "track", val = 2, min = 1, max = 20, step = 1, def = 2 },
+            { id = "repair_percent_per_cycle", type = "track", val = 2, min = 5, max = 100, step = 5, def = 25 },
+            { id = "craft_output_multiplier", type = "track", val = 2, min = 1, max = 5, step = 1, def = 1 },
+            { id = "craft_prefer_turret_ammo", type = "check", val = 1, def = true },
+            { id = "cook_requires_fuel", type = "check", val = 1, def = true },
+            { id = "cook_output_tier", type = "track", val = 2, min = 1, max = 3, step = 1, def = 1 },
+            { id = "line_upkeep", type = "line" },
+            { id = "fridge_interval_hr", type = "track", val = 2, min = 1, max = 48, step = 1, def = 12 },
+            { id = "fridge_cond_restore", type = "track", val = 2, min = 0.05, max = 1.00, step = 0.05, def = 0.25 },
+            { id = "water_interval_hr", type = "track", val = 2, min = 1, max = 48, step = 1, def = 6 },
+            { id = "food_consumption_interval_hr", type = "track", val = 2, min = 1, max = 72, step = 1, def = 24 },
+        }) },
+
+        -- 3. Rival Settlements
+        { id = "rivals", sh = true, text = "ui_mcm_stalker_camp_builder_rivals", gr = prepare_group({
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_stalker_camp_builder_title", size = {512, 50}, spacing = 20 },
+            { id = "rivals_header", type = "desc", text = "ui_mcm_stalker_camp_builder_rivals_desc", clr = {255, 255, 255, 255} },
+            { id = "max_rival_camps", type = "track", val = 2, min = 0, max = 60, step = 1, def = 25 },
+            { id = "rival_camps_per_level_max", type = "track", val = 2, min = 1, max = 8, step = 1, def = 3 },
+            { id = "max_survivors_rival_camp",  type = "track", val = 2, min = 1, max = 10, step = 1, def = 5 },
+            { id = "rival_camp_min_spacing", type = "track", val = 2, min = 15, max = 200, step = 5, def = 35 },
+            { id = "rival_camp_spawn_dist_min", type = "track", val = 2, min = 10, max = 300, step = 10, def = 25 },
+            { id = "rival_camp_spawn_dist_max", type = "track", val = 2, min = 50, max = 600, step = 25, def = 250 },
+            { id = "rival_camp_spawn_interval_hours", type = "track", val = 2, min = 1, max = 24, step = 1, def = 3 },
+            { id = "rival_camp_spawn_chance", type = "track", val = 2, min = 5, max = 100, step = 1, def = 33 },
+            { id = "rival_camp_setup_duration_hr", type = "track", val = 2, min = 1, max = 96, step = 1, def = 24 },
+            { id = "line_rival_features", type = "line" },
+            { id = "rival_camp_progression", type = "check", val = 1, def = true },
+            { id = "rival_camp_tier2_hours", type = "track", val = 2, min = 1, max = 48, step = 1, def = 4 },
+            { id = "rival_camp_tier3_hours", type = "track", val = 2, min = 2, max = 96, step = 1, def = 8 },
+            { id = "rival_camp_distress_calls", type = "check", val = 1, def = true },
+            { id = "rival_camp_convoys", type = "check", val = 1, def = true },
+            { id = "rival_camp_convoy_interval_hours", type = "track", val = 2, min = 1, max = 48, step = 1, def = 6 },
+            { id = "rival_camp_surge_effects", type = "check", val = 1, def = true },
+            { id = "rival_camp_retaliation_raids", type = "check", val = 1, def = true },
+            { id = "rival_camp_hospitality", type = "check", val = 1, def = true },
+            { id = "rival_friendly_takeover", type = "track", val = 2, min = 0, max = 100, step = 5, def = 50 },
+            { id = "show_rival_camp_map_spots", type = "check", val = 1, def = true },
+            { id = "rival_camp_furniture", type = "check", val = 1, def = true },
+        }) },
+
+        -- 4. Raids & Events
+        { id = "raids_events", sh = true, text = "ui_mcm_stalker_camp_builder_raids_events", gr = prepare_group({
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_stalker_camp_builder_title", size = {512, 50}, spacing = 20 },
+            { id = "raids_events_header", type = "desc", text = "ui_mcm_stalker_camp_builder_raids_events_desc", clr = {255, 255, 255, 255} },
+            { id = "raid_cooldown_hr", type = "track", val = 2, min = 1, max = 96, step = 1, def = 36 },
+            { id = "raid_base_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 15 },
+            { id = "raid_deficit_mult", type = "track", val = 2, min = 0, max = 10, step = 0.5, def = 3 },
+            { id = "alarm_defense_bonus", type = "track", val = 2, min = 0, max = 100, step = 5, def = 15 },
+            { id = "line_ambushes", type = "line" },
+            { id = "scavenger_ambush_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 20 },
+            { id = "hunter_ambush_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 20 },
+            { id = "scavenger_walk_speed_kmh", type = "track", val = 2, min = 0.5, max = 15.0, step = 0.1, def = 1.2 },
+            { id = "scavenger_expedition_speed_mult", type = "track", val = 2, min = 0.5, max = 3.0, step = 0.1, def = 1.0 },
+            { id = "line_events", type = "line" },
+            { id = "event_cooldown_hr", type = "track", val = 2, min = 1, max = 96, step = 1, def = 48 },
+            { id = "event_chance", type = "track", val = 2, min = 0, max = 100, step = 5, def = 20 },
+            { id = "event_player_dist", type = "track", val = 2, min = 50, max = 300, step = 10, def = 100 },
+            { id = "trader_despawn_time_hr", type = "track", val = 2, min = 1, max = 48, step = 1, def = 12 },
+        }) },
+
+        -- 5. Quality of Life & Debug
+        { id = "qol_debug", sh = true, text = "ui_mcm_stalker_camp_builder_qol_debug", gr = prepare_group({
+            { id = "title", type = "slide", link = "ui_options_slider_player", text = "ui_mcm_stalker_camp_builder_title", size = {512, 50}, spacing = 20 },
+            { id = "qol_debug_header", type = "desc", text = "ui_mcm_stalker_camp_builder_qol_debug_desc", clr = {255, 255, 255, 255} },
+            { id = "verbose_notifications", type = "check", val = 1, def = true },
+            { id = "decor_happiness_bonus", type = "track", val = 2, min = 0.1, max = 5.0, step = 0.1, def = 0.5 },
+            { id = "settler_invincible", type = "check", val = 1, def = false },
+            { id = "enable_pda_tab", type = "check", val = 1, def = true },
+            { id = "respawn_rival_camps", type = "check", val = 1, def = false },
+            { id = "uninstall_purge_rival_furniture", type = "check", val = 1, def = false },
+            { id = "debug_logging", type = "check", val = 1, def = false },
+        }) },
+    }}
+end

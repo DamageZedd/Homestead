@@ -1,0 +1,1238 @@
+-- =========================
+-- CONFIG
+-- =========================
+
+local AMMO_TYPES_9X19 = {
+    "ammo_9x19_fmj",
+    "ammo_9x19_ap",
+    "ammo_9x19_pbp",
+}
+local CHANNEL_OFF = 0
+local CHANNEL_MIN = 1
+local CHANNEL_MAX = 11
+
+local STALKER_AIM_HEIGHT_FALLBACK = 1.40
+local MUTANT_AIM_HEIGHT_FALLBACK  = 0.40
+
+local YAW_REF_BONE      = "axis_yaw"
+local PITCH_PREFIX      = "barrel_"
+
+local YAW_STEP_DEG      = 5
+local YAW_MIN_DEG       = -180
+local YAW_MAX_DEG       = 180
+local YAW_OFFSET_DEG    = -90
+
+-- Idle sweep limits
+local IDLE_YAW_MIN_DEG  = -45
+local IDLE_YAW_MAX_DEG  =  45
+local IDLE_REST_TIME    = 10.0
+
+local PITCH_STEP_DEG    = 5
+local PITCH_MIN_DEG     = -10
+local PITCH_MAX_DEG     = 90
+
+local MUZZLE_PREFIX     = "bone_muzzle_"
+local MUZZLE_AXIS       = "k"
+local MAX_STEER_DEG     = 12.0
+
+-- Turning speed
+local TRACK_YAW_STEPS_PER_SEC   = 14.0
+local TRACK_PITCH_STEPS_PER_SEC = 7.0
+
+local TRACK_LOS_INTERVAL      = 0.15  -- how often we check LOS while tracking
+local TRACK_LOS_FORGET_TIME   = 0.60  -- how long target can be unseen before dropping it
+
+local BULLET_SPEED      = 400
+local BULLET_POWER      = 0.25
+local BULLET_IMPULSE    = 50.0
+local BULLET_MAX_DIST   = 100.0
+local BULLET_AIR_RES    = 0.2
+local HIT_TYPE          = 1
+local MAG_SIZE          = 40
+
+local FIRE_RPS          = 6.0
+local FIRE_COOLDOWN     = 2.0 / FIRE_RPS
+local AIM_YAW_TOL       = 5.0
+local AIM_PITCH_TOL     = 5.0
+
+local MOTOR_SOUND_HOLD  = 0.25
+local MOTOR_SOUND_VOL   = 0.10
+local MOVE_EPS_DEG      = 0.5
+
+local REF_FORWARD_AXIS  = "i"
+local REF_RIGHT_AXIS    = "k"
+
+-- =========================
+-- SOUND PATHS
+-- v1.1.7: the shoot/reload sounds previously used GAMMA sound-pack paths
+-- (weapons\silencers\no_clinks\..., weapons\mp7\...) which do not exist in
+-- vanilla Anomaly 1.5.3. Pick the pack based on whether GAMMA is detected;
+-- vanilla installs fall back to sounds that ship with the base game.
+-- =========================
+local function is_gamma_environment()
+    if stalker_camp_builder_gamma_flag ~= nil then return true end
+    if grok_stashes_on_corpses ~= nil then return true end
+    return false
+end
+
+local SND_SHOT_PATH, SND_RELOAD_PATH
+if is_gamma_environment() then
+    SND_SHOT_PATH   = [[weapons\silencers\no_clinks\silencer_9x19]]
+    SND_RELOAD_PATH = [[weapons\mp7\mp7_reload]]
+else
+    SND_SHOT_PATH   = [[weapons\pm\pm_shot]]
+    SND_RELOAD_PATH = [[weapons\pm\pm_reload_empty]]
+end
+
+-- =========================
+-- PERFORMANCE TUNING
+-- =========================
+local AIM_UPDATE_INTERVAL    = 0.05
+local HOSTILE_CACHE_REFRESH  = 2.0
+local MAG_SYNC_INTERVAL      = 2.0
+local LOS_CHECK_COOLDOWN     = 0.10
+local CHANNEL_PUBLISH_INTERVAL = 0.20
+
+--------------------------------------------------------------------------------
+-- HF persistent data helpers
+--------------------------------------------------------------------------------
+
+local function hf_get_data(obj_id)
+    return hf_obj_manager.get_data(obj_id) or {}
+end
+
+local function hf_ensure_defaults(obj_id)
+    local d = hf_get_data(obj_id)
+    local patch = nil
+
+    if d.mag == nil then
+        patch = patch or {}
+        patch.mag = {}
+        d.mag = {}
+    end
+
+    if d.channel == nil then
+        patch = patch or {}
+        patch.channel = CHANNEL_OFF
+        d.channel = CHANNEL_OFF
+    end
+
+    if patch then
+        hf_obj_manager.update_data(obj_id, patch)
+    end
+
+    return d
+end
+
+local function hf_set(obj_id, fields)
+    hf_obj_manager.update_data(obj_id, fields)
+end
+
+local function get_turret_channel_bus()
+    _G.hf_turret_channels = _G.hf_turret_channels or {}
+    return _G.hf_turret_channels
+end
+
+function toggle_pistol_turret(obj_id)
+    local d = hf_ensure_defaults(obj_id)
+end
+
+--------------------------------------------------------------------------------
+-- SAFE object helpers
+--------------------------------------------------------------------------------
+
+local function get_obj_by_id_safe(id)
+    if not id then return nil end
+    local ok, obj = pcall(function() return level.object_by_id(id) end)
+    if ok then return obj end
+    return nil
+end
+
+local function can_check_relation(o)
+    if not o then return false end
+    local ok_cls, cls = pcall(function() return o:clsid() end)
+    if not ok_cls or not cls then
+        return false
+    end
+    if cls == clsid.actor or cls == clsid.script_stalker then
+        return true
+    end
+    if IsMonster and IsMonster(nil, cls) then
+        return true
+    end
+    return false
+end
+
+-- Helper: ray / animation helpers
+--------------------------------------------------------------------------------
+
+local RAY_FLAGS = rq_target.rqtObject + rq_target.rqtStatic + rq_target.rqtObstacle
+
+local function has_clear_shot(self, muzzle_pos, aim_pos, target_obj)
+    if not muzzle_pos or not aim_pos or not target_obj then
+        return false
+    end
+
+    local dir = vector()
+    dir:set(aim_pos)
+    dir:sub(muzzle_pos)
+
+    local dist = dir:magnitude()
+    if dist < 0.05 then
+        return true
+    end
+    dir:normalize()
+
+    local rp = self.rp
+    if not rp then
+        rp = ray_pick()
+        self.rp = rp
+    end
+
+    rp:set_position(muzzle_pos)
+    rp:set_direction(dir)
+    rp:set_range(20)
+    rp:set_flags(RAY_FLAGS)
+    rp:set_ignore_object(self.object)
+    rp:query()
+
+    local hit_obj = rp:get_object()
+    if hit_obj then
+        local ok1, hid = pcall(function() return hit_obj:id() end)
+        local ok2, tid = pcall(function() return target_obj:id() end)
+        if ok1 and ok2 and hid == tid then
+            return true
+        end
+        return false
+    end
+
+    local hit_dist = rp:get_distance()
+    if hit_dist and hit_dist > 0 then
+        return hit_dist >= (dist - 0.05)
+    end
+
+    return true
+end
+
+local function build_pitch_bones()
+    local t = {}
+    for deg = PITCH_MIN_DEG, PITCH_MAX_DEG, PITCH_STEP_DEG do
+        local sign = (deg < 0) and "m" or "p"
+        t[#t + 1] = string.format("%s%s%02d", PITCH_PREFIX, sign, math.abs(deg))
+    end
+    return t
+end
+
+local PITCH_BONES = build_pitch_bones()
+
+local MUZZLE_BONES = {}
+do
+    for deg = PITCH_MIN_DEG, PITCH_MAX_DEG, PITCH_STEP_DEG do
+        local sign = (deg < 0) and "m" or "p"
+        MUZZLE_BONES[#MUZZLE_BONES + 1] = string.format("%s%s%02d", MUZZLE_PREFIX, sign, math.abs(deg))
+    end
+end
+
+local function get_muzzle_pos_dir(obj, muzzle_bone_name)
+    local id = obj:bone_id(muzzle_bone_name)
+    if not id then return nil, nil end
+
+    local m = obj:bone_transform(id)
+    if not m then return nil, nil end
+
+    local pos = vector(); pos:set(m.c)
+    local dir = vector(); dir:set(m[MUZZLE_AXIS]); dir:normalize()
+
+    return pos, dir
+end
+
+local function call_add_bullet(pos, dir, speed, power, impulse, sender, hit_type, max_dist, ammo_sect, air_resistance)
+    if level and level.add_bullet then
+        return level.add_bullet(pos, dir, speed, power, impulse, sender, hit_type, max_dist, ammo_sect, air_resistance)
+    end
+    return nil
+end
+
+local function clamp(x, a, b)
+    if x < a then return a end
+    if x > b then return b end
+    return x
+end
+
+local function wrap_deg_180(a)
+    while a <= -180 do a = a + 360 end
+    while a >  180 do a = a - 360 end
+    return a
+end
+
+local function snap_deg(a, step)
+    return math.floor((a / step) + 0.5) * step
+end
+
+local function fbox_get_min_max(box)
+    if not box then return nil, nil end
+
+    local ok, mn = pcall(function() return box.min end)
+    local ok2, mx = pcall(function() return box.max end)
+    if ok and ok2 and mn and mx then
+        return mn, mx
+    end
+
+    return nil, nil
+end
+
+local function step_towards_yaw(cur_yaw, target_yaw, max_steps)
+    local delta = wrap_deg_180(target_yaw - cur_yaw)
+    local steps = delta / YAW_STEP_DEG
+    if steps >  max_steps then steps =  max_steps end
+    if steps < -max_steps then steps = -max_steps end
+    return wrap_deg_180(cur_yaw + steps * YAW_STEP_DEG)
+end
+
+local function step_towards_pitch(cur_pitch, target_pitch, max_steps)
+    local delta = target_pitch - cur_pitch
+    local steps = delta / PITCH_STEP_DEG
+    if steps >  max_steps then steps =  max_steps end
+    if steps < -max_steps then steps = -max_steps end
+    return cur_pitch + steps * PITCH_STEP_DEG
+end
+
+local function apply_yaw_step_budget(self, dt, target_step, steps_per_sec)
+    steps_per_sec = steps_per_sec or TRACK_YAW_STEPS_PER_SEC
+    self.yaw_step_acc = (self.yaw_step_acc or 0) + (steps_per_sec * dt)
+
+    local steps_now = math.floor(self.yaw_step_acc)
+    if steps_now > 0 then
+        self.yaw_step_acc = self.yaw_step_acc - steps_now
+        self.cur_yaw_step = step_towards_yaw(self.cur_yaw_step or 0, target_step, steps_now)
+        self.cur_yaw_step = clamp(self.cur_yaw_step, YAW_MIN_DEG, YAW_MAX_DEG)
+    end
+
+    return clamp(self.cur_yaw_step or 0, YAW_MIN_DEG, YAW_MAX_DEG)
+end
+
+local function apply_pitch_step_budget(self, dt, target_step, steps_per_sec)
+    steps_per_sec = steps_per_sec or TRACK_PITCH_STEPS_PER_SEC
+    self.pitch_step_acc = (self.pitch_step_acc or 0) + (steps_per_sec * dt)
+
+    local steps_now = math.floor(self.pitch_step_acc)
+    if steps_now > 0 then
+        self.pitch_step_acc = self.pitch_step_acc - steps_now
+        self.cur_pitch_step = step_towards_pitch(self.cur_pitch_step or 0, target_step, steps_now)
+        self.cur_pitch_step = clamp(self.cur_pitch_step, PITCH_MIN_DEG, PITCH_MAX_DEG)
+    end
+
+    return clamp(self.cur_pitch_step or 0, PITCH_MIN_DEG, PITCH_MAX_DEG)
+end
+
+local function yaw_idle_anim_name(yaw_deg)
+    yaw_deg = clamp(yaw_deg, YAW_MIN_DEG, YAW_MAX_DEG)
+    if yaw_deg < 0 then
+        return string.format("yaw_idle_m%03d", math.abs(yaw_deg))
+    else
+        return string.format("yaw_idle_p%03d", yaw_deg)
+    end
+end
+
+local function pitch_deg_to_index(pitch_deg)
+    pitch_deg = clamp(pitch_deg, PITCH_MIN_DEG, PITCH_MAX_DEG)
+    local snapped = snap_deg(pitch_deg, PITCH_STEP_DEG)
+    snapped = clamp(snapped, PITCH_MIN_DEG, PITCH_MAX_DEG)
+    local idx = math.floor(((snapped - PITCH_MIN_DEG) / PITCH_STEP_DEG) + 1)
+    return idx, snapped
+end
+
+local function hide_all_pitch_bones(obj)
+    for _, bn in ipairs(PITCH_BONES) do
+        obj:set_bone_visible(bn, false, false, false)
+    end
+end
+
+local function set_pitch_mesh(self, new_idx)
+    if self.pitch_idx == new_idx then return false end
+    if self.pitch_idx and PITCH_BONES[self.pitch_idx] then
+        self.object:set_bone_visible(PITCH_BONES[self.pitch_idx], false, false, false)
+    end
+    self.pitch_idx = new_idx
+    if PITCH_BONES[self.pitch_idx] then
+        self.object:set_bone_visible(PITCH_BONES[self.pitch_idx], true, false, false)
+    end
+    return true
+end
+
+local function play_cycle_once(self, name)
+    if self.cur_anim ~= name then
+        self.cur_anim = name
+        self.object:play_cycle(name)
+        return true
+    end
+    return false
+end
+
+local function yaw_wrap_and_clamp(a)
+    return clamp(wrap_deg_180(a), YAW_MIN_DEG, YAW_MAX_DEG)
+end
+
+--------------------------------------------------------------------------------
+-- Magazine persistence
+--------------------------------------------------------------------------------
+
+local function turret_sync_mag(self)
+    local d = hf_ensure_defaults(self.object:id())
+    self.mag = d.mag or {}
+    self.mag_count = (self.mag and #self.mag) or 0
+    return self.mag
+end
+
+local function turret_set_mag(self, mag_tbl)
+    self.mag = mag_tbl or {}
+    self.mag_count = #self.mag
+    hf_set(self.object:id(), { mag = self.mag })
+    return self.mag
+end
+
+local function turret_has_ammo(self)
+    return (self.mag_count or 0) > 0
+end
+
+local function turret_mag_push(self, ammo_sect, count)
+    if not ammo_sect then return 0 end
+    count = tonumber(count) or 0
+    if count <= 0 then return 0 end
+
+    local cap = self.mag_size or MAG_SIZE
+    local added = 0
+
+    self.mag = self.mag or {}
+    while added < count and #self.mag < cap do
+        self.mag[#self.mag + 1] = ammo_sect
+        added = added + 1
+    end
+
+    turret_set_mag(self, self.mag)
+    return added
+end
+
+local function turret_mag_pop(self)
+    self.mag = self.mag or {}
+    local n = #self.mag
+    if n <= 0 then return nil end
+    local ammo_sect = self.mag[n]
+    self.mag[n] = nil
+    turret_set_mag(self, self.mag)
+    return ammo_sect
+end
+
+--------------------------------------------------------------------------------
+-- Motor sound
+--------------------------------------------------------------------------------
+
+local function update_motor_sound(self, dt, moving_now, force_constant_while_moving)
+    local has_ammo = turret_has_ammo(self)
+
+    if force_constant_while_moving then
+        if has_ammo and moving_now then
+            if not self.snd_move:playing() then
+                self.snd_move:play_at_pos(self.object, self.object:position(), 0, sound_object.s3d + sound_object.looped)
+            end
+            self.snd_move.volume = MOTOR_SOUND_VOL
+        else
+            if self.snd_move and self.snd_move:playing() then
+                self.snd_move:stop()
+            end
+        end
+        return
+    end
+
+    self.motor_hold_t = math.max(0, (self.motor_hold_t or 0) - dt)
+    if moving_now then
+        self.motor_hold_t = MOTOR_SOUND_HOLD
+    end
+
+    local should_play = has_ammo and ((self.motor_hold_t or 0) > 0)
+    if should_play then
+        if not self.snd_move:playing() then
+            self.snd_move:play_at_pos(self.object, self.object:position(), 0, sound_object.s3d + sound_object.looped)
+        end
+        self.snd_move.volume = MOTOR_SOUND_VOL
+    else
+        if self.snd_move and self.snd_move:playing() then
+            self.snd_move:stop()
+        end
+    end
+end
+
+--------------------------------------------------------------------------------
+-- Idle FSM
+--------------------------------------------------------------------------------
+
+local function idle_update(self, dt)
+    self.idle_state = self.idle_state or "rest"
+    self.idle_timer = self.idle_timer or IDLE_REST_TIME
+
+    self.idle_phase = self.idle_phase or 1
+
+    -- Ensure pitch at 0 in idle
+    local zero_idx = select(1, pitch_deg_to_index(0))
+    if self.pitch_idx ~= zero_idx then
+        set_pitch_mesh(self, zero_idx)
+    end
+    self.cur_pitch_step = 0
+
+    if self.idle_state == "rest" then
+        self.idle_timer = self.idle_timer - dt
+
+        -- Keep yaw moving smoothly to 0 during rest (in case it was interrupted)
+        local center = self.idle_center_yaw or 0
+		local yaw_out = apply_yaw_step_budget(self, dt, center, TRACK_YAW_STEPS_PER_SEC)
+        play_cycle_once(self, yaw_idle_anim_name(yaw_out))
+
+        if self.idle_timer <= 0 then
+            self.idle_state = "sweep"
+            self.idle_phase = 1
+        end
+
+        return (yaw_out ~= center)
+    end
+
+    -- SWEEP state
+    local center = self.idle_center_yaw or 0
+
+	local target_yaw
+	if self.idle_phase == 1 then
+		target_yaw = yaw_wrap_and_clamp(center + IDLE_YAW_MAX_DEG)
+	elseif self.idle_phase == 2 then
+		target_yaw = yaw_wrap_and_clamp(center + IDLE_YAW_MIN_DEG)
+	else
+		target_yaw = yaw_wrap_and_clamp(center)
+	end
+
+    local target_step = yaw_wrap_and_clamp(snap_deg(target_yaw, YAW_STEP_DEG))
+    local yaw_out = apply_yaw_step_budget(self, dt, target_step, TRACK_YAW_STEPS_PER_SEC)
+    play_cycle_once(self, yaw_idle_anim_name(yaw_out))
+
+    if yaw_out == target_step then
+        if self.idle_phase < 3 then
+            self.idle_phase = self.idle_phase + 1
+        else
+            -- finished full sweep
+            self.idle_state = "rest"
+            self.idle_timer = IDLE_REST_TIME
+            self.idle_phase = 1
+        end
+    end
+
+    return true
+end
+
+--------------------------------------------------------------------------------
+-- Target aiming helpers
+--------------------------------------------------------------------------------
+
+local function get_bbox_height(obj)
+    if not obj then return nil end
+
+    local ok, box = pcall(function()
+        return obj:bounding_box(false)
+    end)
+    if not ok or not box then return nil end
+
+    local bb_min, bb_max = fbox_get_min_max(box)
+    if not bb_min or not bb_max then return nil end
+
+    local h = (bb_max.y - bb_min.y)
+    if not h or h <= 0 then return nil end
+    return h
+end
+
+local function get_target_aim_pos(target_obj)
+    local p = target_obj:position()
+    local aim = vector(); aim:set(p)
+
+    local cls = target_obj:clsid()
+
+    local bbox_h = get_bbox_height(target_obj)
+
+    if bbox_h then
+        -- sanity clamp 
+        if bbox_h > 0.2 and bbox_h < 6.0 then
+            local k
+            if cls == clsid.script_stalker then
+                k = 0.65
+            else
+                k = 0.55
+            end
+
+            aim.y = aim.y + (bbox_h * k)
+            return aim
+        end
+    end
+
+    local h
+    if cls == clsid.script_stalker then
+        h = STALKER_AIM_HEIGHT_FALLBACK
+    else
+        h = MUTANT_AIM_HEIGHT_FALLBACK
+    end
+
+    aim.y = aim.y + h
+    return aim
+end
+
+local function turret_target_visible(self, target_obj, aim_pos)
+    if not target_obj or not aim_pos then return false end
+
+    local mpos = self.object:position()
+
+    local turret_pos = vector(); turret_pos:set(mpos)
+
+    return has_clear_shot(self, turret_pos, aim_pos, target_obj)
+end
+
+local function get_bone_axis(obj, bone_name, axis_key)
+    local id = obj:bone_id(bone_name)
+    if not id then return nil end
+
+    local m = obj:bone_transform(id)
+    if not m then return nil end
+
+    local v = vector()
+    v:set(m[axis_key])
+    return v
+end
+
+local function capture_yaw_basis(self)
+    local f = get_bone_axis(self.object, YAW_REF_BONE, REF_FORWARD_AXIS)
+    local r = get_bone_axis(self.object, YAW_REF_BONE, REF_RIGHT_AXIS)
+    if not f or not r then return false end
+
+    if f:magnitude() < 0.001 or r:magnitude() < 0.001 then return false end
+    f:normalize(); r:normalize()
+
+    local u = vector()
+    u:crossproduct(f, r)
+    if u:magnitude() < 0.001 then return false end
+    u:normalize()
+
+    self.yaw_basis_f = vector(); self.yaw_basis_f:set(f)
+    self.yaw_basis_r = vector(); self.yaw_basis_r:set(r)
+    self.yaw_basis_u = vector(); self.yaw_basis_u:set(u)
+
+    local world_up = vector(); world_up:set(0, 1, 0)
+    self.invert_pitch = (u:dotproduct(world_up) < 0)
+
+    return true
+end
+
+local function compute_desired_yaw_deg(self, target_pos)
+    local pos = self.object:position()
+
+    local to = vector()
+    to:set(target_pos)
+    to:sub(pos)
+
+    local f, r, u = self.yaw_basis_f, self.yaw_basis_r, self.yaw_basis_u
+    if not f or not r or not u then return 0 end
+
+    local up_comp = u:dotproduct(to)
+    local proj = vector(); proj:set(u); proj:mul(up_comp)
+    to:sub(proj)
+
+    if to:magnitude() < 0.001 then return 0 end
+    to:normalize()
+
+    local fd = f:dotproduct(to)
+    local rd = r:dotproduct(to)
+
+    local yaw_rad = math.atan2(rd, fd)
+    return wrap_deg_180(yaw_rad * 57.29577951308232)
+end
+
+local function compute_desired_pitch_deg(self, target_pos)
+    local origin = nil
+    if self.pitch_idx and MUZZLE_BONES and MUZZLE_BONES[self.pitch_idx] then
+        local muzzle_bone = MUZZLE_BONES[self.pitch_idx]
+        local id = self.object:bone_id(muzzle_bone)
+        if id then
+            local m = self.object:bone_transform(id)
+            if m then
+                origin = vector(); origin:set(m.c)
+            end
+        end
+    end
+
+    if not origin then
+        origin = vector(); origin:set(self.object:position())
+    end
+
+    local u = self.yaw_basis_u
+    if not u then return 0 end
+
+    local d = vector(); d:set(target_pos); d:sub(origin)
+
+    local vertical = u:dotproduct(d)
+    local proj = vector(); proj:set(u); proj:mul(vertical)
+
+    local horiz = vector(); horiz:set(d); horiz:sub(proj)
+
+    local dist_h = horiz:magnitude()
+    if dist_h < 0.001 then return 0 end
+
+    if self.invert_pitch then vertical = -vertical end
+
+    local pitch_rad = math.atan2(vertical, dist_h)
+    local pitch_deg = pitch_rad * 57.29577951308232
+
+    return clamp(pitch_deg, PITCH_MIN_DEG, PITCH_MAX_DEG)
+end
+
+local function is_enemy_to_actor(o)
+    if not o or not db.actor then return false end
+    if not can_check_relation(o) then return false end
+    local ok_oid, oid = pcall(function() return o:id() end)
+    local ok_aid, aid = pcall(function() return db.actor:id() end)
+    if ok_oid and ok_aid and oid == aid then
+        return false
+    end
+    local ok, rel = pcall(function() return o:relation(db.actor) end)
+    return ok and rel == game_object.enemy
+end
+
+local function is_valid_target(o)
+    if not o then
+        return false
+    end
+
+    local cls = o:clsid()
+
+    -- Never target the player.
+    if cls == clsid.actor then
+        return false
+    end
+
+    -- Stalkers
+    if cls == clsid.script_stalker then
+        if not o:alive() then
+            return false
+        end
+        if not is_enemy_to_actor(o) then
+            return false
+        end
+        if o:wounded() then
+            return false
+        end
+        return true
+    end
+
+    -- Non-stalker living targets (mutants etc.) by relation to actor.
+    if is_enemy_to_actor(o) then
+        if o:alive() then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function rebuild_hostile_cache(self)
+    local t = {}
+    for id, v in pairs(db.storage) do
+        if type(id) == "number" and v and v.object then
+            local o = get_obj_by_id_safe(id)
+            if o and is_valid_target(o) then
+                t[#t + 1] = id
+            end
+        end
+    end
+    self.hostile_cache = t
+    return t
+end
+
+local function find_best_target_cached(self, turret_obj, max_radius)
+    local list = self.hostile_cache
+    if not list then return nil, max_radius or 999999 end
+
+    local tpos = turret_obj:position()
+    local max_r = max_radius or 999999
+
+    -- Current aim state
+    local cur_yaw   = self.cur_yaw_step   or 0
+    local cur_pitch = self.cur_pitch_step or 0
+
+    local best_id = nil
+    local best_score = 1e9
+    local best_dist = max_r
+
+    for i = 1, #list do
+        local id = list[i]
+        local o = get_obj_by_id_safe(id)
+        if o and is_valid_target(o) then
+            local opos = o:position()
+            local dist = opos:distance_to(tpos)
+            if dist <= max_r then
+                local aim_pos = get_target_aim_pos(o)
+
+                -- Desired angles
+                local pitch_des = compute_desired_pitch_deg(self, aim_pos)
+                local yaw_des = compute_desired_yaw_deg(self, aim_pos)
+                yaw_des = wrap_deg_180(yaw_des + YAW_OFFSET_DEG)
+
+                -- Snap desired to animation steps
+                local yaw_step = clamp(snap_deg(yaw_des, YAW_STEP_DEG), YAW_MIN_DEG, YAW_MAX_DEG)
+                local _, pitch_step = pitch_deg_to_index(pitch_des)
+
+                -- Angle error from current state
+                local yaw_err   = math.abs(wrap_deg_180(yaw_step - cur_yaw))
+                local pitch_err = math.abs(pitch_step - cur_pitch)
+
+                local score = (yaw_err * 3.0) + (pitch_err * 1.5) + (dist * 0.05)
+
+                if score < best_score then
+                    best_score = score
+                    best_id = id
+                    best_dist = dist
+                end
+            end
+        end
+    end
+
+    return best_id, best_dist
+end
+
+--------------------------------------------------------------------------------
+-- Class "pistol_turret_wrapper"
+--------------------------------------------------------------------------------
+
+class "pistol_turret_wrapper" (bind_hf_base.hf_binder_wrapper)
+
+function pistol_turret_wrapper:__init(obj)
+    super(obj)
+
+    self.first_update = true
+
+    self.mag_size = MAG_SIZE
+    self.ammo_types = AMMO_TYPES_9X19
+    self.default_ammo_type = AMMO_TYPES_9X19[1] or "ammo_9x19_fmj"
+
+    self.cur_anim = nil
+    self.pitch_idx = nil
+
+    self.yaw_basis_f = nil
+    self.yaw_basis_r = nil
+    self.yaw_basis_u = nil
+    self.invert_pitch = false
+
+    self.fire_cd = 0
+    self.target_id = nil
+    self.scan_t = 0
+	
+	self.track_los_t = 0
+	self.target_last_seen_t = 0
+
+    -- Idle FSM
+    self.idle_state = "rest"
+    self.idle_timer = IDLE_REST_TIME
+    self.idle_phase = 1
+	
+	self.idle_center_yaw = 0
+
+    self.motor_hold_t = 0
+
+    -- step limiter state
+    self.yaw_step_acc   = 0
+    self.pitch_step_acc = 0
+    self.cur_yaw_step   = 0
+    self.cur_pitch_step = 0
+
+    -- throttled aim target steps
+    self.aim_t = 0
+    self.yaw_target_step = 0
+    self.pitch_target_step = 0
+    self.aim_pos_cached = nil
+
+    -- cached candidates
+    self.hostile_cache = nil
+    self.hostile_refresh_t = 0
+
+    -- mag sync throttle
+    self.mag_sync_t = 0
+
+    -- LOS throttle
+    self.los_cd = 0
+
+    -- Sounds / fx
+    self.snd_move = sound_object([[gun_turret_sounds\turret_motor]])
+    self.snd_out_of_ammo = sound_object([[gun_turret_sounds\turret_out_of_ammo]])
+    self.snd_ammo = sound_object([[interface\items\inv_items_ammo_2]])
+    self.fx_muzzle = particles_object([[weapons\generic_weapon00]])
+    self.snd_shoot = sound_object(SND_SHOT_PATH)
+    self.snd_reload = sound_object(SND_RELOAD_PATH)
+
+    turret_sync_mag(self)
+end
+
+function pistol_turret_wrapper:get_mag_count()
+    return self.mag_count or 0
+end
+
+function pistol_turret_wrapper:mag_push(ammo_sect, n)
+    return turret_mag_push(self, ammo_sect, n)
+end
+
+function pistol_turret_wrapper:get_channel()
+    local d = hf_ensure_defaults(self.object:id())
+    local channel = tonumber(d.channel) or CHANNEL_OFF
+    if channel < CHANNEL_OFF or channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+    return channel
+end
+
+function pistol_turret_wrapper:set_channel(channel)
+    channel = tonumber(channel) or CHANNEL_OFF
+    if channel < CHANNEL_OFF or channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+    hf_set(self.object:id(), { channel = channel })
+    return channel
+end
+
+function pistol_turret_wrapper:cycle_channel()
+    local channel = self:get_channel()
+    channel = channel + 1
+    if channel > CHANNEL_MAX then
+        channel = CHANNEL_OFF
+    end
+    return self:set_channel(channel)
+end
+
+local function turret_clear_channel(self, channel)
+    channel = tonumber(channel) or CHANNEL_OFF
+    if channel <= CHANNEL_OFF then
+        return
+    end
+
+    local bus = get_turret_channel_bus()
+    local entry = bus[channel]
+    if entry and entry.turret_id == self.object:id() then
+        bus[channel] = nil
+    end
+end
+
+local function turret_publish_channel(self, dt, force)
+    local channel = self:get_channel()
+    local prev = tonumber(self.published_channel) or CHANNEL_OFF
+
+    if prev ~= channel then
+        turret_clear_channel(self, prev)
+    end
+
+    self.published_channel = channel
+    if channel <= CHANNEL_OFF then
+        self.channel_pub_t = 0
+        return
+    end
+
+    self.channel_pub_t = (self.channel_pub_t or 0) - (dt or 0)
+    if not force and self.channel_pub_t > 0 then
+        return
+    end
+
+    self.channel_pub_t = CHANNEL_PUBLISH_INTERVAL
+
+    local bus = get_turret_channel_bus()
+    bus[channel] = {
+        turret_id = self.object:id(),
+        ammo = self.mag_count or 0,
+    }
+end
+
+--------------------------------------------------------------------------------
+-- Update
+--------------------------------------------------------------------------------
+
+function pistol_turret_wrapper:update(delta)
+    bind_hf_base.hf_binder_wrapper.update(self, delta)
+
+    local dtscan = delta
+    if dtscan > 1.0 then dtscan = dtscan / 1000.0 end
+
+    local dt = delta
+    if dt > 1.0 then dt = dt / 1000.0 end
+
+    -- mag re-sync
+    self.mag_sync_t = (self.mag_sync_t or 0) - dt
+    if self.mag_sync_t <= 0 then
+        self.mag_sync_t = MAG_SYNC_INTERVAL
+        turret_sync_mag(self)
+    end
+
+    self.los_cd = math.max(0, (self.los_cd or 0) - dt)
+    turret_publish_channel(self, dt, false)
+
+    if self.first_update then
+        hide_all_pitch_bones(self.object)
+        local zero_idx = select(1, pitch_deg_to_index(0))
+        self.pitch_idx = zero_idx
+        self.object:set_bone_visible(PITCH_BONES[zero_idx], true, false, false)
+
+        play_cycle_once(self, yaw_idle_anim_name(0))
+        capture_yaw_basis(self)
+
+        self.cur_yaw_step = 0
+        self.cur_pitch_step = 0
+        self.yaw_step_acc = 0
+        self.pitch_step_acc = 0
+
+        self.aim_t = 0
+        self.hostile_refresh_t = 0
+        self.scan_t = 0
+        self.los_cd = 0
+        self.first_update = false
+        return
+    end
+
+    -- refresh hostile
+    self.hostile_refresh_t = (self.hostile_refresh_t or 0) - dtscan
+    if (not self.hostile_cache) or self.hostile_refresh_t <= 0 then
+        self.hostile_refresh_t = HOSTILE_CACHE_REFRESH
+        rebuild_hostile_cache(self)
+    end
+
+    -- scan against cached list
+    self.scan_t = (self.scan_t or 0) - dtscan
+    if self.scan_t <= 0 then
+        self.scan_t = 0.4
+
+        local best_id = find_best_target_cached(self, self.object, 20)
+        local picked_id = nil
+
+        if best_id then
+            local picked_obj = get_obj_by_id_safe(best_id)
+            if picked_obj then
+                local aim_pos = get_target_aim_pos(picked_obj)
+                if turret_target_visible(self, picked_obj, aim_pos) then
+                    picked_id = best_id
+                    self.aim_pos_cached = aim_pos
+                    self.target_last_seen_t = 0
+                end
+            end
+        end
+
+        local cur_target = get_obj_by_id_safe(self.target_id)
+        if not cur_target or not is_valid_target(cur_target) then
+            self.target_id = picked_id
+        elseif picked_id and self.target_id and picked_id ~= self.target_id then
+            local turret_pos = self.object:position()
+            local cur_dist = cur_target:position():distance_to(turret_pos)
+            local picked_obj = get_obj_by_id_safe(picked_id)
+            local new_dist = picked_obj and picked_obj:position():distance_to(turret_pos) or 999999
+            if new_dist < cur_dist then
+                self.target_id = picked_id
+                self.aim_pos_cached = picked_obj and get_target_aim_pos(picked_obj) or nil
+                self.target_last_seen_t = 0
+            end
+        end
+    end
+
+    -- ammo state
+    if not turret_has_ammo(self) then
+        if not self.snd_out_of_ammo:playing() then
+            self.snd_out_of_ammo:play_at_pos(self.object, self.object:position(), 0, sound_object.s3d + sound_object.looped)
+            self.snd_out_of_ammo.volume = 0.2
+        end
+        if self.snd_move and self.snd_move:playing() then
+            self.snd_move:stop()
+        end
+        return
+    else
+        if self.snd_out_of_ammo and self.snd_out_of_ammo:playing() then
+            self.snd_out_of_ammo:stop()
+        end
+    end
+
+    local target = get_obj_by_id_safe(self.target_id)
+
+    -- no target => idle
+    if not target or not is_valid_target(target) then
+        local moving_now = idle_update(self, dt)
+        update_motor_sound(self, dt, moving_now, true)
+        if self.target_id ~= nil then
+            self.idle_center_yaw = self.yaw_target_step or self.cur_yaw_step or self.idle_center_yaw or 0
+        end
+        self.target_id = nil
+        return
+    end
+
+    -- target mode
+    self.idle_state = "rest"
+    self.idle_timer = IDLE_REST_TIME
+    self.idle_phase = 1
+
+    self.aim_t = (self.aim_t or 0) - dt
+    if self.aim_t <= 0 then
+        self.aim_t = AIM_UPDATE_INTERVAL
+
+        local aim_pos = get_target_aim_pos(target)
+        local pitch_des = compute_desired_pitch_deg(self, aim_pos)
+        local yaw_des = compute_desired_yaw_deg(self, aim_pos)
+        yaw_des = wrap_deg_180(yaw_des + YAW_OFFSET_DEG)
+
+        self.yaw_target_step = clamp(snap_deg(yaw_des, YAW_STEP_DEG), YAW_MIN_DEG, YAW_MAX_DEG)
+        local _, pstep = pitch_deg_to_index(pitch_des)
+        self.pitch_target_step = pstep
+        self.aim_pos_cached = aim_pos
+    end
+	
+	-- LOS gating for tracking
+	self.track_los_t = (self.track_los_t or 0) - dt
+	if self.track_los_t <= 0 then
+		self.track_los_t = TRACK_LOS_INTERVAL
+
+		local vis = turret_target_visible(self, target, self.aim_pos_cached)
+		if vis then
+			self.target_last_seen_t = 0
+		else
+			self.target_last_seen_t = (self.target_last_seen_t or 0) + TRACK_LOS_INTERVAL
+		end
+	end
+
+	-- Drop it target
+	if (self.target_last_seen_t or 0) >= TRACK_LOS_FORGET_TIME then
+		self.idle_center_yaw = self.yaw_target_step or self.cur_yaw_step or self.idle_center_yaw or 0
+		self.target_id = nil
+		self.aim_pos_cached = nil
+		return
+	end
+
+    local yaw_target_step = self.yaw_target_step or 0
+    local pitch_target_step = self.pitch_target_step or 0
+
+    local yaw_out = apply_yaw_step_budget(self, dt, yaw_target_step, TRACK_YAW_STEPS_PER_SEC)
+    local pitch_out = apply_pitch_step_budget(self, dt, pitch_target_step, TRACK_PITCH_STEPS_PER_SEC)
+
+    play_cycle_once(self, yaw_idle_anim_name(yaw_out))
+    local pitch_idx, pitch_snapped = pitch_deg_to_index(pitch_out)
+    set_pitch_mesh(self, pitch_idx)
+
+    self.fire_cd = math.max(0, (self.fire_cd or 0) - dt)
+
+    local moving_track = (yaw_out ~= yaw_target_step) or (pitch_snapped ~= pitch_target_step)
+    update_motor_sound(self, dt, moving_track, false)
+
+    local aimed = (math.abs(wrap_deg_180(yaw_target_step - yaw_out)) <= AIM_YAW_TOL)
+               and (math.abs(pitch_target_step - pitch_snapped) <= AIM_PITCH_TOL)
+
+    if aimed and self.fire_cd <= 0 and self.los_cd <= 0 then
+        self.los_cd = LOS_CHECK_COOLDOWN
+
+        local aim_pos = self.aim_pos_cached or get_target_aim_pos(target)
+        local muzzle_bone = MUZZLE_BONES[self.pitch_idx]
+        local mpos, _ = get_muzzle_pos_dir(self.object, muzzle_bone)
+        if mpos then
+            local muzzle_pos = vector(); muzzle_pos:set(mpos)
+
+            if has_clear_shot(self, muzzle_pos, aim_pos, target) then
+                self:fire_once(aim_pos)
+                self.fire_cd = FIRE_COOLDOWN + random_float(0.1, 0.3)
+            end
+        end
+    end
+end
+
+function pistol_turret_wrapper:fire_once(aim_pos)
+    if not self.pitch_idx then return end
+
+    local ammo_sect = turret_mag_pop(self)
+    if not ammo_sect then return end
+
+    local muzzle_bone = MUZZLE_BONES[self.pitch_idx]
+    if not muzzle_bone then return end
+
+    local pos, barrel_dir = get_muzzle_pos_dir(self.object, muzzle_bone)
+    if not pos then return end
+
+    local muzzle_pos = vector()
+    muzzle_pos:set(pos)
+
+    if barrel_dir then
+        local off = vector()
+        off:set(barrel_dir)
+        off:mul(0.05)
+        muzzle_pos:add(off)
+    end
+
+    local dir = vector()
+    dir:set(aim_pos)
+    dir:sub(muzzle_pos)
+
+    if barrel_dir then
+        local dot = barrel_dir:dotproduct(dir)
+        dot = clamp(dot, -1, 1)
+        local ang = math.acos(dot) * 57.29577951308232
+        if ang > MAX_STEER_DEG then
+            return
+        end
+    end
+
+    if dir:magnitude() < 0.001 then return end
+    dir:normalize()
+
+    self.snd_shoot:play_no_feedback(self.object, sound_object.s3d, 0, self.object:position(), 1, random_float(0.9, 1.1))
+
+    call_add_bullet(
+        muzzle_pos,
+        dir,
+        BULLET_SPEED,
+        BULLET_POWER,
+        BULLET_IMPULSE,
+        self.object:id(),
+        HIT_TYPE,
+        BULLET_MAX_DIST,
+        ammo_sect,
+        BULLET_AIR_RES
+    )
+
+    if self.fx_muzzle then
+        self.fx_muzzle:move_to(muzzle_pos, dir)
+        self.fx_muzzle:play()
+    end
+end
+
+function pistol_turret_wrapper:net_destroy()
+    if self.snd_move and self.snd_move:playing() then self.snd_move:stop() end
+    if self.snd_out_of_ammo and self.snd_out_of_ammo:playing() then self.snd_out_of_ammo:stop() end
+
+    turret_sync_mag(self)
+
+    if self.mag and #self.mag > 0 then
+        local counts = {}
+        for _, sec in ipairs(self.mag) do
+            counts[sec] = (counts[sec] or 0) + 1
+        end
+
+        self.snd_ammo:play_no_feedback(self.object, sound_object.s3d, 0, self.object:position(), 1, random_float(0.9, 1.1))
+
+        local total = 0
+        for sec, n in pairs(counts) do
+            total = total + n
+            alife_create_item(sec, db.actor, { ammo = n })
+        end
+
+        actor_menu.set_msg(1, string.format(game.translate_string("st_turret_recovered_rounds"), total), 3)
+
+        turret_set_mag(self, {})
+    end
+
+    turret_clear_channel(self, self.published_channel or self:get_channel())
+
+    bind_hf_base.hf_binder_wrapper.net_destroy(self)
+end
+
+--------------------------------------------------------------------------------
+-- Init
+--------------------------------------------------------------------------------
+
+function init(obj)
+    obj:bind_object(pistol_turret_wrapper(obj).binder)
+end
