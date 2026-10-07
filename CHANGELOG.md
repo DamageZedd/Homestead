@@ -1,5 +1,26 @@
 # Homestead (Stalker Settlement Builder) - Changelog
 
+## v1.2.2 — Outposts Variance, Water Pump Clarifications & Smart Storage Fixes
+
+### 🧰 Smart Storage & Gun Case Scrap Fix (Community / OnariX):
+- **Dedicated Weapon & Armor Storage Routing (`get_auto_sort_target_box`)**: Fixed a bug where Hideout Furniture gun cases (`placeable_gun_case`) were matched as general crafting cases, causing scavengers and 1-click Auto-Sort to dump junk metal scrap and hardware fasteners into weapon cases.
+- **Strict Weapon/Armor & Hardware Separation**: Introduced dedicated `weapon_box` (rifles, shotguns, pistols, snipers) and `armor_box` (suits, helmets, tactical gear) routing targets while explicitly excluding weapon cases from `crafter_box`. Metal scrap and ammo parts now route exclusively to toolboxes, craft benches, or the main fallback chest.
+
+### 💧 Water Pump Clarification & In-Game PDA Guide (Community / OnariX):
+- **In-Game Guide & PDA Overhaul (`st_guide_s4_body`, `st_guide_s10_body`)**: Completely updated the in-game "How to Play" guide to clarify how water pumps actually function in Hideout Furniture. Clarified that placeable **Metal Barrels** (`placeable_barrel_metal`) and **Sinks** (`placeable_decor_sink`) act as water pumps.
+- **Filter Requirements & Refrigerator Deposit**: Detailed the 6-hour production cycle, charcoal/paper filter consumption from camp storage, and clean water flasks automatically depositing directly into camp refrigerators or blue chests. Updated in both English and Russian.
+
+### 🏕️ Dynamic Outpost Garrison Variance (Community / Queen Jadwiga):
+- **Dynamic Garrison Sizing without Map Camp Bloat**: Maintained the strict camp density limit (`max_camps_per_map = 3`) while making garrison NPC headcounts vary dynamically across outposts:
+  - **Scout Posts (~30%)**: Light garrison of 2–3 NPCs.
+  - **Standard Outposts (~45%)**: Fortified garrison of 3–4 NPCs.
+  - **Fortified Strongholds (~25%)**: Heavy double-squad garrison of 5–8 NPCs.
+- **Dynamic Squad Tier Progression**: Outpost squad compositions now scale with player rank progression, rolling novice, advanced, and veteran squads.
+- **Multi-Squad ALife Restraint & Release (`extra_squad_ids`)**: Full lifecycle tracking for multi-squad garrisons, ensuring all squads tether properly to camp stations, respond to alarms, and cleanly release when cleared or converted to mutant infestations.
+
+### 🏷️ UI Polish: Outposts Terminology:
+- **Renamed "Rival Camps" Tab to "Outposts" (`st_pda_tab_rivals`, `st_pda_rivals_title`)**: Updated tab labels, headers, and guide sections from "Rival Camps" to "Outposts", properly reflecting that neutral and allied factions (Loners, Clear Sky, Duty, Freedom, Ecologists) can also occupy wilderness outposts.
+
 ## v1.2.1 — Community Hotfix: Ghost Companions & Settler Idle Animations
 
 ### 👻 "Ghost Companion" Desync Elimination (Community / OnariX):

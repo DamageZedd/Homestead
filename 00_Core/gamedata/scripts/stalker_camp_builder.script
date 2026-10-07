@@ -6109,7 +6109,7 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local sec = type_(sec_or_item) == "string" and sec_or_item or (sec_or_item and sec_or_item.section and sec_or_item:section()) or ""
     local sec_l = string.lower(sec)
 
-    local fridge_box, stove_box, crafter_box, tech_box, medic_box = nil, nil, nil, nil, nil
+    local fridge_box, stove_box, crafter_box, tech_box, medic_box, weapon_box, armor_box = nil, nil, nil, nil, nil, nil, nil
     local settlement_chest, any_box = nil, nil
 
     local hub_obj = hub_id and safe_alife_object(hub_id)
@@ -6152,7 +6152,11 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
                 medic_box = medic_box or target_id
             elseif ssec:find("repair") or ssec:find("tool") or ssec:find("tech") or ssec:find("workshop") then
                 tech_box = tech_box or target_id
-            elseif ssec:find("case") or ssec:find("sumka") or ssec:find("ammo") then
+            elseif ssec:find("gun") or ssec:find("weapon") or ssec:find("rifle") or ssec:find("armory") then
+                weapon_box = weapon_box or target_id
+            elseif ssec:find("wardrobe") or ssec:find("locker") or ssec:find("armor") or ssec:find("suit") then
+                armor_box = armor_box or target_id
+            elseif (ssec:find("case") and not ssec:find("gun") and not ssec:find("weapon")) or ssec:find("sumka") or ssec:find("ammo") then
                 crafter_box = crafter_box or target_id
             elseif ssec:find("stash") or ssec:find("chest") or ssec:find("safe") or ssec:find("box_wood") or ssec:find("inv_box") or ssec:find("blue_box") then
                 settlement_chest = settlement_chest or target_id
@@ -6227,6 +6231,18 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
        or sec_l:find("yad") or sec_l:find("antibio") or sec_l:find("splint") or sec_l:find("iod")
        or sec_l == "akvatab" or sec_l:find("ibuprofen") then
         return medic_box or fallback_chest
+    end
+
+    -- Firearms and weapons route to dedicated Gun Cases / Weapon Racks
+    local is_wpn = (ini and ini:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
+    if is_wpn then
+        return weapon_box or fallback_chest
+    end
+
+    -- Armor and suits route to Wardrobes / Lockers
+    local is_outfit = (ini and ini:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
+    if is_outfit then
+        return armor_box or fallback_chest
     end
 
     if sec_l:find("ammo_") or sec_l:find("grenade_") or sec_l:find("gl_") or sec_l:find("vog_")

@@ -3,10 +3,10 @@
 ***IMPORTANT NOTICE***  
 **PLEASE READ BEFORE INSTALLING**
 
-Homestead is a comprehensive, deep settlement simulation overhaul. While v1.2.1 is a tested, architecturally unified release featuring full offline ALife simulation, always back up your saved games before updating or modifying large modlists.
+Homestead is a comprehensive, deep settlement simulation overhaul. While v1.2.2 is a tested, architecturally unified release featuring full offline ALife simulation, always back up your saved games before updating or modifying large modlists.
 
 **Author:** Damage_Zedd  
-**Version:** v1.2.1  
+**Version:** v1.2.2  
 
 ---
 
@@ -18,14 +18,14 @@ Homestead transforms the lonely, hostile wilderness of the Zone into a canvas fo
 
 Recruit companion stalkers or shelter arriving refugees to populate your settlement. Assign survivors to active job cycles—from standing guard at barricades and cooking mutant meat to repairing damaged gear, crafting ammunition, distilling ethanol, harvesting timber, and scavenging the wasteland. Balance your camp's happiness and water supplies; keep defenses high to prevent deadly raids; and customize every parameter directly in-game via a full **Mod Configuration Menu (MCM)**.
 
-With the **PDA Settlement Manager**, you can remotely monitor all of your active settlements from anywhere in the Zone—checking happiness, population, defenses, and chest supplies, reassigning survivor jobs in real-time, cycling production directives, fast-traveling to camps, summoning trade caravans, establishing trade routes between settlements, and keeping tabs on dynamic rival outposts. Homestead features dynamic wild spawning (outposts appear 25–50 meters away from smart terrains pointing towards the level's centroid) populated by actual, hijacked simulation ALife squads. Occupying NPCs patrol naturally within a 15-meter radius of the central chest and naturally leave the camp after 24 in-game hours to return to standard ALife simulation duties. Fully integrated into the *Hideout Furniture* ecosystem, Homestead delivers a polished, premium life-sim survival experience in the heart of the Zone.
+With the **PDA Settlement Manager**, you can remotely monitor all of your active settlements from anywhere in the Zone—checking happiness, population, defenses, and chest supplies, reassigning survivor jobs in real-time, cycling production directives, fast-traveling to camps, summoning trade caravans, establishing trade routes between settlements, and keeping tabs on dynamic wilderness outposts. Homestead features dynamic wild spawning (outposts appear 25–50 meters away from smart terrains pointing towards the level's centroid) populated by actual, hijacked simulation ALife squads. Occupying NPCs patrol naturally within a 15-meter radius of the central chest and naturally leave the camp after 24 in-game hours to return to standard ALife simulation duties. Fully integrated into the *Hideout Furniture* ecosystem, Homestead delivers a polished, premium life-sim survival experience in the heart of the Zone.
 
 ---
 
 ## Key Features
 
 - **Deployable Camp Hub**: Place a Hideout Furniture workbench to establish your camp zone with visual smoke/dust placement feedback, boundary alerts, and automatic 100m overlap placement blocks with item refunds.
-- **PDA Settlement Manager**: A fully integrated, interactive PDA tab allowing you to remotely track active camp statistics, reassign survivor jobs across an organized 2x6 grid, toggle remote directives, cycle camp specializations, fast-travel to camps, summon trade caravans, dismantle camps, rename camps and survivors, and monitor hostile rival camps from anywhere in the Zone.
+- **PDA Settlement Manager**: A fully integrated, interactive PDA tab allowing you to remotely track active camp statistics, reassign survivor jobs across an organized 2x6 grid, toggle remote directives, cycle camp specializations, fast-travel to camps, summon trade caravans, dismantle camps, rename camps and survivors, and monitor wilderness outposts from anywhere in the Zone.
 - **Companion & Refugee Recruitment**: Recruit companion stalkers or talk to arriving refugees to have them join your camp (subject to bed capacity and a configurable survivor cap).
 - **Settlement Jobs & Closed-Loop Economy**: Assign survivors to real-time work cycles (all configurable via MCM):
   - **Guard**: Patrols placed barricades and stands watch, raising camp Defense Rating.
@@ -53,11 +53,11 @@ With the **PDA Settlement Manager**, you can remotely monitor all of your active
 - **Dismantle Camp**: Cleanly remove a camp hub, furniture, and dismiss survivors from the PDA.
 - **Survivor Rename**: Give your settlers custom names via the PDA.
 - **Resource Dashboard**: Aggregate food/water/medical/ammo totals across all camps, displayed in the PDA Overview.
-- **Automated Water Pumps**: Water pumps and metal barrels produce clean drinking water flasks directly into camp storage every 6 in-game hours, consuming one charcoal or paper filter per batch (searches all camp containers automatically).
+- **Automated Water Pumps & Sinks**: In Hideout Furniture, placeable Metal Barrels (`placeable_barrel_metal`) or Sinks (`placeable_decor_sink`) function as water pumps. They produce clean drinking water flasks directly into camp refrigerators (or storage chests) every 6 in-game hours, consuming one charcoal or paper filter per batch from camp storage.
 - **Fridge Preservation**: Chills raw meat and food every 12 hours, restoring condition incrementally by +0.25 to simulate decay prevention.
 - **Morale Boosters**: Radios and pianos boost camp happiness/morale (+10% each) and attract idle survivors who play guitars or relax nearby.
 - **Camp Raids & Alarm Sirens**: Defensive gaps trigger raids by hostile squads (including advanced/veteran Bandits and Zombied). Placed alarms play subway sirens to warn of attacks. Post-raid summary shows raiders killed and guards lost.
-- **Dynamic Rival Camps**: Assault hostile outposts that dynamically spawn in the wild (25–50m from smart terrains, slope-aware placement) and are populated by actual hijacked ALife simulation squads. Occupants patrol within a 15-meter chest radius and naturally depart after 24 game hours. Cleared camps can be secured, dismantled, or dynamically captured or despawned by other factions. Loot scales with player rank.
+- **Dynamic Wilderness Outposts**: Assault or trade with dynamic outposts across the Zone (populated by hostile Bandits, Monolith, Mercenaries or friendly/allied Loners, Clear Sky, Duty, Freedom, Ecologists). Garrisons scale dynamically with player rank from light 2-man scout posts up to 8-man reinforced strongholds, with patrolling ALife squads. Occupants patrol within camp boundaries and clearings yield tactical loot caches.
 - **Random Settlement Events**: Campfire trade caravans visit to sell supplies, refugees arrive seeking work (despawn after 2 game days if not recruited), and mutant migrations require defense.
 - **Sleep Bonus**: Sleeping in a camp boundary restores satiety, power, and thirst to full (MCM toggle).
 - **Time-of-Day Modifiers**: Scavenge +20% at night (stealth), Cook -20% at night, Medic +20% at night.

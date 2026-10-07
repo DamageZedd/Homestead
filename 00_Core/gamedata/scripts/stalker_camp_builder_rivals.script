@@ -176,33 +176,43 @@ function stalker_camp_builder.restrain_rival_squads()
     local sim = alife()
     if not sim then return end
     for key, camp in pairs(sb.rival_camps) do
-        if type(camp) == "table" and camp.squad_id then
-            local squad = sim:object(camp.squad_id)
-            if squad then
-                squad.get_script_target = function(self)
-                    return self.id
-                end
+        if type(camp) == "table" then
+            if camp.squad_id then
+                local squad = sim:object(camp.squad_id)
+                if squad then
+                    squad.get_script_target = function(self)
+                        return self.id
+                    end
 
-                -- Auto-dislodge NPCs in existing saves that are stuck on the blue box
-                if level and level.name() == camp.level and camp.position then
-                    local cp = camp.position
-                    local needs_dislodge = false
-                    for k in sb.safe_squad_members(squad) do
-                        if k.id then
-                            local online_npc = level.object_by_id(k.id)
-                            if online_npc and online_npc.position and online_npc.alive and online_npc:alive() then
-                                local np = online_npc:position()
-                                local dx = np.x - cp.x
-                                local dz = np.z - cp.z
-                                if (dx * dx + dz * dz) < 1.0 and (np.y - cp.y) > 0.25 then
-                                    needs_dislodge = true
-                                    break
+                    -- Auto-dislodge NPCs in existing saves that are stuck on the blue box
+                    if level and level.name() == camp.level and camp.position then
+                        local cp = camp.position
+                        local needs_dislodge = false
+                        for k in sb.safe_squad_members(squad) do
+                            if k.id then
+                                local online_npc = level.object_by_id(k.id)
+                                if online_npc and online_npc.position and online_npc.alive and online_npc:alive() then
+                                    local np = online_npc:position()
+                                    local dx = np.x - cp.x
+                                    local dz = np.z - cp.z
+                                    if (dx * dx + dz * dz) < 1.0 and (np.y - cp.y) > 0.25 then
+                                        needs_dislodge = true
+                                        break
+                                    end
                                 end
                             end
                         end
+                        if needs_dislodge then
+                            sb.setup_rival_squad_positions(squad, camp, sim)
+                        end
                     end
-                    if needs_dislodge then
-                        sb.setup_rival_squad_positions(squad, camp, sim)
+                end
+            end
+            if camp.extra_squad_ids then
+                for _, ex_id in ipairs(camp.extra_squad_ids) do
+                    local ex_sq = sim:object(ex_id)
+                    if ex_sq then
+                        ex_sq.get_script_target = function(self) return self.id end
                     end
                 end
             end
@@ -542,12 +552,48 @@ local FACTION_SQUAD_PREFIX = {
     ["army"] = "army",
 }
 
-function stalker_camp_builder.get_dynamic_squad_section_for_faction(faction)
+function stalker_camp_builder.get_dynamic_squad_section_for_faction(faction, force_tier)
     local fac_prefix = FACTION_SQUAD_PREFIX[faction] or faction
-    local tier = (db.actor and db.actor:character_rank() >= 4000) and "_advanced" or "_novice"
+    local tier = force_tier
+    if not tier then
+        local rank = (db.actor and db.actor.character_rank and db.actor:character_rank()) or 0
+        local roll = math.random(100)
+        if rank >= 6000 then
+            -- High rank actor: 15% novice, 50% advanced, 35% veteran
+            if roll <= 15 then
+                tier = "_novice"
+            elseif roll <= 65 then
+                tier = "_advanced"
+            else
+                tier = "_veteran"
+            end
+        elseif rank >= 2500 then
+            -- Mid rank actor: 30% novice, 50% advanced, 20% veteran
+            if roll <= 30 then
+                tier = "_novice"
+            elseif roll <= 80 then
+                tier = "_advanced"
+            else
+                tier = "_veteran"
+            end
+        else
+            -- Early game: 55% novice, 35% advanced, 10% veteran
+            if roll <= 55 then
+                tier = "_novice"
+            elseif roll <= 90 then
+                tier = "_advanced"
+            else
+                tier = "_veteran"
+            end
+        end
+    end
+
     local sec = fac_prefix .. "_sim_squad" .. tier
     if ini_sys:section_exist(sec) then
         return sec
+    end
+    if tier == "_veteran" and ini_sys:section_exist(fac_prefix .. "_sim_squad_advanced") then
+        return fac_prefix .. "_sim_squad_advanced"
     end
     if ini_sys:section_exist(fac_prefix .. "_sim_squad_novice") then
         return fac_prefix .. "_sim_squad_novice"
@@ -555,6 +601,9 @@ function stalker_camp_builder.get_dynamic_squad_section_for_faction(faction)
     if faction ~= fac_prefix then
         if ini_sys:section_exist(faction .. "_sim_squad" .. tier) then
             return faction .. "_sim_squad" .. tier
+        end
+        if tier == "_veteran" and ini_sys:section_exist(faction .. "_sim_squad_advanced") then
+            return faction .. "_sim_squad_advanced"
         end
         if ini_sys:section_exist(faction .. "_sim_squad_novice") then
             return faction .. "_sim_squad_novice"
@@ -633,12 +682,19 @@ function stalker_camp_builder.update_rival_camps()
                         local squad = sim_alao:object(camp.squad_id)
                         if squad then alife_release(squad) end
                     end
+                    if camp.extra_squad_ids then
+                        for _, ex_id in ipairs_(camp.extra_squad_ids) do
+                            local ex_sq = sim_alao:object(ex_id)
+                            if ex_sq then alife_release(ex_sq) end
+                        end
+                        camp.extra_squad_ids = nil
+                    end
                     alife_release(se_chest)
                     sb.rival_camps[key] = nil
                 end
 
-                if camp.squad_id then
-                    local squad = alife_object(camp.squad_id)
+                if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) then
+                    local squad = camp.squad_id and alife_object(camp.squad_id)
                     local has_alive = false
                     if squad then
                         local sim = sim_alao
@@ -659,7 +715,31 @@ function stalker_camp_builder.update_rival_camps()
                             end
                         end
                     end
-                    if squad and has_alive then
+                    if not has_alive and camp.extra_squad_ids then
+                        for _, ex_id in ipairs_(camp.extra_squad_ids) do
+                            local ex_sq = alife_object(ex_id)
+                            if ex_sq then
+                                for k in sb.safe_squad_members(ex_sq) do
+                                    local is_alive = false
+                                    local online_obj = level.object_by_id(k.id)
+                                    if online_obj then
+                                        is_alive = online_obj:alive()
+                                    else
+                                        local se_obj = k.object or (k.id and sim_alao:object(k.id))
+                                        if se_obj and se_obj:alive() then
+                                            is_alive = true
+                                        end
+                                    end
+                                    if is_alive then
+                                        has_alive = true
+                                        break
+                                    end
+                                end
+                            end
+                            if has_alive then break end
+                        end
+                    end
+                    if has_alive then
                         local lifespan = camp.setup_duration or (sb.cfg.rival_camp_setup_duration or 43200)
                         if camp.setup_sec and (current_sec - camp.setup_sec >= lifespan) then
                             camp.tier = camp.tier or 1
@@ -736,7 +816,17 @@ function stalker_camp_builder.update_rival_camps()
                                     end
                                 end
                                 if best_base and SIMBOARD and SIMBOARD.assign_squad_to_smart then
-                                    pcall(function() SIMBOARD:assign_squad_to_smart(squad, best_base.id) end)
+                                    if squad then
+                                        pcall(function() SIMBOARD:assign_squad_to_smart(squad, best_base.id) end)
+                                    end
+                                    if camp.extra_squad_ids then
+                                        for _, ex_id in ipairs_(camp.extra_squad_ids) do
+                                            local ex_sq = sim_alao:object(ex_id)
+                                            if ex_sq then
+                                                pcall(function() SIMBOARD:assign_squad_to_smart(ex_sq, best_base.id) end)
+                                            end
+                                        end
+                                    end
                                 end
 
                                 camp.status = "unoccupied"
@@ -745,6 +835,7 @@ function stalker_camp_builder.update_rival_camps()
                                 local old_faction = camp.faction
                                 camp.faction = nil
                                 camp.squad_id = nil
+                                camp.extra_squad_ids = nil
                                 camp.cleared = true
                                 camp.despawn_chest_when_empty = true
 
@@ -1693,7 +1784,17 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                         end
 
                         local translated_level = game.translate_string(target_level)
-                        local suffixes = {" Outpost", " Enclave", " Camp", " Hideout"}
+                        local garrison_roll = mrandom(100)
+                        local is_stronghold = (garrison_roll <= 25)
+
+                        local suffixes
+                        if is_stronghold then
+                            suffixes = {" Stronghold", " Fortress", " Command Post", " Garrison"}
+                        elseif garrison_roll <= 65 then
+                            suffixes = {" Outpost", " Camp", " Enclave"}
+                        else
+                            suffixes = {" Scout Post", " Patrol Camp", " Lookout"}
+                        end
                         local name = translated_level .. suffixes[mrandom(#suffixes)] .. " #" .. tostring(mrandom(10, 99))
 
                         local actor_comm = actor and db.actor:character_community() or "stalker"
@@ -1702,7 +1803,7 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
 
                         local spot_type = is_hostile and "red_location" or "green_location"
                         local faction_name = game.translate_string(occupant_faction)
-                        local label = (is_hostile and "Rival Camp (" or "Occupied Camp (") .. faction_name .. "): " .. name
+                        local label = (is_hostile and "Hostile Outpost (" or "Occupied Outpost (") .. faction_name .. "): " .. name
                         if sb.cfg.show_rival_camp_map_spots ~= false then
                             level.map_add_object_spot_ser(se_chest.id, spot_type, label)
                         end
@@ -1809,10 +1910,21 @@ end
                         local occupant_squad = sb.create_squad_at_pos(squad_sec, pos, lvid, gvid)
                         local squad_id_val = occupant_squad and occupant_squad.id or 0
 
+                        local extra_squads = {}
+                        if is_stronghold then
+                            local sec_tier = (mrandom(100) <= 60) and "_novice" or "_advanced"
+                            local sec_squad_sec = sb.get_dynamic_squad_section_for_faction(occupant_faction, sec_tier)
+                            local sec_squad = sb.create_squad_at_pos(sec_squad_sec, pos, lvid, gvid)
+                            if sec_squad then
+                                extra_squads[#extra_squads + 1] = sec_squad.id
+                            end
+                        end
+
                         local camp_key = "rival_camp_" .. tostring(se_chest.id)
                         sb.rival_camps[camp_key] = {
                             chest_id = se_chest.id,
                             squad_id = squad_id_val,
+                            extra_squad_ids = extra_squads,
                             faction = occupant_faction,
                             name = name,
                             smart_name = smart_name,
@@ -1833,6 +1945,12 @@ end
 
                         if occupant_squad then
                             sb.setup_rival_squad_positions(occupant_squad, sb.rival_camps[camp_key], sim_alao)
+                        end
+                        if is_stronghold and #extra_squads > 0 then
+                            local sec_sq = alife_object(extra_squads[1])
+                            if sec_sq then
+                                sb.setup_rival_squad_positions(sec_sq, sb.rival_camps[camp_key], sim_alao)
+                            end
                         end
 
                         if actor then
@@ -1872,6 +1990,23 @@ function stalker_camp_builder.force_respawn_all_rival_camps()
                     end
                     alife_release(squad)
                 end
+            end
+            if camp.extra_squad_ids then
+                for _, ex_id in ipairs(camp.extra_squad_ids) do
+                    local ex_sq = sim:object(ex_id)
+                    if ex_sq then
+                        ex_sq.get_script_target = nil
+                        for k in sb.safe_squad_members(ex_sq) do
+                            if k.id then
+                                sb.camp_npc_released[k.id] = nil
+                                local se_npc = sim:object(k.id)
+                                if se_npc then alife_release(se_npc) end
+                            end
+                        end
+                        alife_release(ex_sq)
+                    end
+                end
+                camp.extra_squad_ids = nil
             end
 
             local se_chest = sim:object(camp.chest_id)
@@ -2209,6 +2344,21 @@ function stalker_camp_builder.zombify_rival_camp(camp)
             alife_release(old_squad)
         end
     end
+    if camp.extra_squad_ids then
+        for _, ex_id in ipairs(camp.extra_squad_ids) do
+            local ex_sq = sim:object(ex_id)
+            if ex_sq then
+                for k in sb.safe_squad_members(ex_sq) do
+                    if k.id then
+                        local se_obj = sim:object(k.id)
+                        if se_obj then alife_release(se_obj) end
+                    end
+                end
+                alife_release(ex_sq)
+            end
+        end
+        camp.extra_squad_ids = nil
+    end
 
     local squad_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
     local zomb_squad = sb.create_squad_at_pos("zombied_sim_squad_novice", squad_pos, camp.level_vertex_id, camp.game_vertex_id)
@@ -2243,6 +2393,34 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
     camp.cleared = false
     camp.unoccupied_time = nil
     camp.despawn_chest_when_empty = nil
+
+    if camp.squad_id then
+        local old_squad = sim:object(camp.squad_id)
+        if old_squad then
+            for k in sb.safe_squad_members(old_squad) do
+                if k.id then
+                    local se_obj = sim:object(k.id)
+                    if se_obj then alife_release(se_obj) end
+                end
+            end
+            alife_release(old_squad)
+        end
+    end
+    if camp.extra_squad_ids then
+        for _, ex_id in ipairs(camp.extra_squad_ids) do
+            local ex_sq = sim:object(ex_id)
+            if ex_sq then
+                for k in sb.safe_squad_members(ex_sq) do
+                    if k.id then
+                        local se_obj = sim:object(k.id)
+                        if se_obj then alife_release(se_obj) end
+                    end
+                end
+                alife_release(ex_sq)
+            end
+        end
+        camp.extra_squad_ids = nil
+    end
 
     local squad_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
     local mutant_squad = sb.create_squad_at_pos(mutant_type, squad_pos, camp.level_vertex_id, camp.game_vertex_id)
