@@ -1,6 +1,6 @@
 # Homestead (Stalker Settlement Builder) - Changelog
 
-## v1.2.2 — Outposts Variance, Water Pump Clarifications & Smart Storage Fixes
+## v1.2.2 — Dynamic Tactical Map Markers & PAW Crests, Outposts Variance, Water Pump Clarifications & Smart Storage Fixes
 
 ### 🧰 Smart Storage & Gun Case Scrap Fix (Community / OnariX):
 - **Dedicated Weapon & Armor Storage Routing (`get_auto_sort_target_box`)**: Fixed a bug where Hideout Furniture gun cases (`placeable_gun_case`) were matched as general crafting cases, causing scavengers and 1-click Auto-Sort to dump junk metal scrap and hardware fasteners into weapon cases.
