@@ -1575,6 +1575,7 @@ function stalker_camp_builder.process_medic_job(npc_id, box_id, camp, survivor)
     local target_sec = nil
     local req_vodka = 0
     local use_cloth = false
+    local req_bandage = false
 
     if m_order == "akvatab" then
         target_sec = (ini_sys and ini_sys:section_exist("akvatab") and "akvatab")
