@@ -122,6 +122,25 @@ local function has_clear_los(alarm_obj, target_obj, target_pos, rp)
     return (not hit_dist) or hit_dist <= 0 or hit_dist >= (dist - 0.05)
 end
 
+local function is_enemy_stalker_to_actor(o)
+    if not o or not db.actor then
+        return false
+    end
+
+    if o:clsid() ~= clsid.script_stalker then
+        return false
+    end
+
+    local ok_oid, oid = pcall(function() return o:id() end)
+    local ok_aid, aid = pcall(function() return db.actor:id() end)
+    if ok_oid and ok_aid and oid == aid then
+        return false
+    end
+
+    local ok, rel = pcall(function() return o:relation(db.actor) end)
+    return ok and rel == game_object.enemy
+end
+
 -- Exposed as a real global (not local) so Homestead's own raid-defense
 -- logic (stalker_camp_builder.script has_active_alarm) can reuse this
 -- exact detection check -- same 5m radius, facing cone, and LOS raycast
@@ -141,7 +160,15 @@ function alarm_has_targets(alarm_obj, radius, rp)
             local opos = o:position()
 
             if opos:distance_to(pos) <= radius then
-                if (cls == clsid.actor or cls == clsid.script_stalker or monster_classes[cls]) and o:alive() then
+                local is_target = false
+
+                if cls == clsid.script_stalker then
+                    is_target = is_enemy_stalker_to_actor(o)
+                elseif monster_classes[cls] then
+                    is_target = true
+                end
+
+                if is_target and o:alive() then
                     local tpos = get_target_center(o)
                     if is_in_front_of_bone(alarm_obj, "bone_led", o, min_dot) and has_clear_los(alarm_obj, o, tpos, rp) then
                         return true
