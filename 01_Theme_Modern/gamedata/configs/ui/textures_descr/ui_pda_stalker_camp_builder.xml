@@ -1,0 +1,219 @@
+<w>
+	<!-- Legacy taskboard entries for compatibility -->
+	<file name="ui\taskboard_icons">
+		<texture id="ui_inGame2_pda_taskboard_accept_e" x="0" y="100" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_accept_h" x="0" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_accept_t" x="0" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_accept_d" x="0" y="100" width="50" height="50" />
+
+		<texture id="ui_inGame2_pda_taskboard_next_e" x="100" y="100" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_next_h" x="100" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_next_t" x="100" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_next_d" x="100" y="100" width="50" height="50" />
+
+		<texture id="ui_inGame2_pda_taskboard_refresh_e" x="200" y="100" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_refresh_h" x="200" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_refresh_t" x="200" y="0" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_refresh_d" x="200" y="100" width="50" height="50" />
+        
+        <texture id="ui_inGame2_pda_taskboard_task_limit_reached_e" x="0" y="200" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_task_limit_reached_h" x="0" y="200" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_task_limit_reached_t" x="0" y="200" width="50" height="50" />
+        <texture id="ui_inGame2_pda_taskboard_task_limit_reached_d" x="0" y="200" width="50" height="50" />
+        
+        <!-- refresh button -->
+        <texture id="ui_inGame2_pda_taskboard_custom_refresh_e" x="256" y="0" width="172" height="42" />
+        <texture id="ui_inGame2_pda_taskboard_custom_refresh_h" x="256" y="50" width="172" height="42" />
+        <texture id="ui_inGame2_pda_taskboard_custom_refresh_t" x="256" y="100" width="172" height="42" />
+        <texture id="ui_inGame2_pda_taskboard_custom_refresh_d" x="256" y="150" width="172" height="42" />
+
+        <!-- panel 9-slice frame -->
+        <texture id="ui_inGame2_pda_taskboard_custom_background_lt"   x="250" y="200" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_l"    x="250" y="209" width="18" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_lb"   x="250" y="225" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_t"    x="268" y="200" width="60" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_back" x="268" y="209" width="60" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_b"    x="268" y="225" width="60" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_rt"   x="328" y="200" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_r"    x="328" y="209" width="18" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_rb"   x="328" y="225" width="18" height="9" />
+         
+        <!-- panel blocked 9-slice frame -->
+        <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_lt"   x="250" y="250" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_l"    x="250" y="259" width="18" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_lb"   x="250" y="275" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_t"    x="268" y="250" width="60" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_back" x="268" y="259" width="60" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_b"    x="268" y="275" width="60" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_rt"   x="328" y="250" width="18" height="9" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_r"    x="328" y="259" width="18" height="16" />
+	    <texture id="ui_inGame2_pda_taskboard_custom_background_blocked_rb"   x="328" y="275" width="18" height="9" />
+
+        <!-- category icons -->
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_bounty_task"              x="0"    y="400" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_assault_task"             x="100"  y="300" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_spy_task"                 x="200"  y="300" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_on_init_delivery_task"          x="300"  y="300" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_measure_task"             x="400"  y="300" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_on_init_fate_task"              x="100"  y="400" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_dominance_task"           x="0"    y="300" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_setup_fetch_task"               x="400"  y="200" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_script"                         x="200"  y="400" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_recover_mutant_data_location"   x="300"  y="400" width="100" height="100" />
+        <texture id="ui_inGame2_pda_taskboard_custom_category_rest"                           x="400"  y="400" width="100" height="100" />
+	</file>
+
+	<!-- Homestead Tactical UI Custom Textures -->
+	<file name="ui\homestead_pda\ui_card_bg">
+		<texture id="ui_homestead_card_bg" x="0" y="0" width="162" height="84" />
+	</file>
+	<file name="ui\homestead_pda\ui_card_selected">
+		<texture id="ui_homestead_card_selected" x="0" y="0" width="162" height="84" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_secure">
+		<texture id="ui_homestead_banner_secure" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_threat">
+		<texture id="ui_homestead_banner_threat" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_module_header">
+		<texture id="ui_homestead_module_header" x="0" y="0" width="350" height="20" />
+	</file>
+	<file name="ui\homestead_pda\ui_module_bg">
+		<texture id="ui_homestead_module_bg" x="0" y="0" width="350" height="84" />
+	</file>
+	<file name="ui\homestead_pda\btn_primary_e">
+		<texture id="ui_homestead_btn_primary_e" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_primary_h">
+		<texture id="ui_homestead_btn_primary_h" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_primary_t">
+		<texture id="ui_homestead_btn_primary_t" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_primary_d">
+		<texture id="ui_homestead_btn_primary_d" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_tactical_e">
+		<texture id="ui_homestead_btn_tactical_e" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_tactical_h">
+		<texture id="ui_homestead_btn_tactical_h" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_tactical_t">
+		<texture id="ui_homestead_btn_tactical_t" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_tactical_d">
+		<texture id="ui_homestead_btn_tactical_d" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_danger_e">
+		<texture id="ui_homestead_btn_danger_e" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_danger_h">
+		<texture id="ui_homestead_btn_danger_h" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_danger_t">
+		<texture id="ui_homestead_btn_danger_t" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\btn_danger_d">
+		<texture id="ui_homestead_btn_danger_d" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_active_e">
+		<texture id="ui_homestead_tab_active_e" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_active_h">
+		<texture id="ui_homestead_tab_active_h" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_active_t">
+		<texture id="ui_homestead_tab_active_t" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_active_d">
+		<texture id="ui_homestead_tab_active_d" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_inactive_e">
+		<texture id="ui_homestead_tab_inactive_e" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_inactive_h">
+		<texture id="ui_homestead_tab_inactive_h" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_inactive_t">
+		<texture id="ui_homestead_tab_inactive_t" x="0" y="0" width="256" height="64" />
+	</file>
+	<file name="ui\homestead_pda\tab_inactive_d">
+		<texture id="ui_homestead_tab_inactive_d" x="0" y="0" width="256" height="64" />
+	</file>
+
+	<!-- Level Landscape Thumbnails -->
+	<file name="ui\homestead_pda\thumb_l01_escape">
+		<texture id="ui_homestead_thumb_l01_escape" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l02_garbage">
+		<texture id="ui_homestead_thumb_l02_garbage" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l03_agroprom">
+		<texture id="ui_homestead_thumb_l03_agroprom" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l04_darkvalley">
+		<texture id="ui_homestead_thumb_l04_darkvalley" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l05_bar">
+		<texture id="ui_homestead_thumb_l05_bar" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l06_rostok">
+		<texture id="ui_homestead_thumb_l06_rostok" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l07_military">
+		<texture id="ui_homestead_thumb_l07_military" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l08_yantar">
+		<texture id="ui_homestead_thumb_l08_yantar" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l09_deadcity">
+		<texture id="ui_homestead_thumb_l09_deadcity" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l10_limansk">
+		<texture id="ui_homestead_thumb_l10_limansk" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l10_radar">
+		<texture id="ui_homestead_thumb_l10_radar" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l10_red_forest">
+		<texture id="ui_homestead_thumb_l10_red_forest" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l11_hospital">
+		<texture id="ui_homestead_thumb_l11_hospital" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_l11_pripyat">
+		<texture id="ui_homestead_thumb_l11_pripyat" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_pripyat">
+		<texture id="ui_homestead_thumb_pripyat" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_jupiter">
+		<texture id="ui_homestead_thumb_jupiter" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_zaton">
+		<texture id="ui_homestead_thumb_zaton" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_k00_marsh">
+		<texture id="ui_homestead_thumb_k00_marsh" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_k01_darkscape">
+		<texture id="ui_homestead_thumb_k01_darkscape" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_k02_trucks_cemetery">
+		<texture id="ui_homestead_thumb_k02_trucks_cemetery" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_y04_pole">
+		<texture id="ui_homestead_thumb_y04_pole" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\thumb_default">
+		<texture id="ui_homestead_thumb_default" x="0" y="0" width="256" height="128" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_neutral">
+		<texture id="ui_homestead_banner_neutral" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_dialog_bg">
+		<texture id="ui_homestead_dialog_bg" x="0" y="0" width="320" height="140" />
+	</file>
+</w>

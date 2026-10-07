@@ -1,0 +1,693 @@
+local sformat = string.format
+-- ============================================================================
+-- stalker_camp_builder_npc.script
+-- Homestead (Stalker Settlement Builder) Mod ? NPC Movement Module
+-- ----------------------------------------------------------------------------
+-- Functions:
+--   camp_npc_move_to, camp_npc_arrive (local-style helpers, exposed via table)
+--   anchor_settler_to_smart
+--   teleport_npc_to_camp_hub
+--   is_companion
+--   get_settler_display_name
+--
+-- Note: `npc_on_update` stays in the main script (it is a registered callback),
+-- but it calls `camp_npc_move_to` / `camp_npc_arrive` from this module via
+-- stalker_camp_builder.camp_npc_move_to(...).
+-- ============================================================================
+
+-- Namespace safety guard
+
+-- Cache of npc_id -> dedicated "home squad" id, used by the scripted_target
+-- home-anchor feature added to anchor_settler_to_smart (see below). Kept as
+-- a lightweight local table rather than persisted survivor-table state,
+-- since it's cheap to re-derive: if the cached squad is missing or invalid
+-- on a later call, we simply create a fresh one.
+local settler_home_squads = {}
+stalker_camp_builder.settler_home_squads = settler_home_squads
+
+local settler_last_dest_lvid = {}
+
+-- ============================================================================
+-- camp_npc_move_to ? release settler from vanilla scheme and walk to lvid
+-- ----------------------------------------------------------------------------
+-- Uses utils_obj.send_to_nearest_accessible_vertex to guarantee destination
+-- is on the AI mesh, and continuously sets dest vertex every update frame to
+-- prevent C++ engine stalker movement from wandering off.
+-- ============================================================================
+function stalker_camp_builder.camp_npc_move_to(npc, lvid, extra_lvid)
+    if not npc then return end
+    local sb = stalker_camp_builder
+    local type_ = type
+    local npc_id
+    local game_npc = npc
+
+    if type_(npc) == "number" then
+        npc_id = npc
+        game_npc = level.object_by_id(npc_id)
+        if not game_npc then return end
+    elseif type_(npc) == "userdata" or type_(npc) == "table" then
+        if type_(npc.id) == "function" then
+            npc_id = npc:id()
+        elseif type_(npc.id) == "number" then
+            npc_id = npc.id
+        end
+    end
+
+    if not game_npc or not npc_id then return end
+
+    -- Normalize destination vertex:
+    -- Could be called as (npc, lvid), (npc, target_pos, target_lvid), or (npc, target_pos)
+    local target_lvid = lvid
+    if type_(target_lvid) ~= "number" then
+        if type_(extra_lvid) == "number" then
+            target_lvid = extra_lvid
+        elseif type_(target_lvid) == "userdata" and target_lvid.x and target_lvid.y and target_lvid.z then
+            target_lvid = level.vertex_id(target_lvid)
+        else
+            return
+        end
+    end
+    if not target_lvid or target_lvid <= 0 or target_lvid >= 4294967295 or target_lvid == -1 then return end
+    if level and level.valid_vertex_id and not level.valid_vertex_id(target_lvid) then return end
+
+    local acc_lvid = target_lvid
+    if utils_obj and utils_obj.send_to_nearest_accessible_vertex then
+        acc_lvid = utils_obj.send_to_nearest_accessible_vertex(game_npc, target_lvid)
+    end
+    if not acc_lvid or acc_lvid <= 0 or acc_lvid >= 4294967295 or acc_lvid == -1 then
+        acc_lvid = game_npc:level_vertex_id()
+    end
+    if level and level.valid_vertex_id and not level.valid_vertex_id(acc_lvid) then
+        acc_lvid = game_npc:level_vertex_id()
+    end
+
+    if not (acc_lvid and level.valid_vertex_id and level.valid_vertex_id(acc_lvid)) then return end
+    if not game_npc:accessible(acc_lvid) then return end
+    if game_npc:level_vertex_id() == acc_lvid then return end
+
+    pcall(function()
+        if xr_motivator and xr_motivator.script_release then
+            xr_motivator.script_release(game_npc)
+        end
+    end)
+    sb.camp_npc_released[npc_id] = true
+
+    game_npc:set_dest_level_vertex_id(acc_lvid)
+    game_npc:set_path_type(game_object.level_path)
+    game_npc:set_movement_type(move.walk)
+    game_npc:set_body_state(move.standing)
+    game_npc:set_mental_state(anim.free)
+
+    if state_mgr then
+        local cur_state = state_mgr.get_state(game_npc)
+        if cur_state ~= "patrol" and cur_state ~= "walk" then
+            state_mgr.set_state(game_npc, "patrol", nil, nil, nil, { fast_set = true })
+        end
+    end
+
+    settler_last_dest_lvid[npc_id] = acc_lvid
+end
+
+-- Clear released destination cache so movement can re-trigger when destination changes
+function stalker_camp_builder.camp_npc_arrive(npc)
+    if not npc then return end
+    local type_ = type
+    local npc_id
+    if type_(npc) == "number" then
+        npc_id = npc
+    elseif type_(npc) == "userdata" or type_(npc) == "table" then
+        if type_(npc.id) == "function" then
+            npc_id = npc:id()
+        elseif type_(npc.id) == "number" then
+            npc_id = npc.id
+        end
+    end
+    if npc_id then
+        settler_last_dest_lvid[npc_id] = nil
+    end
+end
+
+-- ============================================================================
+-- anchor_settler_to_smart ? register settler into a smart terrain on the
+-- destination level so GAMMA's simulation_manager doesn't GC them as orphans
+-- during level transitions.
+-- ----------------------------------------------------------------------------
+-- v0.9.2 rewrite. This was the actual root cause behind the whole
+-- "settlers not coming to camp" saga -- every previous fix (recall button,
+-- companion-detection, teardown-grace, actor-squad unregistration) was
+-- correctly repositioning the settler's raw SE position, but GAMMA's own
+-- smart-terrain-driven squad simulation continuously repositions squad
+-- members toward wherever their ASSIGNED SMART TERRAIN is, independent of
+-- their raw position. If the smart-terrain anchor itself pointed somewhere
+-- other than the camp, that simulation would keep dragging the settler back
+-- there on every tick, silently undoing every position-only fix we made.
+--
+-- Two bugs, both fixed here:
+--
+-- 1. Wrong reference position. The old code always picked the smart
+--    terrain nearest to the settler's OWN current position at the moment
+--    of the call. That's fine if the settler is already standing at the
+--    camp, but several call sites invoke this BEFORE the settler has been
+--    moved there (e.g. heal_settler_squad_membership runs at the top of
+--    teleport_settler_to_camp_level, ahead of the actual position
+--    teleport). In that case the settler's "current position" is wherever
+--    they happened to be recruited or last wandered to -- meaning they'd
+--    get anchored to whatever smart terrain is nearest THAT location,
+--    which can be nowhere near the actual camp. Fixed by accepting an
+--    optional target_pos parameter (the camp hub's position) that callers
+--    can supply so the nearest-smart search always uses the correct
+--    destination, not the settler's stale current position.
+--
+-- 2. Sticky wrong anchor. The old code's early-return ("already anchored
+--    to a smart on the right level, leave it alone") only checked LEVEL
+--    equality, not proximity to the camp. Once a settler got anchored to
+--    ANY smart terrain on the correct level -- even one on the opposite
+--    side of a large level, far from the actual camp -- every subsequent
+--    call would see "same level" and leave the wrong anchor in place
+--    forever, since there was no mechanism to ever re-evaluate or correct
+--    it. Fixed by always computing the genuinely-nearest smart terrain to
+--    the reference position and comparing it against the current anchor by
+--    ID (not just level), only skipping the register/unregister churn when
+--    the current anchor IS already the best one.
+-- ============================================================================
+function stalker_camp_builder.anchor_settler_to_smart(npc_id, camp_level, target_pos)
+    local sformat = string.format
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return end
+    local se_obj = sb.safe_alife_object(npc_id)
+    if not se_obj then return end
+
+    -- CRITICAL ANTI-WANDER FIX:
+    -- Unregister the settler completely from any vanilla smart terrain.
+    -- In X-Ray, registering an NPC to a smart terrain forces them into the smart terrain's
+    -- job dispatcher (patrol, guard, kamp at the smart terrain 50-300m away), which makes them
+    -- continually walk away from the player's camp.
+    if se_obj.m_smart_terrain_id and se_obj.m_smart_terrain_id ~= 65535 then
+        local cur_smart = sb.safe_alife_object(se_obj.m_smart_terrain_id)
+        if cur_smart then
+            pcall(function() cur_smart:unregister_npc(se_obj) end)
+        end
+        se_obj.m_smart_terrain_id = 65535
+    end
+
+    -- Home-squad GC protection: ensure settler is in their own dedicated single-member squad
+    -- that is NOT assigned to any vanilla smart terrain.
+    local existing_home_id = settler_home_squads[npc_id]
+    local home_squad = existing_home_id and sb.safe_alife_object(existing_home_id)
+    local actor_squad_check = get_object_squad(db.actor)
+
+    if home_squad then
+        local still_valid = true
+        if actor_squad_check and home_squad.id == actor_squad_check.id then
+            still_valid = false
+        end
+        local ok_count, cnt = pcall(function() return home_squad:npc_count() end)
+        if not (ok_count and cnt and cnt <= 1) then
+            still_valid = false
+        end
+        if not still_valid then
+            home_squad = nil
+            settler_home_squads[npc_id] = nil
+        end
+    end
+
+    if not home_squad then
+        local cur_squad = get_object_squad(se_obj)
+        if cur_squad and (not actor_squad_check or cur_squad.id ~= actor_squad_check.id) then
+            home_squad = cur_squad
+        else
+            local spos = target_pos or sb.safe_position(se_obj)
+            if spos then
+                local ok_create, new_squad = pcall(function()
+                    return sim:create("online_offline_group", spos, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id)
+                end)
+                if ok_create and new_squad then
+                    local ok_reg = pcall(function() new_squad:register_member(npc_id) end)
+                    if ok_reg then
+                        if SIMBOARD then SIMBOARD.squads[new_squad.id] = new_squad end
+                        home_squad = new_squad
+                    end
+                end
+            end
+        end
+        if home_squad then
+            settler_home_squads[npc_id] = home_squad.id
+            home_squad.current_action = nil
+            home_squad.assigned_smart_id = nil
+            home_squad.scripted_target = nil
+            home_squad.get_script_target = function(self)
+                return nil
+            end
+            home_squad.stay_time = game.get_game_time()
+        end
+    else
+        home_squad.current_action = nil
+        home_squad.assigned_smart_id = nil
+        home_squad.scripted_target = nil
+        home_squad.get_script_target = function(self)
+            return nil
+        end
+    end
+end
+
+-- ============================================================================
+-- release_settler_home_squad ? clean up the dedicated home squad created by
+-- anchor_settler_to_smart's scripted_target feature above.
+-- ----------------------------------------------------------------------------
+-- Must be called whenever a settler permanently leaves camp.survivors
+-- tracking (dismiss, banish, death) or is handed off to the companion
+-- system (recruit_back, which creates its OWN separate squad for the
+-- companion role) -- otherwise this squad is silently orphaned in
+-- SIMBOARD.squads forever, one leaked squad per settler removed, for the
+-- rest of that save.
+-- ============================================================================
+function stalker_camp_builder.release_settler_home_squad(npc_id)
+    local sb = stalker_camp_builder
+    local squad_id = settler_home_squads[npc_id]
+    if not squad_id then return end
+    settler_home_squads[npc_id] = nil
+
+    local squad = sb.safe_alife_object(squad_id)
+    if not squad then return end
+
+    -- CRITICAL GC SAFETY: Unregister the settler member FIRST before attempting to release the squad.
+    -- In the X-Ray engine, releasing an online_offline_group (squad) will release and destroy ALL
+    -- registered member NPCs! If an NPC is still registered in this squad when alife():release(squad)
+    -- is called, that NPC is permanently deleted from the world/save (Happy's bug).
+    pcall(function() squad:unregister_member(npc_id) end)
+    local se_npc = alife_object(npc_id)
+    if se_npc and se_npc.group_id == squad_id then
+        se_npc.group_id = 65535
+    end
+
+    -- ONLY release the squad if it is now confirmed completely empty (npc_count == 0).
+    -- If there are any other members remaining in the squad for any reason, do NOT release it!
+    local ok_count, cnt = pcall(function() return squad:npc_count() end)
+    if ok_count and cnt and cnt == 0 then
+        if SIMBOARD then SIMBOARD.squads[squad_id] = nil end
+        local ok_release = pcall(function() sb.safe_alife_release(squad) end)
+        if ok_release then
+            -- printf(string.format("[Homestead] release_settler_home_squad: released empty home squad %d", squad_id))
+        end
+    end
+end
+
+-- ============================================================================
+-- convert_settler_to_companion_squad -- convert or assign settler to a valid companion squad
+-- ----------------------------------------------------------------------------
+-- Anomaly and GAMMA's companion tracking (axr_companions.companion_squads) tracks
+-- squads, not bare NPCs. When a settler is recruited into the companion role,
+-- they MUST belong to a valid single-member squad registered in companion_squads
+-- with scripted_target = "actor" and any Homestead nil-override on get_script_target
+-- removed.
+-- ============================================================================
+function stalker_camp_builder.convert_settler_to_companion_squad(npc_id, online_npc)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not sim then return nil end
+
+    local se_npc = sim:object(npc_id)
+    if not se_npc then return nil end
+
+    local home_id = settler_home_squads[npc_id]
+    local squad = se_npc and get_object_squad(se_npc)
+    if home_id and (not squad or squad.id ~= home_id) then
+        local home_sq = sb.safe_alife_object(home_id)
+        if home_sq then squad = home_sq end
+    end
+
+    -- If squad missing or contains multiple other members, create a dedicated squad
+    if not squad or squad:npc_count() > 1 then
+        if squad and squad:npc_count() > 1 then
+            pcall(function() squad:unregister_member(npc_id) end)
+        end
+        local spos = online_npc and online_npc:position() or se_npc.position
+        local lvid = online_npc and online_npc:level_vertex_id() or se_npc.m_level_vertex_id
+        local gvid = online_npc and online_npc:game_vertex_id() or se_npc.m_game_vertex_id
+        local ok_create, new_squad = pcall(function()
+            return sim:create("online_offline_group", spos, lvid, gvid)
+        end)
+        if ok_create and new_squad then
+            pcall(function() new_squad:register_member(npc_id) end)
+            if SIMBOARD then SIMBOARD.squads[new_squad.id] = new_squad end
+            squad = new_squad
+        end
+    end
+
+    -- Clean from settler home squad tracking so Homestead treats them as companion, not anchored settler
+    settler_home_squads[npc_id] = nil
+
+    if squad then
+        -- Restore default script target resolution (removes Homestead's nil-override)
+        squad.get_script_target = nil
+        squad.assigned_smart_id = nil
+        squad.current_action = nil
+        if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+            SIMBOARD:assign_squad_to_smart(squad, nil)
+        end
+        squad.scripted_target = "actor"
+
+        -- Register in axr_companions table
+        if axr_companions and axr_companions.companion_squads then
+            axr_companions.companion_squads[squad.id] = squad
+        end
+    end
+
+    return squad
+end
+
+-- ============================================================================
+-- get_settler_job_target ? resolve target position/vertices for a settler's job
+-- returns: target_pos (vector), target_lvid, target_gvid
+-- ============================================================================
+function stalker_camp_builder.get_settler_job_target(npc_id, hub_id)
+    local sb = stalker_camp_builder
+    local hub_obj = alife_object(hub_id)
+    if not hub_obj then return nil, nil, nil end
+
+    local camp = sb.active_camps[hub_id]
+    if not camp then
+        return hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id
+    end
+
+    local survivor = camp.survivors and camp.survivors[npc_id]
+    if survivor and survivor.assigned_pos then
+        local ap = survivor.assigned_pos
+        local vec_pos = nil
+        if ap.x and ap.y and ap.z then
+            vec_pos = vector():set(ap.x, ap.y, ap.z)
+        elseif ap.pos then
+            vec_pos = type(ap.pos) == "table" and vector():set(ap.pos.x, ap.pos.y, ap.pos.z) or ap.pos
+        end
+        if vec_pos then
+            return vec_pos, ap.lvid or hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id
+        end
+    end
+
+    local job = survivor and survivor.job or "idle"
+    local job_structs = {
+        guard = {"barricade", "gadget"},
+        cook = {"stove", "fridge", "workbench"},
+        craft = {"workbench"},
+        repair = {"repair_bench", "workbench"},
+        medic = {"medstation", "bed", "fridge"},
+        electrician = {"light", "workbench"},
+        scavenge = {"stash", "box", "fridge", "workbench"},
+        scavenger = {"stash", "box", "fridge", "workbench"},
+        hunter = {"fridge", "box", "stash", "workbench"},
+        idle = {"piano", "radio"}
+    }
+
+    local preferred = job_structs[job] or {"workbench"}
+    
+    -- Check sticky furniture assignment first
+    if survivor and survivor.assigned_furniture then
+        for _, stype in ipairs(preferred) do
+            local assigned_id = survivor.assigned_furniture[stype]
+            if assigned_id then
+                local se_struct = alife_object(assigned_id)
+                if se_struct then
+                    if sb.get_furniture_front_vertex_and_pos then
+                        local f_lvid, f_pos = sb.get_furniture_front_vertex_and_pos(se_struct.position, 1.4)
+                        if f_lvid and f_pos then
+                            return f_pos, f_lvid, se_struct.m_game_vertex_id
+                        end
+                    end
+                    return se_struct.position, se_struct.m_level_vertex_id, se_struct.m_game_vertex_id
+                end
+            end
+        end
+    end
+
+    -- Search camp structures
+    if camp.structures then
+        for _, stype in ipairs(preferred) do
+            for struct_id, type_name in pairs(camp.structures) do
+                if type_name == stype then
+                    local se_struct = alife_object(struct_id)
+                    if se_struct then
+                        if survivor then
+                            survivor.assigned_furniture = survivor.assigned_furniture or {}
+                            survivor.assigned_furniture[stype] = struct_id
+                        end
+                        if sb.get_furniture_front_vertex_and_pos then
+                            local f_lvid, f_pos = sb.get_furniture_front_vertex_and_pos(se_struct.position, 1.4)
+                            if f_lvid and f_pos then
+                                return f_pos, f_lvid, se_struct.m_game_vertex_id
+                            end
+                        end
+                        return se_struct.position, se_struct.m_level_vertex_id, se_struct.m_game_vertex_id
+                    end
+                end
+            end
+        end
+    end
+
+    -- Default fallback: hub position (offset so settler never spawns inside workbench)
+    if sb.get_furniture_front_vertex_and_pos then
+        local f_lvid, f_pos = sb.get_furniture_front_vertex_and_pos(hub_obj.position, 1.5)
+        if f_lvid and f_pos then
+            return f_pos, f_lvid, hub_obj.m_game_vertex_id
+        end
+    end
+    return hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id
+end
+
+-- ============================================================================
+-- teleport_npc_to_camp_hub ? relocate an alife object to a camp hub / job furniture
+-- ============================================================================
+function stalker_camp_builder.teleport_npc_to_camp_hub(npc_id, hub_id, force)
+    local sb = stalker_camp_builder
+    if sb.teleport_settler_to_camp_level then
+        return sb.teleport_settler_to_camp_level(npc_id, hub_id, force)
+    end
+end
+
+-- ============================================================================
+-- is_companion ? check if NPC is in the actor's companion squad
+-- ============================================================================
+function stalker_camp_builder.is_companion(npc)
+    local type_ = type
+    if not npc then return false end
+
+    local npc_id
+    if type_(npc) == "number" then
+        npc_id = npc
+    elseif type_(npc) == "userdata" or type_(npc) == "table" then
+        if type_(npc.id) == "function" then
+            npc_id = npc:id()
+        elseif type_(npc.id) == "number" then
+            npc_id = npc.id
+        else
+            if type_(npc.has_info) == "function" or type_(npc.clsid) == "function" then
+                npc_id = npc:id()
+            end
+        end
+    end
+
+    if not npc_id then return false end
+
+    if type_(npc) == "userdata" or type_(npc) == "table" then
+        if type_(npc.has_info) == "function" then
+            if dialogs_axr_companion and dialogs_axr_companion.is_actor_companion then
+                if dialogs_axr_companion.is_actor_companion(db.actor, npc) then
+                    return true
+                end
+            end
+            if npc:has_info("npcx_is_companion") then
+                return true
+            end
+        end
+    end
+
+    if alife():has_info(npc_id, "npcx_is_companion") then
+        return true
+    end
+
+    if axr_companions and axr_companions.list_actor_squad_by_id then
+        local list = axr_companions.list_actor_squad_by_id()
+        for i = 1, #list do
+            if list[i] == npc_id then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
+-- ============================================================================
+-- get_settler_display_name ? formatted survivor name with tier + job suffix
+-- ============================================================================
+function stalker_camp_builder.get_settler_display_name(survivor)
+    if not survivor then return "Survivor" end
+    local name = survivor.name or "Survivor"
+    local job = survivor.job or "idle"
+    local tier = survivor.tier or 0
+    -- If the player has renamed the settler, don't auto-nickname
+    if survivor.renamed then return name end
+    -- Add tier prefix for skilled+ settlers
+    local tier_prefix = ""
+    if tier >= 3 then tier_prefix = "Master "
+    elseif tier >= 2 then tier_prefix = "Expert "
+    elseif tier >= 1 then tier_prefix = "Skilled "
+    end
+    -- Add job suffix
+    local job_suffix = ""
+    if job == "cook" then job_suffix = " the Cook"
+    elseif job == "craft" then job_suffix = " the Crafter"
+    elseif job == "repair" then job_suffix = " the Repairer"
+    elseif job == "scavenge" then job_suffix = " the Scavenger"
+    elseif job == "hunter" then job_suffix = " the Hunter"
+    elseif job == "guard" then job_suffix = " the Guard"
+    elseif job == "medic" then job_suffix = " the Medic"
+    elseif job == "electrician" then job_suffix = " the Electrician"
+    end
+    return tier_prefix .. name .. job_suffix
+end
+
+
+-- ============================================================================
+-- setup_settler_beh_logic -- Dedicated Settler BEH Scheme Workstation Lock (v1.0.6)
+-- ----------------------------------------------------------------------------
+-- Leverages Homestead's dedicated 'beh' scheme (scripts\beh_settler.ltx)
+-- and 'npcx_beh_wait' state. When active, the X-Ray action planner locks
+-- the settler to their station vertex (rally_lvid), disables corpse looting,
+-- item gathering, and wandering AI, while guaranteeing full player dialog,
+-- trade, and camp defense capabilities.
+-- ============================================================================
+function stalker_camp_builder.setup_settler_beh_logic(npc, target_lvid, look_pos, anim_name)
+    if not (npc and npc.id) then return end
+    if npc.alive and not npc:alive() then return end
+    local npc_id = npc:id()
+    if not db.storage[npc_id] then
+        db.storage[npc_id] = {}
+    end
+    local st = db.storage[npc_id]
+
+    -- Engine scheme hardening: guarantee stype and beh scheme registration for stalkers
+    -- Prevents "!ERROR: ... trying to use a scheme not intended for stype scheme=beh stype=nil"
+    local stype = st.stype or (modules and modules.stype_stalker) or 0
+    st.stype = stype
+    if schemes_by_stype then
+        for s_idx = 0, 4 do
+            schemes_by_stype[s_idx] = schemes_by_stype[s_idx] or {}
+            schemes_by_stype[s_idx]["beh"] = true
+        end
+    end
+    if schemes and not schemes["beh"] then
+        schemes["beh"] = "axr_beh"
+    end
+
+    -- Ensure st.beh is a valid table, never a boolean or nil
+    if type(st.beh) ~= "table" then
+        st.beh = {}
+    end
+
+    -- 1. Activate dedicated settler beh scheme if not already active
+    if not (st.active_scheme == "beh" and st.beh_homestead_active) then
+        pcall(function()
+            if xr_logic and xr_logic.set_new_scheme_and_logic then
+                local ltx_file = "scripts\\beh_settler.ltx"
+                local test_ini = ini_file(ltx_file)
+                if not (test_ini and test_ini:section_exist("logic")) then
+                    ltx_file = "scripts\\beh_companion.ltx"
+                    test_ini = ini_file(ltx_file)
+                end
+                local act_sec = (ltx_file == "scripts\\beh_settler.ltx") and "beh@settler" or "beh@base"
+
+                if xr_logic.configure_schemes and (not st.ini or st.ini_filename ~= ltx_file) then
+                    xr_logic.configure_schemes(npc, test_ini, ltx_file, stype, "logic", "")
+                end
+
+                xr_logic.set_new_scheme_and_logic(npc, "beh", act_sec, "logic", nil, ltx_file)
+                st.beh_homestead_active = true
+            end
+        end)
+    end
+
+    -- 2. Give the exact infoportions that make companions hold position
+    pcall(function()
+        npc:give_info_portion("npcx_beh_wait")
+        npc:disable_info_portion("npcx_beh_patrol_mode")
+        npc:disable_info_portion("npcx_beh_gather_items")
+        npc:disable_info_portion("npcx_beh_loot_corpses")
+        npc:disable_info_portion("npcx_beh_hide_in_cover")
+    end)
+
+    -- 3. Set rally_lvid so the beh evaluator holds them at target_lvid
+    if st and type(st.beh) == "table" and target_lvid and target_lvid > 0 then
+        if (not level) or (not level.valid_vertex_id) or level.valid_vertex_id(target_lvid) then
+            st.beh.rally_lvid = target_lvid
+            st.beh.am_i_reached = true
+        end
+    end
+
+    -- 4. Enforce physical stand lock
+    if target_lvid and target_lvid > 0 and level and level.valid_vertex_id and level.valid_vertex_id(target_lvid) then
+        pcall(function() npc:set_dest_level_vertex_id(target_lvid) end)
+    end
+    npc:set_movement_type(move.stand)
+    npc:set_body_state(move.standing)
+    npc:set_mental_state(anim.free)
+
+    -- 5. Guarantee talkable meet configuration regardless of cached scheme logic
+    pcall(function()
+        if npc.enable_talk then
+            npc:enable_talk()
+        end
+    end)
+    if st and st.meet then
+        pcall(function()
+            st.meet.use = xr_logic.parse_condlist(npc, "meet", "use", "true")
+            st.meet.close_anim = xr_logic.parse_condlist(npc, "meet", "close_anim", "guard")
+            st.meet.close_snd_hello = xr_logic.parse_condlist(npc, "meet", "close_snd_hello", "nil")
+            st.meet.close_snd_bye = xr_logic.parse_condlist(npc, "meet", "close_snd_bye", "nil")
+            st.meet.snd_on_use = xr_logic.parse_condlist(npc, "meet", "snd_on_use", "nil")
+            st.meet.close_distance = xr_logic.parse_condlist(npc, "meet", "close_distance", "4")
+            st.meet.close_victim = xr_logic.parse_condlist(npc, "meet", "close_victim", "actor")
+            st.meet.far_anim = xr_logic.parse_condlist(npc, "meet", "far_anim", "nil")
+            st.meet.far_snd = xr_logic.parse_condlist(npc, "meet", "far_snd", "nil")
+            st.meet.far_distance = xr_logic.parse_condlist(npc, "meet", "far_distance", "6")
+            st.meet.far_victim = xr_logic.parse_condlist(npc, "meet", "far_victim", "actor")
+            st.meet.trade_enable = xr_logic.parse_condlist(npc, "meet", "trade_enable", "true")
+            st.meet.abuse = xr_logic.parse_condlist(npc, "meet", "abuse", "false")
+            st.meet.allow_break = xr_logic.parse_condlist(npc, "meet", "allow_break", "true")
+            st.meet.meet_on_talking = xr_logic.parse_condlist(npc, "meet", "meet_on_talking", "true")
+            st.meet.commander_threat = nil
+            if st.meet.meet_manager then
+                st.meet.meet_manager.use = "true"
+                st.meet.meet_manager.abuse_mode = "false"
+                st.meet.meet_manager.allow_break = true
+            end
+        end)
+    end
+
+    -- 6. Play workstation animation facing furniture (validated against state_lib.states)
+    if state_mgr and anim_name then
+        local safe_anim = anim_name
+        if state_lib and state_lib.states and not state_lib.states[safe_anim] then
+            safe_anim = "guard"
+        end
+        local cur_state = state_mgr.get_state(npc)
+        if cur_state ~= safe_anim then
+            state_mgr.set_state(npc, safe_anim, nil, nil, { look_position = look_pos }, { fast_set = true })
+        end
+    end
+end
+
+function stalker_camp_builder.restore_settler_logic(npc)
+    if not npc then return end
+    local npc_id = npc:id()
+    local st = db.storage[npc_id]
+    if st then st.beh_homestead_active = nil end
+    pcall(function()
+        npc:disable_info_portion("npcx_beh_wait")
+        npc:disable_info_portion("npcx_beh_cannot_dismiss")
+        if xr_logic and xr_logic.restore_scheme_and_logic then
+            xr_logic.restore_scheme_and_logic(npc)
+        end
+    end)
+end
+

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="windows-1251"?>
+<string_table>
+	<string id="st_pistol_turret">
+		<text>Авто-турель</text>
+	</string>
+	<string id="st_pistol_turret_descr">
+		<text>Самодельная турель на базе пистолета-пулемета с глушителем. Быстро наводится на врагов и ведет плотный огонь, но быстро расходует патроны и требует продуманного размещения. \n \n
+			%c[ui_white]СВОЙСТВА:\n
+			%c[d_orange] - %c[ui_white] Можно установить\n
+			%c[d_blue] - %c[ui_white] Патроны: 9x19\n</text>
+	</string>
+	<string id="st_turret_table">
+		<text>Стол для турели</text>
+	</string>
+	<string id="st_turret_table_descr">
+		<text>Устойчивый стол, сваренный из металлолома для установки оружейной турели. \n \n
+			%c[ui_white]СВОЙСТВА:\n
+			%c[d_orange] - %c[ui_white] Можно установить\n</text>
+	</string>
+	<string id="st_reload_pistel_turret">
+		<text>Перезарядка</text>
+	</string>
+	<string id="st_ammo_amount">
+		<text>Количество патронов</text>
+	</string>
+	<string id="st_channel">
+		<text>Установить канал</text>
+	</string>
+	<string id="st_turret_channel">
+		<text>Канал</text>
+	</string>
+	<string id="st_channel_off">
+		<text>выкл</text>
+	</string>
+	<string id="st_display_counter">
+		<text>Газоразрядный индикатор</text>
+	</string>
+	<string id="st_display_counter_descr">
+		<text>Счетчик на газоразрядных индикаторах, отображающий данные с подключенного устройства. \n \n
+			%c[ui_white]СВОЙСТВА:\n
+			%c[d_orange] - %c[ui_white] Можно установить\n</text>
+	</string>
+</string_table>

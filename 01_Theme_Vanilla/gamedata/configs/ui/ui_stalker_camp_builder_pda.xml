@@ -1,0 +1,667 @@
+<w>
+    <!-- Background Frame (main border of the tab area) -->
+    <background x="28" y="106" width="764" height="603" stretch="1">
+        <texture>ui_inGame2_pda_buttons_background</texture>
+    </background>
+
+    <!-- Vertical Divider Line separating Left Rail and Panels -->
+    <left_frame x="34" y="112" width="166" height="268">
+        <texture>ui_inGame2_pda_buttons_background</texture>
+    </left_frame>
+
+        <!-- Left Rail Tab Container -->
+    <left_container x="40" y="106" width="162" height="603" stretch="1">
+        <btn_tab_overview x="0" y="10" width="148" height="36" check_mode="0" stretch="1">
+            <texture>ui_homestead_btn_on</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_tab_overview</text>
+        </btn_tab_overview>
+        
+        <btn_tab_survivors x="0" y="52" width="148" height="36" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_tab_survivors</text>
+        </btn_tab_survivors>
+        
+        <btn_tab_rivals x="0" y="94" width="148" height="36" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_tab_rivals</text>
+        </btn_tab_rivals>
+
+        <btn_tab_radio x="0" y="136" width="148" height="36" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_tab_radio</text>
+        </btn_tab_radio>
+        
+        <btn_tab_guide x="0" y="178" width="148" height="36" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_tab_guide</text>
+        </btn_tab_guide>
+
+        <btn_refresh_survivors x="0" y="224" width="148" height="36" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica18" align="c" vert_align="c">st_pda_btn_refresh_survivors</text>
+        </btn_refresh_survivors>
+    </left_container>
+
+        <!-- Top Status Bar: Signal, Weather, Clock, Active Settlement -->
+    <top_status_bar x="212" y="108" width="564" height="24" stretch="1">
+    </top_status_bar>
+    <status_signal x="216" y="112" width="135" height="16">
+        <text font="letterica16" r="200" g="200" b="200" align="l">SIGNAL: 100% (LOCAL)</text>
+    </status_signal>
+    <status_weather x="356" y="112" width="125" height="16">
+        <text font="letterica16" r="200" g="200" b="200" align="l">ATMOS: OPTIMAL</text>
+    </status_weather>
+    <status_clock x="486" y="112" width="85" height="16">
+        <text font="letterica16" r="238" g="196" b="112" align="l">TIME: --:--</text>
+    </status_clock>
+    <status_camp x="576" y="112" width="195" height="16">
+        <text font="letterica16" r="200" g="200" b="200" align="r"></text>
+    </status_camp>
+
+    <!-- Column 1: Settlements List (Left portion of the panel, visible in Overview & Survivors) -->
+    <list_header_bg x="212" y="136" width="180" height="24" stretch="1">
+    </list_header_bg>
+    <settlement_header x="217" y="140" width="170" height="20">
+        <text font="letterica18" r="238" g="196" b="112" align="c">st_pda_settlements_title</text>
+    </settlement_header>
+    
+    <settlement_list x="212" y="162" width="180" height="510" item_height="88"
+                      can_select="1" always_show_scroll="1" stretch="1">
+        <font r="200" g="200" b="200" font="letterica18"/>
+        <text_color>
+            <e r="238" g="196" b="112"/>
+            <d r="70"  g="70"  b="70"/>
+        </text_color>
+    </settlement_list>
+
+    <!-- Placeholder label if no settlements exist -->
+    <no_settlements_label x="212" y="250" width="560" height="100">
+        <text font="letterica18" align="c" r="200" g="200" b="200">st_pda_no_settlements</text>
+    </no_settlements_label>
+
+    <!-- Tab 1: Scrollable Camp Overview Panel -->
+    <overview_panel x="406" y="136" width="370" height="536" stretch="1">
+        <overview_scroll x="0" y="0" width="370" height="536" always_show_scroll="0" stretch="1"/>
+    </overview_panel>
+
+                <overview_content x="0" y="0" width="350" height="510" stretch="1">
+        <!-- Top Header Card (y=0 to y=68) -->
+        <camp_header_bg x="0" y="0" width="350" height="40" stretch="1">
+        </camp_header_bg>
+        <camp_name x="0" y="1" width="350" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c" complex_mode="1"/>
+        </camp_name>
+        <camp_spec_badge x="0" y="22" width="350" height="32">
+            <text font="letterica16" r="200" g="200" b="200" align="c" vert_align="t" complex_mode="1"/>
+        </camp_spec_badge>
+        <raid_banner_bg x="0" y="53" width="350" height="22" stretch="1">
+        </raid_banner_bg>
+        <raid_banner_lbl x="0" y="55" width="350" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="c" vert_align="c" complex_mode="1">st_pda_raid_alert_secure</text>
+        </raid_banner_lbl>
+
+        <!-- Module A: Personnel & Habitation (y=74 to y=140, h=66) -->
+        <pop_card_bg x="0" y="74" width="350" height="66" stretch="1">
+        </pop_card_bg>
+        <pop_header_bg x="0" y="93" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </pop_header_bg>
+        <pop_card_lbl x="10" y="76" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c" complex_mode="1">st_pda_settlement_pop_lbl</text>
+        </pop_card_lbl>
+        <camp_pop x="10" y="98" width="330" height="18">
+            <text font="letterica16" r="238" g="196" b="112" align="l" complex_mode="1"></text>
+        </camp_pop>
+        <camp_pop_gauge x="10" y="118" width="330" height="18">
+            <text font="letterica16" r="160" g="160" b="160" align="l" complex_mode="1"></text>
+        </camp_pop_gauge>
+
+        <!-- Module B: Defense & Perimeter Security (y=146 to y=228, h=82) -->
+        <def_card_bg x="0" y="146" width="350" height="82" stretch="1">
+        </def_card_bg>
+        <def_header_bg x="0" y="165" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </def_header_bg>
+        <def_card_lbl x="10" y="148" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c" complex_mode="1">st_pda_settlement_def_lbl</text>
+        </def_card_lbl>
+        <camp_def x="10" y="170" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </camp_def>
+        <camp_def_breakdown x="10" y="188" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </camp_def_breakdown>
+        <camp_threat_lvl x="10" y="206" width="330" height="18">
+            <text font="letterica16" r="238" g="196" b="112" align="l" complex_mode="1"></text>
+        </camp_threat_lvl>
+
+        <!-- Module C: Logistics, Life Support & Morale (y=234 to y=316, h=82) -->
+        <logistics_card_bg x="0" y="234" width="350" height="82" stretch="1">
+        </logistics_card_bg>
+        <logistics_header_bg x="0" y="253" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </logistics_header_bg>
+        <logistics_card_lbl x="10" y="236" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c" complex_mode="1">st_pda_settlement_supplies_lbl</text>
+        </logistics_card_lbl>
+        <camp_water x="10" y="258" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </camp_water>
+        <camp_supplies x="10" y="276" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </camp_supplies>
+        <camp_morale x="10" y="294" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </camp_morale>
+
+        <!-- Directives & Actions Section (y=322 to y=500) -->
+        <directives_header_bg x="0" y="341" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </directives_header_bg>
+        <directives_lbl x="10" y="324" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c" complex_mode="1">st_pda_settlement_actions_title</text>
+        </directives_lbl>
+        <directives_bg x="0" y="342" width="350" height="158" stretch="1">
+        </directives_bg>
+
+        <!-- Primary Action: Full-Width Auto-Sort -->
+        <btn_auto_sort x="6" y="348" width="338" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_auto_sort</text>
+        </btn_auto_sort>
+
+        <!-- Row 1: Fast Travel & Track Map -->
+        <btn_travel x="6" y="380" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_travel</text>
+        </btn_travel>
+        <btn_locate_map x="178" y="380" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_locate_map</text>
+        </btn_locate_map>
+
+        <!-- Row 2: Summon Caravan & Recall Settlers -->
+        <btn_summon_caravan x="6" y="410" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_summon_caravan</text>
+        </btn_summon_caravan>
+        <btn_recall_settlers x="178" y="410" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_recall_settlers</text>
+        </btn_recall_settlers>
+
+        <!-- Row 3: Specialization & Rename -->
+        <btn_specialization x="6" y="440" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_specialization_lbl</text>
+        </btn_specialization>
+        <btn_rename x="178" y="440" width="166" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_rename</text>
+        </btn_rename>
+
+        <!-- Row 4: Emergency Dismantle -->
+        <btn_dismantle x="6" y="470" width="338" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_dismantle_camp</text>
+            <text_color>
+                <e r="238" g="28" b="36"/>
+                <h r="255" g="90" b="90"/>
+                <t r="255" g="90" b="90"/>
+            </text_color>
+        </btn_dismantle>
+    </overview_content>
+
+    <!-- Tab 2: Survivors Management Panel -->
+    <survivors_panel x="406" y="136" width="370" height="536" stretch="1">
+        <!-- Roster Filter Chips -->
+        <btn_filter_all x="0" y="0" width="41" height="22" check_mode="0" stretch="1">
+            <texture>ui_homestead_btn_on</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_filter_all</text>
+        </btn_filter_all>
+        <btn_filter_exp x="43" y="0" width="43" height="22" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_filter_exp</text>
+        </btn_filter_exp>
+        <btn_filter_work x="88" y="0" width="43" height="22" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_filter_work</text>
+        </btn_filter_work>
+        <btn_filter_idle x="133" y="0" width="41" height="22" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_filter_idle</text>
+        </btn_filter_idle>
+
+        <survivor_list x="0" y="26" width="175" height="508" item_height="72"
+                       can_select="1" always_show_scroll="1" stretch="1">
+            <font r="200" g="200" b="200" font="letterica18"/>
+            <text_color>
+                <e r="238" g="196" b="112"/>
+                <d r="70"  g="70"  b="70"/>
+            </text_color>
+        </survivor_list>
+
+        <!-- Inner divider -->
+        <surv_divider x="178" y="0" width="1" height="536" vertical="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </surv_divider>
+
+        <!-- Job Reassignment sub-panel inside survivors tab -->
+        <job_panel x="184" y="0" width="186" height="536" stretch="1">
+            <job_scroll x="0" y="0" width="186" height="536" always_show_scroll="0" stretch="1"/>
+        </job_panel>
+    </survivors_panel>
+
+    <job_content x="0" y="0" width="164" height="720" stretch="1">
+        <!-- Module 1: Dossier Header Module -->
+        <dossier_portrait_bg x="0" y="0" width="164" height="64" stretch="1">
+        </dossier_portrait_bg>
+        <dossier_portrait x="6" y="10" width="44" height="44" stretch="1">
+            <texture>ui\ui_noise</texture>
+        </dossier_portrait>
+        <survivor_name x="56" y="6" width="102" height="18">
+            <text font="letterica18" r="238" g="196" b="112" align="l" complex_mode="1"/>
+        </survivor_name>
+        <survivor_rank_badge x="56" y="26" width="102" height="15">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"/>
+        </survivor_rank_badge>
+        <survivor_xp_bar x="56" y="43" width="102" height="15">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"/>
+        </survivor_xp_bar>
+
+        <!-- Module 2: Job Telemetry Module -->
+        <telemetry_header_bg x="0" y="93" width="164" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </telemetry_header_bg>
+        <telemetry_lbl x="8" y="76" width="148" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l">st_pda_job_telemetry_title</text>
+        </telemetry_lbl>
+        <telemetry_bg x="0" y="92" width="164" height="46" stretch="1">
+        </telemetry_bg>
+        <survivor_job x="8" y="96" width="148" height="36">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </survivor_job>
+
+        <!-- Module 3: Profession Matrix -->
+        <job_header_bg x="0" y="165" width="164" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </job_header_bg>
+        <job_header_lbl x="8" y="148" width="148" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l">st_pda_job_reassign_title</text>
+        </job_header_lbl>
+
+        <!-- 8 Job buttons: 2 columns x 4 rows -->
+        <btn_job_idle x="0" y="170" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_idle_btn</text>
+        </btn_job_idle>
+        <btn_job_guard x="84" y="170" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_guard_btn</text>
+        </btn_job_guard>
+
+        <btn_job_scavenge x="0" y="202" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_scavenge_btn</text>
+        </btn_job_scavenge>
+        <btn_job_hunter x="84" y="202" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_hunter_btn</text>
+        </btn_job_hunter>
+
+        <btn_job_craft x="0" y="234" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_craft_btn</text>
+        </btn_job_craft>
+        <btn_job_repair x="84" y="234" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_repair_btn</text>
+        </btn_job_repair>
+
+        <btn_job_cook x="0" y="266" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_cook_btn</text>
+        </btn_job_cook>
+        <btn_job_medic x="84" y="266" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_medic_btn</text>
+        </btn_job_medic>
+
+        <btn_job_electrician x="0" y="298" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_electrician_btn</text>
+        </btn_job_electrician>
+        <btn_job_woodcutter x="84" y="298" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_woodcutter_btn</text>
+        </btn_job_woodcutter>
+
+        <btn_job_brewer x="0" y="330" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_brewer_btn</text>
+        </btn_job_brewer>
+        <btn_job_scrapper x="84" y="330" width="80" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_job_scrapper_btn</text>
+        </btn_job_scrapper>
+
+        <!-- Module 4: Field Station & Orders -->
+        <pos_header_bg x="0" y="385" width="164" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </pos_header_bg>
+        <pos_header_lbl x="8" y="368" width="148" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l">st_pda_job_orders_title</text>
+        </pos_header_lbl>
+        <pos_bg x="0" y="384" width="164" height="142" stretch="1">
+        </pos_bg>
+        <survivor_pos x="4" y="388" width="156" height="16">
+            <text font="letterica16" r="160" g="160" b="160" align="c" complex_mode="1" vert_align="t"/>
+        </survivor_pos>
+        <btn_position_here x="6" y="406" width="152" height="24" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_position_here</text>
+        </btn_position_here>
+        <btn_position_recall x="6" y="432" width="152" height="24" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_position_recall</text>
+        </btn_position_recall>
+        <btn_job_directive x="6" y="458" width="152" height="24" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_job_directive</text>
+        </btn_job_directive>
+        <btn_rename_survivor x="6" y="484" width="152" height="24" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_rename_survivor</text>
+        </btn_rename_survivor>
+
+        <!-- Module 5: Remote Outpost Transfer Module -->
+        <transfer_header_bg x="0" y="553" width="164" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </transfer_header_bg>
+        <transfer_lbl x="8" y="536" width="148" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" complex_mode="1">st_pda_transfer_lbl</text>
+        </transfer_lbl>
+        <transfer_bg x="0" y="552" width="164" height="114" stretch="1">
+        </transfer_bg>
+        <transfer_list x="6" y="558" width="152" height="68" item_height="20"
+                       can_select="1" always_show_scroll="1" stretch="1">
+            <font r="200" g="200" b="200" font="letterica16"/>
+            <text_color>
+                <e r="238" g="196" b="112"/>
+                <d r="70"  g="70"  b="70"/>
+            </text_color>
+        </transfer_list>
+        <btn_transfer x="6" y="632" width="152" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_transfer</text>
+        </btn_transfer>
+
+        <!-- Module 6: Banish Directive -->
+        <btn_banish x="0" y="674" width="164" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_banish</text>
+            <text_color>
+                <e r="238" g="28" b="36"/>
+                <h r="255" g="90" b="90"/>
+                <t r="255" g="90" b="90"/>
+            </text_color>
+        </btn_banish>
+    </job_content>
+
+    <!-- Tab 3: Scrollable Rival Camps Panel -->
+    <rivals_panel x="406" y="136" width="370" height="536" stretch="1">
+        <rival_scroll x="0" y="0" width="370" height="536" always_show_scroll="0" stretch="1"/>
+    </rivals_panel>
+
+    <rival_content x="0" y="0" width="350" height="490" stretch="1">
+        <!-- Top Rival Header (y=0 to y=66) -->
+        <rival_camp_name x="0" y="0" width="350" height="22">
+            <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c" complex_mode="1"/>
+        </rival_camp_name>
+        <rival_camp_spec x="0" y="22" width="350" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="c" vert_align="c" complex_mode="1"/>
+        </rival_camp_spec>
+        <rival_banner_bg x="0" y="42" width="350" height="24" stretch="1">
+        </rival_banner_bg>
+        <rival_banner_lbl x="0" y="46" width="350" height="18">
+            <text font="letterica16" r="238" g="28" b="36" align="c" vert_align="c" complex_mode="1"></text>
+        </rival_banner_lbl>
+
+        <!-- Module A: Faction Alignment & Combat Readiness (y=72 to y=136, h=64) -->
+        <rival_faction_bg x="0" y="72" width="350" height="64" stretch="1">
+        </rival_faction_bg>
+        <rival_faction_header_bg x="0" y="91" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </rival_faction_header_bg>
+        <rival_faction_lbl x="10" y="74" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c">st_pda_rival_faction_title</text>
+        </rival_faction_lbl>
+        <rival_camp_status x="10" y="96" width="330" height="18">
+            <text font="letterica16" r="238" g="28" b="36" align="l" complex_mode="1"></text>
+        </rival_camp_status>
+        <rival_camp_faction x="10" y="114" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </rival_camp_faction>
+
+        <!-- Module B: Strategic Location & Garrison Force (y=142 to y=206, h=64) -->
+        <rival_loc_gar_bg x="0" y="142" width="350" height="64" stretch="1">
+        </rival_loc_gar_bg>
+        <rival_loc_gar_header_bg x="0" y="161" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </rival_loc_gar_header_bg>
+        <rival_loc_gar_lbl x="10" y="144" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c">st_pda_rival_location_garrison_title</text>
+        </rival_loc_gar_lbl>
+        <rival_camp_location x="10" y="166" width="330" height="18">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </rival_camp_location>
+        <rival_camp_garrison x="10" y="184" width="330" height="18">
+            <text font="letterica16" r="238" g="196" b="112" align="l" complex_mode="1"></text>
+        </rival_camp_garrison>
+
+        <!-- Module C: Tactical Reconnaissance Intel (y=212 to y=360) -->
+        <rival_intel_bg x="0" y="212" width="350" height="152" stretch="1">
+        </rival_intel_bg>
+        <rival_intel_header_bg x="0" y="231" width="350" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </rival_intel_header_bg>
+        <rival_intel_lbl x="10" y="214" width="330" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c">st_pda_rival_intel_label</text>
+        </rival_intel_lbl>
+        <rival_camp_intel x="10" y="236" width="330" height="120">
+            <text font="letterica16" r="200" g="200" b="200" align="l" complex_mode="1"></text>
+        </rival_camp_intel>
+
+        <!-- Directives -->
+        <btn_rival_locate x="0" y="372" width="170" height="28" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_locate_map</text>
+        </btn_rival_locate>
+        <btn_refresh x="180" y="372" width="170" height="28" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_btn_refresh_survivors</text>
+        </btn_refresh>
+    </rival_content>
+
+    <rival_list x="212" y="162" width="180" height="510" item_height="88"
+                can_select="1" always_show_scroll="1" stretch="1">
+        <font r="200" g="200" b="200" font="letterica18"/>
+        <text_color>
+            <e r="238" g="196" b="112"/>
+            <d r="70"  g="70"  b="70"/>
+        </text_color>
+    </rival_list>
+
+    <!-- Tab 4: Settlement Radio & Activity Log Transceiver (Full Width: x=212, w=564, h=536) -->
+    <radio_panel x="212" y="136" width="564" height="536" stretch="1">
+        <radio_header_bg x="0" y="23" width="564" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </radio_header_bg>
+        <radio_header_lbl x="10" y="4" width="544" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="c">st_pda_radio_title</text>
+        </radio_header_lbl>
+
+        <btn_radio_filter_all x="0" y="27" width="94" height="26" check_mode="0" stretch="1">
+            <texture>ui_homestead_btn_on</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_filter_all</text>
+        </btn_radio_filter_all>
+        <btn_radio_filter_exp x="94" y="27" width="94" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_filter_exp</text>
+        </btn_radio_filter_exp>
+        <btn_radio_filter_work x="188" y="27" width="94" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_filter_work</text>
+        </btn_radio_filter_work>
+        <btn_radio_filter_combat x="282" y="27" width="98" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_filter_combat</text>
+        </btn_radio_filter_combat>
+        <btn_radio_scan x="380" y="27" width="94" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_scan</text>
+        </btn_radio_scan>
+        <btn_radio_clear x="474" y="27" width="90" height="26" check_mode="0" stretch="1">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">st_pda_radio_clear</text>
+            <text_color>
+                <e r="238" g="28" b="36"/>
+                <h r="255" g="90" b="90"/>
+                <t r="255" g="90" b="90"/>
+            </text_color>
+        </btn_radio_clear>
+
+        <radio_scroll x="0" y="56" width="564" height="478" always_show_scroll="1" stretch="1"/>
+    </radio_panel>
+
+    <radio_card_container x="0" y="0" width="544" height="48" stretch="1"/>
+    <radio_card_bg x="0" y="0" width="544" height="44" stretch="1">
+        <texture>ui_homestead_card_bg</texture>
+    </radio_card_bg>
+    <radio_row_time x="440" y="5" width="94" height="15">
+        <text font="letterica16" r="160" g="160" b="160" align="r" vert_align="t"/>
+    </radio_row_time>
+    <radio_row_badge x="10" y="5" width="420" height="15">
+        <text font="letterica16" r="238" g="196" b="112" align="l" vert_align="t" complex_mode="1"/>
+    </radio_row_badge>
+    <radio_row_text x="10" y="22" width="524" height="20">
+        <text font="letterica16" r="200" g="200" b="200" align="l" vert_align="t" complex_mode="1"/>
+    </radio_row_text>
+
+    <!-- Tab 5: How to Play Panel -->
+    <guide_panel x="212" y="136" width="564" height="536" stretch="1">
+        <guide_header_bg x="0" y="23" width="564" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+        </guide_header_bg>
+        <guide_header_lbl x="10" y="4" width="544" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="c">st_pda_guide_title</text>
+        </guide_header_lbl>
+        <guide_scroll x="0" y="28" width="564" height="500" always_show_scroll="1" stretch="1"/>
+    </guide_panel>
+
+    <!-- Guide templates -->
+    <guide_text_container x="0" y="0" width="544" height="20" stretch="1"/>
+    <guide_text_template x="0" y="0" width="544" height="20" stretch="1">
+        <text font="letterica16" r="200" g="200" b="200" align="l" vert_align="t" complex_mode="1"/>
+    </guide_text_template>
+
+    <guide_section_header_bg x="0" y="23" width="544" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+    </guide_section_header_bg>
+    <guide_section_header_lbl x="10" y="4" width="524" height="18" stretch="1">
+        <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="c" complex_mode="1"/>
+    </guide_section_header_lbl>
+
+    <guide_section_header_container x="0" y="0" width="544" height="24" stretch="1"/>
+
+    <!-- Guide Job Sub-Header Template (Distinguishes profession sub-sections) -->
+    <guide_job_header_container x="0" y="0" width="544" height="22" stretch="1"/>
+    <guide_job_header_bg x="0" y="0" width="544" height="22" stretch="1">
+        <texture>ui_homestead_card_bg</texture>
+    </guide_job_header_bg>
+    <guide_job_header_lbl x="14" y="2" width="516" height="18" stretch="1">
+        <text font="letterica16" r="200" g="200" b="200" align="l" vert_align="c"/>
+    </guide_job_header_lbl>
+
+    <guide_section_body_container x="0" y="0" width="544" height="20" stretch="1"/>
+    <guide_section_body_text x="10" y="4" width="524" height="16" stretch="1">
+        <text font="letterica16" r="200" g="200" b="200" align="l" vert_align="t" complex_mode="1"/>
+    </guide_section_body_text>
+
+    <guide_separator_container x="0" y="0" width="544" height="12" stretch="1"/>
+    <guide_separator_line x="10" y="6" width="524" height="1" stretch="1">
+            <texture>ui_homestead_rule</texture>
+    </guide_separator_line>
+
+    <close_button x="769" y="56" width="26" height="34" stretch="1">
+        <texture_t>ui_inGame2_pda_offline_t</texture_t>
+        <texture_e>ui_inGame2_pda_offline_e</texture_e>
+        <texture_h>ui_inGame2_pda_offline_h</texture_h>
+    </close_button>
+
+    <!-- List Row Item Card Templates with Avatars (Flush fit with scrollbars & complex_mode text wrapping) -->
+        <!-- Settlement Card Template (Photo Thumbnail + Caption Bar + Glowing Selection) -->
+    <settlement_card_bg x="0" y="0" width="162" height="84" stretch="1">
+        <texture>ui_homestead_card_bg</texture>
+    </settlement_card_bg>
+    <settlement_card_thumb x="4" y="3" width="154" height="52" stretch="1">
+        <texture>ui_homestead_thumb_default</texture>
+    </settlement_card_thumb>
+    <settlement_row_name x="4" y="58" width="154" height="22">
+        <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c" complex_mode="1"/>
+    </settlement_row_name>
+
+    <survivor_card_bg x="0" y="0" width="162" height="66" stretch="1">
+        <texture>ui_homestead_card_bg</texture>
+    </survivor_card_bg>
+    <survivor_card_icon_bg x="4" y="6" width="42" height="42" stretch="1">
+    </survivor_card_icon_bg>
+    <survivor_card_icon x="6" y="8" width="38" height="38" stretch="1">
+        <texture>ui\ui_noise</texture>
+    </survivor_card_icon>
+    <survivor_row_name x="50" y="4" width="108" height="18">
+        <text font="letterica18" r="238" g="196" b="112" align="l" vert_align="t" complex_mode="1"/>
+    </survivor_row_name>
+    <survivor_row_status x="50" y="22" width="108" height="20">
+        <text font="letterica16" r="200" g="200" b="200" align="l" vert_align="t" complex_mode="1"/>
+    </survivor_row_status>
+    <survivor_row_rank x="50" y="42" width="108" height="16">
+        <text font="letterica16" r="160" g="160" b="160" align="l" vert_align="t" complex_mode="1"/>
+    </survivor_row_rank>
+
+    <!-- Rival Card Template with Landscape Thumbnail -->
+    <rival_card_bg x="0" y="0" width="162" height="84" stretch="1">
+        <texture>ui_homestead_card_bg</texture>
+    </rival_card_bg>
+    <rival_card_thumb x="4" y="3" width="154" height="52" stretch="1">
+        <texture>ui_homestead_thumb_default</texture>
+    </rival_card_thumb>
+    <rival_row_name x="4" y="58" width="154" height="22">
+        <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c" complex_mode="1"/>
+    </rival_row_name>
+
+    <!-- Settlement / Survivor Rename Dialog Box -->
+    <backpack x="384" y="326" width="256" height="116" stretch="1">
+        <!-- an opaque backing (the rule texture tinted to the PDA's dark gray): the message
+             box is see-through, and the tab's text showed through it -->
+        <texture r="62" g="62" b="62">ui_homestead_rule</texture>
+        <background x="0" y="0" width="256" height="116" stretch="1">
+            <texture>ui_inGame2_message_box</texture>
+        </background>
+        <header x="12" y="12" width="232" height="20">
+            <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c">st_rename_settlement_title</text>
+        </header>
+        <input x="16" y="40" width="224" height="30" stretch="1">
+            <text x="5" font="letterica16" r="255" g="255" b="255" vert_align="c" align="l"/>
+            <texture>ui_inGame2_edit_box_2</texture>
+        </input>
+        <btn_cancel x="32" y="80" width="88" height="28" stretch="1" check_mode="0">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">ui_st_cancel</text>
+        </btn_cancel>
+        <btn_ok x="136" y="80" width="88" height="28" stretch="1" check_mode="0">
+            <texture>ui_button_ordinary</texture>
+            <text font="letterica16" align="c" vert_align="c">ui_st_ok</text>
+        </btn_ok>
+    </backpack>
+</w>

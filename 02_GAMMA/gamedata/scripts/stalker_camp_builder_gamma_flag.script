@@ -1,0 +1,3 @@
+-- Homestead: G.A.M.M.A. Modpack integration flag
+_G.is_gamma = true
+

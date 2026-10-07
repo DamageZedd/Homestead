@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<w>
+	<file name="ui\app_settlement">
+		<texture id="app_settlement_e" x="0" y="0" width="256" height="256" />
+		<texture id="app_settlement_h" x="256" y="0" width="256" height="256" />
+		<texture id="app_settlement_t" x="0" y="256" width="256" height="256" />
+		<texture id="app_settlement_d" x="256" y="256" width="256" height="256" />
+	</file>
+</w>

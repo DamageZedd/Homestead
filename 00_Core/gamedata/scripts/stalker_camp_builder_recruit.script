@@ -1,0 +1,2733 @@
+local sformat = string.format
+
+-- ============================================================================
+-- Territory & Faction Compatibility Safety Checks
+-- ============================================================================
+local TERRITORY_RULING_FACTIONS = {
+    l05_bar = "dolg",           -- Rostok (Duty HQ / 100 Rads Bar)
+    l07_military = "freedom",   -- Army Warehouses (Freedom HQ)
+    l09_deadcity = "killer",    -- Dead City (Mercenary HQ)
+    k00_marsh = "csky",         -- Great Swamps (Clear Sky Base)
+    l08_yantar = "ecolog",      -- Yantar (Ecolog Science Bunker)
+}
+
+function stalker_camp_builder.get_territory_ruling_faction(level_name)
+    return level_name and TERRITORY_RULING_FACTIONS[level_name] or nil
+end
+
+function stalker_camp_builder.can_settler_safely_live_in_camp(npc_comm, target_hub_id)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[target_hub_id]
+    if not camp then return false, "no_camp" end
+
+    -- Normalize NPC community string
+    local clean_comm = npc_comm and string.gsub(npc_comm, "^actor_", "") or "stalker"
+
+    -- Territory safety check:
+    -- 1. Check if territory safety is enabled via MCM (defaults to true)
+    local enforce_territory = true
+    if sb.cfg and sb.cfg.enforce_territory_safety ~= nil then
+        enforce_territory = sb.cfg.enforce_territory_safety
+    end
+
+    -- 2. Loners ("stalker") are independent stalkers, welcome in player settlements across the Zone.
+    -- Faction headquarters restrictions (e.g. Freedom in Duty Rostok) only apply to conflicting faction members.
+    if enforce_territory and clean_comm ~= "stalker" then
+        local camp_level = camp.level
+        if not camp_level then
+            local hub_obj = alife_object(target_hub_id)
+            if hub_obj then
+                camp_level = alife():level_name(game_graph():vertex(hub_obj.m_game_vertex_id):level_id())
+            end
+        end
+
+        if camp_level and game_relations and game_relations.is_factions_enemies then
+            local ruling_fac = TERRITORY_RULING_FACTIONS[camp_level]
+            if ruling_fac and ruling_fac ~= clean_comm then
+                if game_relations.is_factions_enemies(clean_comm, ruling_fac) then
+                    return false, "hostile_territory", ruling_fac, camp_level
+                end
+            end
+        end
+    end
+
+    -- 2. Check intra-camp settler hostility (e.g. Duty and Freedom in same camp)
+    if camp.survivors and game_relations and game_relations.is_factions_enemies then
+        for existing_id, existing_survivor in pairs(camp.survivors) do
+            local existing_comm = existing_survivor.community
+            if not existing_comm then
+                local existing_npc = sb.safe_level_object(existing_id)
+                if existing_npc and existing_npc.character_community then
+                    existing_comm = existing_npc:character_community()
+                end
+            end
+            if existing_comm then
+                local clean_exist_comm = string.gsub(existing_comm, "^actor_", "")
+                if clean_exist_comm ~= clean_comm and game_relations.is_factions_enemies(clean_comm, clean_exist_comm) then
+                    return false, "hostile_settler", clean_exist_comm, existing_survivor.name or "Resident"
+                end
+            end
+        end
+    end
+
+    return true
+end
+
+local function resolve_speakers(p1, p2)
+    local actor = db.actor
+    local npc = nil
+    local actor_id = actor and actor:id() or 0
+    local function safe_id(obj)
+        if not obj or type(obj) ~= "userdata" then return nil end
+        local ok, id = pcall(function() return obj:id() end)
+        return ok and id or nil
+    end
+    if p1 and p2 then
+        local p1_id = safe_id(p1)
+        local p2_id = safe_id(p2)
+        if p1_id == actor_id then
+            npc = p2
+        elseif p2_id == actor_id then
+            npc = p1
+        else
+            npc = (type(p2) == "userdata") and p2 or ((type(p1) == "userdata") and p1 or nil)
+        end
+    elseif p1 then
+        local p1_id = safe_id(p1)
+        if p1_id and p1_id ~= actor_id then
+            npc = p1
+        end
+    elseif p2 then
+        local p2_id = safe_id(p2)
+        if p2_id and p2_id ~= actor_id then
+            npc = p2
+        end
+    end
+    if not npc and dialogs and dialogs.who_is_npc then
+        pcall(function() npc = dialogs.who_is_npc(p1, p2) end)
+    end
+    return actor, npc
+end
+
+-- ============================================================================
+-- stalker_camp_builder_recruit.script
+-- Homestead (Stalker Settlement Builder) Mod -- Recruitment & Camp Management
+-- ----------------------------------------------------------------------------
+-- Functions:
+--   recruit_npc_to_camp, recruit_npc, recruit_back, transfer_survivor_to_camp
+--   camp_slot_exists, camp_slot_1_exists..4_exists
+--   recruit_to_camp_slot, recruit_to_camp_slot_1..4
+--   is_camp_survivor, is_camp_settler, is_camp_trader
+--   set_survivor_position, clear_survivor_position, set_survivor_position_to_actor
+--   can_recruit, can_recruit_back, can_banish
+--   banish_npc, dismiss_survivor
+--   get_recruitment_roll, no_camps_exist, camps_are_full
+--   recruitment_roll_success, recruitment_roll_fail
+--   release_npc_from_squad_and_smart, set_camp_settler_relations
+--   teleport_settler_to_camp_level, recall_all_settlers
+--   rename_camp, rename_survivor, dismantle_camp
+--   cycle_specialization, get_specialization_mult, get_specialization_label
+--   fast_travel_to_camp, summon_caravan, start_camp_trader_trade
+--   get_camp_dominant_faction (helper used by jobs module for trader faction)
+--
+-- Module-local state (mutable, persists across calls):
+--   recruitment_rolls, last_base_recruit_chance
+-- ============================================================================
+
+-- Namespace safety guard
+
+local recruitment_rolls = {}
+local last_base_recruit_chance = nil
+
+-- ============================================================================
+-- Recruitment Rank, Fee & Defense Requirements Balance
+-- ============================================================================
+local RANK_REQUIREMENTS = {
+    novice       = { fee = 0,     min_defense = 0 },
+    trainee      = { fee = 0,     min_defense = 0 },
+    experienced  = { fee = 2500,  min_defense = 0 },
+    professional = { fee = 5000,  min_defense = 0 },
+    veteran      = { fee = 10000, min_defense = 25 },
+    expert       = { fee = 16000, min_defense = 35 },
+    master       = { fee = 25000, min_defense = 50 },
+    legend       = { fee = 35000, min_defense = 60 },
+}
+
+local function get_npc_rank_name(npc)
+    if not npc then return "novice" end
+    if ranks and ranks.get_obj_rank_name then
+        local ok, rname = pcall(ranks.get_obj_rank_name, npc)
+        if ok and rname then return string.lower(rname) end
+    end
+    local r = 0
+    pcall(function() r = npc:character_rank() or 0 end)
+    if r < 300 then return "novice"
+    elseif r < 600 then return "trainee"
+    elseif r < 900 then return "experienced"
+    elseif r < 1200 then return "professional"
+    elseif r < 1500 then return "veteran"
+    elseif r < 1800 then return "expert"
+    elseif r < 2100 then return "master"
+    else return "legend" end
+end
+
+function stalker_camp_builder.get_recruitment_fee(npc)
+    local sb = stalker_camp_builder
+    if sb.cfg and sb.cfg.recruitment_rank_requirements == false then return 0 end
+    if not npc then return 0 end
+    local npc_id = npc:id()
+    if sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)]) then
+        return 0
+    end
+    local rname = get_npc_rank_name(npc)
+    local req = RANK_REQUIREMENTS[rname] or RANK_REQUIREMENTS["novice"]
+    local mult = (sb.cfg and sb.cfg.recruitment_cost_mult) or 1.0
+    return math.floor((req.fee or 0) * mult)
+end
+
+function stalker_camp_builder.check_recruitment_requirements(npc, target_hub_id)
+    local sb = stalker_camp_builder
+    if sb.cfg and sb.cfg.recruitment_rank_requirements == false then return true, "ok", 0, 0 end
+    if not npc then return false, "no_npc", 0, 0 end
+    local npc_id = npc:id()
+
+    -- Refugees seeking shelter always join without fees or rank demands
+    if sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)]) then
+        return true, "ok", 0, 0
+    end
+
+    local rname = get_npc_rank_name(npc)
+    local req = RANK_REQUIREMENTS[rname] or RANK_REQUIREMENTS["novice"]
+    local mult = (sb.cfg and sb.cfg.recruitment_cost_mult) or 1.0
+    local fee = math.floor((req.fee or 0) * mult)
+    local min_defense = req.min_defense or 0
+
+    -- 1. Check actor money
+    if fee > 0 and db.actor and db.actor:money() < fee then
+        return false, "fee", fee, 0
+    end
+
+    -- 2. Check camp defense rating
+    if min_defense > 0 and target_hub_id then
+        local camp = sb.active_camps and sb.active_camps[target_hub_id]
+        local current_def = 0
+        if camp then
+            if camp.last_defense then
+                current_def = camp.last_defense
+            elseif sb.get_camp_stats then
+                local hub_obj = alife_object(target_hub_id)
+                local st = sb.get_camp_stats(camp, hub_obj)
+                current_def = st and st.defense or 0
+            end
+        end
+        if current_def < min_defense then
+            return false, "defense", min_defense, current_def
+        end
+    end
+
+    return true, "ok", fee, min_defense
+end
+
+-- ============================================================================
+-- get_recruitment_roll -- cached per-NPC recruitment chance roll
+-- ============================================================================
+function stalker_camp_builder.get_recruitment_roll(npc)
+    local sb = stalker_camp_builder
+    if not npc then return false end
+    local npc_id = npc:id()
+
+    -- Clear the cache if the player changed the recruitment chance slider in MCM
+    local current_base_chance = sb.cfg.base_recruit_chance or 15
+    if last_base_recruit_chance ~= current_base_chance then
+        last_base_recruit_chance = current_base_chance
+        recruitment_rolls = {}
+    end
+
+    -- Memory leak safeguard: evict cache if size grows beyond 100 entries
+    local count = 0
+    for _ in pairs(recruitment_rolls) do count = count + 1 end
+    if count > 100 then
+        recruitment_rolls = {}
+    end
+
+    local is_comp = sb.is_companion(npc)
+    local is_refugee = sb.refugee_ids[npc_id]
+    if is_comp or is_refugee then
+        recruitment_rolls[npc_id] = true
+        return true
+    end
+
+    local rank_pts = (db.actor and db.actor.character_rank) and db.actor:character_rank() or 0
+    local base_chance = current_base_chance + (rank_pts / 12000) * 35
+    local goodwill = (db.actor and npc and npc.general_goodwill) and (npc:general_goodwill(db.actor) or 0) or 0
+    local goodwill_chance = (goodwill / 1000) * 30
+    local chance = base_chance + goodwill_chance
+
+    -- Cap the chance at 100% if base chance is set to 100% in MCM.
+    local max_cap = (current_base_chance >= 100) and 100 or 95
+    chance = math.min(max_cap, math.max(5, chance))
+
+    if chance >= 100 then
+        recruitment_rolls[npc_id] = true
+        return true
+    end
+
+    if recruitment_rolls[npc_id] ~= nil then
+        local cached = recruitment_rolls[npc_id]
+        if type(cached) == "table" and cached.expires_tg and time_global() < cached.expires_tg then
+            return cached.success
+        elseif type(cached) == "boolean" then
+            -- Upgrade legacy boolean entries
+            recruitment_rolls[npc_id] = { success = cached, expires_tg = time_global() + 60000 }
+            return cached
+        end
+    end
+
+    local roll = math.random(100)
+    local success = (roll <= chance)
+
+    -- printf(string.format("[Homestead] get_recruitment_roll: npc %d, rank=%d, goodwill=%d, chance=%d, roll=%d, success=%s", npc_id, rank_pts, goodwill, chance, roll, tostring(success)))
+
+    -- Cache for 60 real seconds to keep dialogue consistent without permanent lockout
+    recruitment_rolls[npc_id] = { success = success, expires_tg = time_global() + 60000 }
+    return success
+end
+
+function stalker_camp_builder.no_camps_exist(actor, npc)
+    local sb = stalker_camp_builder
+    local count = 0
+    for _, _ in pairs(sb.active_camps) do count = count + 1 end
+    return count == 0
+end
+
+function stalker_camp_builder.camps_are_full(actor, npc)
+    local sb = stalker_camp_builder
+    local count = 0
+    for _, _ in pairs(sb.active_camps) do count = count + 1 end
+    if count == 0 then return false end
+
+    local a, target_npc = resolve_speakers(actor, npc)
+    local recruitable = sb.get_recruitable_camps(target_npc)
+    return #recruitable == 0
+end
+
+function stalker_camp_builder.recruitment_roll_success(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return false end
+    local sb = stalker_camp_builder
+    if sb.no_camps_exist(actor, npc) or sb.camps_are_full(actor, npc) then
+        return false
+    end
+    return sb.get_recruitment_roll(npc) == true
+end
+
+function stalker_camp_builder.recruitment_roll_fail(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return false end
+    local sb = stalker_camp_builder
+    if sb.no_camps_exist(actor, npc) or sb.camps_are_full(actor, npc) then
+        return false
+    end
+    return sb.get_recruitment_roll(npc) == false
+end
+
+function stalker_camp_builder.can_recruit(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not actor or not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or npc_id == actor:id() then return false end
+
+        local sb = stalker_camp_builder
+        sb.last_talked_npc = npc
+        if sb.is_camp_survivor(actor, npc) then return false end
+        local is_comp = sb.is_companion and sb.is_companion(npc)
+        local is_refugee = sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)])
+
+        -- Prevent recruiting story characters and static base vendors (unless already our companion)
+        if not is_comp then
+            local is_story = false
+            pcall(function()
+                if get_object_story_id and get_object_story_id(npc_id) ~= nil then
+                    is_story = true
+                elseif story_objects and story_objects.story_id_by_object_id and story_objects.story_id_by_object_id[npc_id] ~= nil then
+                    is_story = true
+                end
+            end)
+            if is_story then
+                return false
+            end
+            local se_obj = alife_object(npc_id)
+            if se_obj then
+                local sec = se_obj:section_name() and se_obj:section_name():lower() or ""
+                if sec:find("trader") or sec:find("barmen") or sec:find("mechanic") or sec:find("tech") or sec:find("medic") or sec:find("guide") then
+                    return false
+                end
+            end
+        end
+
+        if not (is_comp or is_refugee) then
+            local npc_comm = npc.character_community and npc:character_community() or ""
+            local actor_comm = actor.character_community and string.gsub(actor:character_community() or "", "^actor_", "") or ""
+            if npc_comm == "" or actor_comm == "" then return false end
+            if game_relations and game_relations.is_factions_enemies then
+                if game_relations.is_factions_enemies(npc_comm, actor_comm) then
+                    return false
+                end
+            else
+                if npc_comm ~= actor_comm then
+                    return false
+                end
+            end
+        end
+
+        return true
+    end)
+    return ok and res or false
+end
+
+-- ============================================================================
+-- release_npc_from_squad_and_smart -- unregister NPC from its squad and smart
+-- ============================================================================
+function stalker_camp_builder.release_npc_from_squad_and_smart(npc_id)
+    local sim = alife()
+    local se_obj = sim:object(npc_id)
+    if not se_obj then return end
+
+    -- 1. Unregister from smart terrain
+    local unreg_id = se_obj.m_smart_terrain_id
+    if unreg_id and unreg_id ~= 65535 then
+        local unreg = sim:object(unreg_id)
+        if unreg then
+            unreg:unregister_npc(se_obj)
+        end
+    end
+
+    -- 2. Unregister from squad
+    local squad = get_object_squad(se_obj)
+    if squad then
+        squad:unregister_member(npc_id)
+        if se_obj.group_id ~= nil then
+            se_obj.group_id = 65535  -- 0xFFFF = "no squad" sentinel in X-Ray
+        end
+        local npc_count_ok, npc_count_val = pcall(function() return squad:npc_count() end)
+        if npc_count_ok and npc_count_val > 0 then
+            squad:refresh()
+        else
+            squad.current_action = nil
+            if SIMBOARD then
+                SIMBOARD:assign_squad_to_smart(squad, nil)
+                SIMBOARD.squads[squad.id] = nil
+            end
+            if squad.hide then
+                squad:hide()
+            end
+            safe_release_manager.release(squad)
+        end
+    end
+end
+
+-- ============================================================================
+-- set_camp_settler_relations -- set/reset friendly relations between a settler
+-- and all other settlers in the same camp
+-- ============================================================================
+function stalker_camp_builder.set_camp_settler_relations(hub_id, npc_id, is_joining)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp or not camp.survivors then return end
+
+    local npc_obj = level.object_by_id(npc_id)  -- nil if offline
+
+    for other_id, _ in pairs(camp.survivors) do
+        if other_id ~= npc_id then
+            if is_joining then
+                if relation_registry and relation_registry.set_npcs_relation then
+                    relation_registry.set_npcs_relation(npc_id, other_id, "friend")
+                    relation_registry.set_npcs_relation(other_id, npc_id, "friend")
+                end
+                local other_obj = level.object_by_id(other_id)
+                if npc_obj and other_obj then
+                    npc_obj:force_set_goodwill(1000, other_obj)
+                    other_obj:force_set_goodwill(1000, npc_obj)
+                end
+                -- printf(string.format("[Homestead] settler relations: set npc %d <-> npc %d to friend in camp %d", npc_id, other_id, hub_id))
+            else
+                if relation_registry and relation_registry.set_npcs_relation then
+                    relation_registry.set_npcs_relation(npc_id, other_id, nil)
+                    relation_registry.set_npcs_relation(other_id, npc_id, nil)
+                end
+                -- printf(string.format("[Homestead] settler relations: reset npc %d <-> npc %d (removal) in camp %d", npc_id, other_id, hub_id))
+            end
+        end
+    end
+end
+
+-- ============================================================================
+-- teleport_settler_to_camp_level -- cross-level teleport of a settler to camp
+-- ----------------------------------------------------------------------------
+-- v0.8.3 rewrite. Two bugs made Recall silently do nothing for many settlers:
+--
+-- 1. False "is_companion" positives. The old code compared squad IDs
+--    (actor's squad vs. settler's squad) to decide if a settler was
+--    "with the player". But recruit_npc_to_camp registers every newly
+--    recruited settler into the actor's squad as a one-time anti-GC
+--    measure and NEVER unregisters them afterward (see the unregister
+--    call added in recruit_npc_to_camp below, and the heal sweep in
+--    actor_on_first_update for already-broken saves). That left every
+--    settler recruited this way permanently misidentified as a
+--    companion, so Recall always skipped them. Now we use the
+--    authoritative stalker_camp_builder.is_companion(npc_id) check
+--    (npcx_is_companion info portion / axr_companions roster) instead.
+--
+-- 2. "camp_not_on_current_level" bailout. The old code refused to move
+--    a settler's SE object at all unless the player was physically
+--    standing on the camp's own level. That's unnecessary: hub_obj
+--    already carries valid m_level_vertex_id / m_game_vertex_id for its
+--    own level (persisted alife data, not derived from the currently
+--    loaded level's geometry), so the SE-layer reposition is safe to do
+--    from anywhere. We only need the player to be on the camp's level
+--    to call switch_online (the engine can't stream in a client object
+--    for an unloaded level). Now Recall always repositions the settler's
+--    server entity to the camp and anchors them to a smart terrain for
+--    GC protection; if the player isn't on that level yet, the settler
+--    stays correctly offline-positioned and gets brought online
+--    automatically by actor_on_first_update the next time the player
+--    visits.
+-- ============================================================================
+function stalker_camp_builder.teleport_settler_to_camp_level(npc_id, hub_id, force)
+    local sim = alife()
+    if not sim then return false, "no_sim" end
+    local sb = stalker_camp_builder
+    local se_npc = alife_object(npc_id)
+    if not se_npc then return false, "no_se_obj" end
+
+    local hub_obj = alife_object(hub_id)
+    if not hub_obj then return false, "no_hub" end
+
+    local camp = sb.active_camps[hub_id]
+    if not camp then return false, "no_camp" end
+
+    -- If this settler is an active companion travelling with the player, do NOT strip companion status
+    -- or pull them away to camp unless force == "dismiss"
+    local survivor = camp.survivors and camp.survivors[npc_id]
+    local is_companion = (sb.is_companion and sb.is_companion(npc_id)) or (survivor and (survivor.is_companion or survivor.job == "companion"))
+    if is_companion and force ~= "dismiss" then
+        return false, "is_companion"
+    end
+
+    -- Clean up any lingering companion membership so the settler belongs 100% to camp
+    if db.actor then
+        local actor_squad = get_object_squad(db.actor)
+        if actor_squad then
+            pcall(function() actor_squad:unregister_member(npc_id) end)
+        end
+    end
+    local online_obj = level.object_by_id(npc_id)
+    if axr_companions and axr_companions.remove_from_actor_squad and online_obj then
+        pcall(function() axr_companions.remove_from_actor_squad(online_obj) end)
+        pcall(function() online_obj:disable_info_portion("npcx_is_companion") end)
+    end
+    pcall(function() sim:disable_info_portion(npc_id, "npcx_is_companion") end)
+
+    if se_npc.group_id == 0 then
+        se_npc.group_id = 65535
+    end
+
+    local target_pos, target_lvid, target_gvid = sb.get_settler_job_target(npc_id, hub_id)
+    if not target_pos then
+        target_pos = hub_obj.position
+        target_lvid = hub_obj.m_level_vertex_id
+        target_gvid = hub_obj.m_game_vertex_id
+    end
+
+    -- Determine camp level
+    local gg = game_graph()
+    local camp_level = camp.level
+    if not camp_level and gg then
+        local v = gg:vertex(hub_obj.m_game_vertex_id)
+        if v then camp_level = sim:level_name(v:level_id()) end
+    end
+    if not camp_level then camp_level = level.name() end
+
+    local current_level = level.name()
+    local same_level = (camp_level == current_level)
+
+    -- Case 1: Online on current active level -> Instant full reposition & state reset
+    if online_obj and same_level then
+        pcall(function()
+            if online_obj and IsStalker(online_obj) and (not IsMonster(online_obj)) and online_obj.set_npc_position then
+                online_obj:set_npc_position(target_pos)
+            end
+            se_npc.position = target_pos
+            se_npc.m_level_vertex_id = target_lvid
+            se_npc.m_game_vertex_id = target_gvid
+
+            online_obj:set_dest_level_vertex_id(target_lvid)
+            online_obj:set_path_type(game_object.level_path)
+            online_obj:set_movement_type(move.stand)
+            online_obj:set_body_state(move.standing)
+            online_obj:set_mental_state(anim.free)
+
+            if state_mgr and state_mgr.set_state then
+                state_mgr.set_state(online_obj, "idle", nil, nil, nil, { fast_set = true })
+            end
+            if xr_motivator and xr_motivator.script_release then
+                xr_motivator.script_release(online_obj)
+            end
+        end)
+        sb.camp_npc_released[npc_id] = true
+        if sb.anchor_settler_to_smart then
+            sb.anchor_settler_to_smart(npc_id, camp_level, target_pos)
+        end
+        return true
+    end
+
+    -- Case 2: Online on current level but camp is on a different level -> safely switch offline and teleport
+    if online_obj and not same_level then
+        utils_obj.switch_offline(npc_id)
+        CreateTimeEvent("homestead_xteleport_" .. npc_id, "xteleport_" .. npc_id, 0.5, function()
+            local se = alife_object(npc_id)
+            if se then
+                sim:teleport_object(npc_id, target_gvid, target_lvid, target_pos)
+                if sb.anchor_settler_to_smart then
+                    sb.anchor_settler_to_smart(npc_id, camp_level, target_pos)
+                end
+            end
+            return true
+        end)
+        return true
+    end
+
+    -- Case 3: Offline -> native teleport_object
+    if db.offline_objects[npc_id] then
+        db.offline_objects[npc_id].level_vertex_id = nil
+    end
+    db.spawned_vertex_by_id[npc_id] = nil
+
+    pcall(function()
+        sim:teleport_object(npc_id, target_gvid, target_lvid, target_pos)
+    end)
+
+    if same_level and utils_obj and utils_obj.switch_online then
+        pcall(utils_obj.switch_online, npc_id)
+    end
+
+    if sb.anchor_settler_to_smart then
+        sb.anchor_settler_to_smart(npc_id, camp_level, target_pos)
+    end
+
+    return true
+end
+
+-- ============================================================================
+-- heal_settler_squad_membership -- unregister a single settler from the
+-- actor's squad if they are still wrongly registered there, and re-anchor
+-- them to a smart terrain on their camp's level for GC protection.
+-- ----------------------------------------------------------------------------
+-- Extracted as its own function (rather than only running from the
+-- once-per-level-load heal sweep) because the engine's own squad-level
+-- simulation actively repositions squad members to follow the squad's
+-- group position. A settler still registered in the actor's squad will
+-- keep getting snapped back toward the player by that simulation even
+-- after teleport_settler_to_camp_level moves their SE position -- so this
+-- must run (and the settler must actually be unregistered) BEFORE every
+-- teleport attempt, not just on level load. Without this, pressing Recall
+-- mid-session (without an intervening level transition, which is the only
+-- thing that triggered the old once-per-load heal sweep) had no effect on
+-- settlers recruited before this fix existed.
+-- ============================================================================
+function stalker_camp_builder.heal_settler_squad_membership(npc_id, camp_level, target_pos)
+    local sb = stalker_camp_builder
+    local actor_squad = get_object_squad(db.actor)
+    if not actor_squad then return false end
+
+    -- NEVER unregister or re-anchor active companions!
+    if sb.is_companion and sb.is_companion(npc_id) then
+        return false
+    end
+    for _, c in pairs(sb.active_camps or {}) do
+        if c.survivors and c.survivors[npc_id] then
+            local surv = c.survivors[npc_id]
+            if surv.is_companion or surv.job == "companion" then
+                return false
+            end
+        end
+    end
+
+    local se_npc = alife_object(npc_id)
+    if not se_npc then return false end
+
+    local settler_squad = get_object_squad(se_npc)
+    if not (settler_squad and settler_squad.id == actor_squad.id) then
+        return false  -- not stuck in actor squad, nothing to heal
+    end
+
+    local ok = pcall(function() actor_squad:unregister_member(npc_id) end)
+    if not ok then return false end
+
+    if se_npc.group_id ~= nil then
+        se_npc.group_id = 65535  -- 0xFFFF = "no squad" sentinel
+    end
+
+    -- Resolve camp_level if not provided
+    if not camp_level then
+        local gg = game_graph()
+        local v = gg and gg:vertex(se_npc.m_game_vertex_id)
+        if v then camp_level = alife():level_name(v:level_id()) end
+    end
+    -- target_pos (the camp hub's position, when the caller has it) is
+    -- forwarded to anchor_settler_to_smart so the smart-terrain pick is
+    -- based on where the settler is GOING, not their stale current
+    -- position -- see anchor_settler_to_smart's header comment for the
+    -- full explanation of why this ordering was the actual root cause of
+    -- settlers never staying at their camp.
+    if camp_level and sb.anchor_settler_to_smart then
+        sb.anchor_settler_to_smart(npc_id, camp_level, target_pos)
+    end
+
+    -- printf(string.format("[Homestead] heal_settler_squad_membership: unregistered npc %d from actor squad and re-anchored to smart on '%s'", npc_id, tostring(camp_level)))
+    return true
+end
+
+-- ============================================================================
+-- heal_orphaned_settler_squads -- migration sweep for existing saves
+-- ----------------------------------------------------------------------------
+-- Pre-v0.8.3 builds registered every newly recruited settler into the
+-- actor's squad as a permanent (never-undone) anti-GC measure. Any settler
+-- recruited under that code is saved with that broken state and would stay
+-- a phantom actor-squad member forever even after updating to v0.8.3,
+-- since the new unregister-on-recruit fix only runs at recruit time and a
+-- migration sweep is needed to repair already-recruited settlers.
+--
+-- Runs once per level load (called from actor_on_first_update). Safe to
+-- call repeatedly: settlers already correctly unregistered are no-ops.
+-- Does not require the player to be on any particular level -- it only
+-- touches squad membership and smart-terrain anchoring, both of which are
+-- alife/game_graph operations that work regardless of currently loaded
+-- level geometry.
+-- ============================================================================
+-- ============================================================================
+-- heal_corrupted_scripted_targets -- migration sweep for existing saves
+-- ----------------------------------------------------------------------------
+-- v0.9.6 through v0.9.32 set home_squad.scripted_target to a smart terrain
+-- NAME on every settler's dedicated squad. That was removed in v0.9.33 after
+-- it was found to cause a confirmed native FATAL crash (axr_companions.lua's
+-- patched get_script_target indexes a nil value for any scripted_target
+-- other than the literal string "actor" -- see anchor_settler_to_smart's
+-- removal comment for the full stack trace).
+--
+-- Removing the CODE that writes this value does nothing for a save file
+-- that already has it written. A settler recruited under any of those
+-- versions carries the corrupted value in their squad's persisted alife
+-- data, and will keep crashing the game on every load/simulation tick
+-- until that specific value is cleared -- upgrading to v0.9.33 alone does
+-- NOT fix an already-affected save.
+--
+-- This runs once per level load (called from actor_on_first_update,
+-- BEFORE settlers are brought online -- same ordering lesson as the
+-- actor-squad heal sweep: repair corrupted data before the engine's own
+-- simulation gets a chance to process it and crash). v1 of this sweep
+-- only checked squads belonging to settlers currently tracked in
+-- camp.survivors, which missed anyone later dismissed, banished, or dead
+-- whose home squad wasn't (or couldn't be) cleaned up -- that squad keeps
+-- existing in the world with the corrupted value intact, invisible to a
+-- survivor-scoped scan. This version scans every squad SIMBOARD knows
+-- about directly; see the function body for the exact heuristic used to
+-- identify a squad as one of ours without touching unrelated mods' squads.
+-- ============================================================================
+function stalker_camp_builder.heal_corrupted_scripted_targets()
+    local sb = stalker_camp_builder
+    local healed = 0
+
+    -- ------------------------------------------------------------------------
+    -- v1: only scanned squads belonging to settlers CURRENTLY tracked in
+    -- camp.survivors. That missed any settler who was later dismissed,
+    -- banished, or died -- if release_settler_home_squad ever failed or
+    -- wasn't reached for their squad, that squad keeps existing in the
+    -- world with its corrupted scripted_target intact, but has fallen
+    -- completely out of Homestead's own bookkeeping, so the old
+    -- survivor-scoped sweep could never find it. Confirmed from a crash
+    -- log where a 4-settler camp's sweep only checked/healed 3 squads
+    -- (matching npcs still in camp.survivors at that moment) while the
+    -- crash happened moments later anyway -- almost certainly a squad
+    -- belonging to a settler no longer in ANY camp's survivor list.
+    --
+    -- v2 (this version): scans every squad currently known to SIMBOARD
+    -- directly, rather than only ones reachable via camp.survivors. A
+    -- squad is treated as a candidate for this repair if it is a
+    -- single-member squad (npc_count() <= 1) carrying a scripted_target
+    -- that isn't nil and isn't the one genuinely safe value ("actor",
+    -- used only by real companion recall). This heuristic is deliberately
+    -- narrow -- single-member -- to minimize any chance of touching some
+    -- unrelated mod's own legitimate multi-member squad that happens to
+    -- use scripted_target for its own purposes.
+    -- ------------------------------------------------------------------------
+    if SIMBOARD and SIMBOARD.squads then
+        for squad_id, squad in pairs(SIMBOARD.squads) do
+            -- SIMBOARD.squads can apparently contain non-table entries
+            -- (confirmed via crash log: at least one value was the literal
+            -- boolean `true`, presumably some kind of placeholder/marker
+            -- used elsewhere in GAMMA's own bookkeeping). `if squad and
+            -- squad.scripted_target` only guards against `false`/`nil`
+            -- (since `false and X` short-circuits without evaluating X),
+            -- but `true and squad.scripted_target` still evaluates the
+            -- index and crashes on a boolean. Explicitly checking
+            -- type(squad) == "table" first is the only fully safe guard.
+            if type(squad) == "table" and squad.scripted_target then
+                local ok_count, cnt = pcall(function() return squad:npc_count() end)
+                if ok_count and cnt then
+                    local is_corrupted = false
+                    if squad.scripted_target ~= "actor" and cnt <= 1 then
+                        is_corrupted = true
+                    elseif squad.scripted_target == "actor" and cnt == 0 then
+                        is_corrupted = true
+                    end
+
+                    if is_corrupted then
+                        local old_value = tostring(squad.scripted_target)
+                        local ok = pcall(function() squad.scripted_target = nil end)
+                        if ok then
+                            healed = healed + 1
+                            -- printf(string.format("[Homestead] heal_corrupted_scripted_targets: cleared corrupted scripted_target ('%s') from squad %d (npc_count = %d)", old_value, squad_id, cnt))
+                            if axr_companions and axr_companions.companion_squads then
+                                axr_companions.companion_squads[squad_id] = nil
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if healed > 0 then
+        -- printf(string.format("[Homestead] heal_corrupted_scripted_targets: healed %d squad(s) with a corrupted scripted_target", healed))
+    end
+    return healed
+end
+
+function stalker_camp_builder.heal_orphaned_settler_squads()
+    local sb = stalker_camp_builder
+    local healed = 0
+    for hub_id, camp in pairs(sb.active_camps) do
+        local hub_obj = alife_object(hub_id)
+        local hub_pos = hub_obj and hub_obj.position or nil
+        if camp.survivors then
+            for npc_id, survivor in pairs(camp.survivors) do
+                if sb.heal_settler_squad_membership(npc_id, camp.level, hub_pos) then
+                    healed = healed + 1
+                end
+            end
+        end
+    end
+    if healed > 0 then
+        -- printf(string.format("[Homestead] heal_orphaned_settler_squads: healed %d settler(s) stuck in actor squad", healed))
+    end
+    return healed
+end
+
+function stalker_camp_builder.recall_all_settlers(target_hub_id)
+    local sb = stalker_camp_builder
+    local count = 0
+    local skipped = 0
+    local camps_to_process = {}
+    if target_hub_id and sb.active_camps[target_hub_id] then
+        camps_to_process[target_hub_id] = sb.active_camps[target_hub_id]
+    else
+        camps_to_process = sb.active_camps
+    end
+
+    for hub_id, camp in pairs(camps_to_process) do
+        if camp.survivors then
+            local to_recall = {}
+            for npc_id, survivor in pairs(camp.survivors) do
+                if survivor.on_expedition then
+                    skipped = skipped + 1
+                else
+                    to_recall[#to_recall+1] = { npc_id = npc_id, survivor = survivor }
+                end
+            end
+
+            for _, entry in ipairs(to_recall) do
+                local cur_id = entry.npc_id
+                local se_npc = alife_object(cur_id)
+                if not se_npc and sb.restore_missing_settler then
+                    cur_id = sb.restore_missing_settler(hub_id, cur_id, entry.survivor) or cur_id
+                end
+                local ok = sb.teleport_settler_to_camp_level(cur_id, hub_id, true)
+                if ok then count = count + 1 end
+            end
+        end
+    end
+    return count
+end
+
+-- ============================================================================
+-- recruit_npc_to_camp -- full recruitment flow into a specific camp
+-- ============================================================================
+function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
+    local sformat = string.format
+    local actor_alao = db.actor
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp then return end
+
+    local npc_id = npc:id()
+
+    -- Hard cap check: prevent economy flood from too many survivors per camp
+    local max_survivors = sb.cfg.max_survivors_player_camp or sb.cfg.max_survivors_per_camp or (sb.defaults and sb.defaults.max_survivors_player_camp) or 12
+    local current_count = 0
+    for _ in pairs(camp.survivors or {}) do
+        current_count = current_count + 1
+    end
+    if current_count >= max_survivors then
+        if actor_alao then
+            actor_menu.set_msg(1, string.format(game.translate_string("st_recruit_cap_reached"), current_count, max_survivors), 4)
+        end
+        -- printf(sformat("[Homestead] recruit_npc_to_camp: camp %d at survivor cap (%d/%d), cannot recruit npc %d", hub_id, current_count, max_survivors, npc_id))
+        return
+    end
+
+        -- Faction compatibility & territory safety check
+    local is_comp = sb.is_companion(npc)
+    local is_refugee = sb.refugee_ids[npc_id]
+    if not (is_comp or is_refugee) then
+        local npc_comm = npc:character_community()
+        local is_safe, reason, param1, param2 = sb.can_settler_safely_live_in_camp(npc_comm, hub_id)
+        if not is_safe then
+            if reason == "hostile_territory" then
+                local r_name = game.translate_string(param1) or param1
+                local s_name = npc:character_name()
+                local f_name = game.translate_string(npc_comm) or npc_comm
+                local t_name = sb.get_camp_label(camp)
+                actor_menu.set_msg(1, string.format(game.translate_string("st_recruit_hostile_territory") or "Cannot recruit %s (%s) to %s: This territory is controlled by %s forces, who will attack them on sight.", s_name, f_name, t_name, r_name), 5)
+            elseif reason == "hostile_settler" then
+                local e_fac = game.translate_string(param1) or param1
+                local e_name = param2 or "Resident"
+                local s_name = npc:character_name()
+                local f_name = game.translate_string(npc_comm) or npc_comm
+                local t_name = sb.get_camp_label(camp)
+                actor_menu.set_msg(1, string.format(game.translate_string("st_transfer_hostile_settler") or "Cannot recruit %s (%s) to %s due to faction hostility with resident %s (%s).", s_name, f_name, t_name, e_name, e_fac), 5)
+            end
+            return
+        end
+    end
+
+    -- printf(sformat("[Homestead] recruit_npc_to_camp: recruiting npc '%s' (id=%d) to hub %d", npc:character_name(), npc_id, hub_id))
+
+    local was_comp = sb.is_companion(npc)
+    if was_comp then
+        -- printf(sformat("[Homestead] recruit_npc_to_camp: npc %d was a companion, removing from actor squad", npc_id))
+        axr_companions.remove_from_actor_squad(npc)
+        pcall(function()
+            if state_mgr and state_mgr.set_state then
+                state_mgr.set_state(npc, "idle")
+            end
+        end)
+        pcall(function()
+            npc:set_body_state(move.standing)
+            npc:set_movement_type(move.walk)
+            npc:set_mental_state(anim.free)
+        end)
+    end
+
+    sb.release_npc_from_squad_and_smart(npc_id)
+    sb.refugee_ids[npc_id] = nil
+
+    -- Check if this NPC was previously a settler with a paused job (recruit_back scenario)
+    local restored_job = "idle"
+    local restored_xp = 0
+    local restored_tier = 0
+    local restored_job_start_realtime = time_global()
+
+    for search_hub_id, search_camp in pairs(sb.active_camps) do
+        if search_camp.survivors and search_camp.survivors[npc_id] then
+            local s = search_camp.survivors[npc_id]
+            if s.paused_job then
+                restored_job = s.paused_job
+                restored_xp = s.paused_xp or 0
+                restored_tier = s.paused_tier or 0
+                if s.paused_job_progress and s.paused_job_progress > 0 then
+                    local rt_interval = 300
+                    if     restored_job == "cook"     then rt_interval = sb.cfg.realtime_job_cook_interval
+                    elseif restored_job == "craft"    then rt_interval = sb.cfg.realtime_job_craft_interval
+                    elseif restored_job == "repair"   then rt_interval = sb.cfg.realtime_job_repair_interval
+                    elseif restored_job == "scavenge" then rt_interval = sb.cfg.realtime_job_scavenge_interval
+                    elseif restored_job == "medic"    then rt_interval = sb.cfg.medic_job_interval or (sb.defaults and sb.defaults.medic_job_interval) or 1500
+                    elseif restored_job == "electrician" then rt_interval = sb.cfg.electrician_job_interval or (sb.defaults and sb.defaults.electrician_job_interval) or 900
+                    end
+                    restored_job_start_realtime = time_global() - (s.paused_job_progress * (rt_interval or 300) * 1000)
+                else
+                    restored_job_start_realtime = s.paused_job_start_realtime or time_global()
+                end
+                -- printf(sformat("[Homestead] recruit_npc_to_camp: restoring paused job '%s' (xp=%d, tier=%d) for npc %d", restored_job, restored_xp, restored_tier, npc_id))
+            end
+            break
+        end
+    end
+
+    camp.survivors[npc_id] = {
+        name = npc:character_name(),
+        job = restored_job,
+        job_start_time = game.get_game_time():diffSec(game.CTime()),
+        job_start_realtime = restored_job_start_realtime,
+        was_companion = was_comp,
+        xp = restored_xp,
+        tier = restored_tier,
+        community = npc:character_community(),
+        nickname = npc:character_name(),
+        section = npc:section(),
+        visual = npc:get_visual_name(),
+        icon = (npc.character_icon and npc:character_icon()) or nil,
+    }
+    sb.settler_lookup[npc_id] = {
+        hub_id = hub_id,
+        camp = camp,
+        survivor = camp.survivors[npc_id],
+    }
+    if sb.non_settler_cache then
+        sb.non_settler_cache[npc_id] = nil
+    end
+    -- printf(sformat("[Homestead] recruit_npc_to_camp: survivor entry created for npc %d, survivors in camp %d: %d total", npc_id, hub_id, (function() local c=0 for _ in pairs(camp.survivors) do c=c+1 end return c end)()))
+
+    sb.set_camp_settler_relations(hub_id, npc_id, true)
+
+    -- Protect from sim GC: register NPC into the actor squad
+    local actor_squad = get_object_squad(actor_alao)
+    if actor_squad then
+        local already_member = false
+        for k in sb.safe_squad_members(actor_squad) do
+            if k.id == npc_id then already_member = true; break end
+        end
+        if not already_member then
+            actor_squad:register_member(npc_id)
+            -- printf(sformat("[Homestead] recruit_npc_to_camp: registered npc %d into actor squad %d for sim GC protection", npc_id, actor_squad.id))
+            if SIMBOARD then SIMBOARD.squads[actor_squad.id] = actor_squad end
+        end
+    else
+        -- printf(sformat("[Homestead] recruit_npc_to_camp: WARNING - actor has no squad, npc %d has no GC protection", npc_id))
+    end
+
+    if npc:has_info("npcx_is_companion") then
+        npc:disable_info_portion("npcx_is_companion")
+        -- printf(sformat("[Homestead] recruit_npc_to_camp: cleared npcx_is_companion from npc %d", npc_id))
+    end
+
+    actor_menu.set_msg(1, sformat(game.translate_string("st_recruit_joined_camp"), npc:character_name(), sb.get_camp_label(camp)), 4)
+
+    local defer_online_arrival = false
+    local recruited_online = level.object_by_id(npc_id)
+    local hub_obj = alife_object(hub_id)
+    if recruited_online and hub_obj and camp.level == level.name() then
+        local target_pos, target_lvid = sb.get_settler_job_target(npc_id, hub_id)
+        target_pos = target_pos or hub_obj.position
+        target_lvid = target_lvid or hub_obj.m_level_vertex_id
+        local ok_walk = pcall(function()
+            recruited_online:set_dest_level_vertex_id(target_lvid)
+            recruited_online:set_path_type(game_object.level_path)
+            recruited_online:set_movement_type(move.walk)
+            recruited_online:set_body_state(move.standing)
+            recruited_online:set_mental_state(anim.free)
+        end)
+        if ok_walk then
+            defer_online_arrival = true
+            camp.survivors[npc_id].pending_camp_arrival = true
+            camp.survivors[npc_id].pending_camp_lvid = target_lvid
+        end
+    end
+    if not defer_online_arrival then
+        sb.teleport_npc_to_camp_hub(npc_id, hub_id)
+    end
+
+    -- The actor-squad registration above was only ever meant as a brief
+    -- anti-GC measure for the moment between recruitment and
+    -- teleport_npc_to_camp_hub anchoring the settler to a smart terrain.
+    -- teleport_npc_to_camp_hub has now done that anchoring, so the settler
+    -- has real GC protection (smart terrain) and no longer needs to be a
+    -- phantom member of the player's squad. Leaving them registered was
+    -- the root cause of the long-standing "settlers never show up at the
+    -- settlement, even Recall doesn't fix it" bug: a settler permanently
+    -- stuck in the actor's squad reads as "is_companion" forever, which
+    -- caused teleport_settler_to_camp_level (used by Recall and by the
+    -- automatic cross-level recall on level load) to silently skip them.
+    local actor_squad_after = get_object_squad(actor_alao)
+    if actor_squad_after then
+        local ok = pcall(function() actor_squad_after:unregister_member(npc_id) end)
+        if ok then
+            local se_after = alife_object(npc_id)
+            if se_after and se_after.group_id ~= nil then
+                se_after.group_id = 65535  -- 0xFFFF = "no squad" sentinel
+            end
+            -- printf(sformat("[Homestead] recruit_npc_to_camp: unregistered npc %d from actor squad %d (smart-terrain anchor now provides GC protection)", npc_id, actor_squad_after.id))
+        end
+    end
+    if defer_online_arrival and sb.anchor_settler_to_smart then
+        local se_after = alife_object(npc_id)
+        local cur_pos = (recruited_online and recruited_online:position()) or (se_after and se_after.position)
+        pcall(function() sb.anchor_settler_to_smart(npc_id, camp.level, cur_pos) end)
+    end
+end
+
+function stalker_camp_builder.recruit_npc(actor, npc)
+    local act = actor or db.actor
+    if not (act and act:alive()) then return end
+    local sb = stalker_camp_builder
+    local hub_id, camp = sb.get_active_camp_near(act:position())
+    if not camp or sb.get_camp_bed_capacity(camp) <= 0 then
+        local entry = sb.get_recruitable_camps(npc)[1]
+        if not entry then return end
+        hub_id = entry.hub_id
+    end
+    sb.recruit_npc_to_camp(act, npc, hub_id)
+end
+
+function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
+    local sb = stalker_camp_builder
+    local target_camp = sb.active_camps[target_hub_id]
+    if not target_camp then return false, "no_camp" end
+
+    local capacity = sb.get_camp_bed_capacity(target_camp)
+    local survivor_count = 0
+    for k, v in pairs(target_camp.survivors) do
+        survivor_count = survivor_count + 1
+    end
+    if survivor_count >= capacity then return false, "full" end
+
+    local survivor_data, source_hub_id
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors[npc_id] then
+            survivor_data = camp.survivors[npc_id]
+            source_hub_id = hub_id
+            break
+        end
+    end
+    if not survivor_data then return false, "not_found" end
+    if source_hub_id == target_hub_id then return false, "same_camp" end
+
+    local npc_comm = survivor_data.community
+    if not npc_comm then
+        local online_npc = sb.safe_level_object(npc_id)
+        if online_npc and online_npc.character_community then
+            npc_comm = online_npc:character_community()
+        end
+    end
+
+    -- Safety check: validate territory and intra-camp relations
+    local is_safe, reason, param1, param2 = sb.can_settler_safely_live_in_camp(npc_comm or "stalker", target_hub_id)
+    if not is_safe then
+        if reason == "hostile_territory" then
+            local r_name = game.translate_string(param1) or param1
+            local s_name = survivor_data.name or "Survivor"
+            local f_name = game.translate_string(npc_comm or "stalker") or (npc_comm or "stalker")
+            local t_name = sb.get_camp_label(target_camp)
+            actor_menu.set_msg(1, string.format(game.translate_string("st_transfer_hostile_territory") or "Transfer blocked: %s (%s) cannot live in %s. This territory is held by %s forces, who will attack them on sight.", s_name, f_name, t_name, r_name), 5)
+            return false, "hostile_territory"
+        elseif reason == "hostile_settler" then
+            local e_fac = game.translate_string(param1) or param1
+            local e_name = param2 or "Resident"
+            local s_name = survivor_data.name or "Survivor"
+            local f_name = game.translate_string(npc_comm or "stalker") or (npc_comm or "stalker")
+            local t_name = sb.get_camp_label(target_camp)
+            actor_menu.set_msg(1, string.format(game.translate_string("st_transfer_hostile_settler") or "Transfer blocked: %s (%s) cannot live in %s due to faction hostility with %s (%s).", s_name, f_name, t_name, e_name, e_fac), 5)
+            return false, "hostile_settlers"
+        end
+    end
+
+    sb.active_camps[source_hub_id].survivors[npc_id] = nil
+    survivor_data.assigned_pos = nil
+    survivor_data.job = survivor_data.job or "idle"
+    survivor_data.job_start_time = game.get_game_time():diffSec(game.CTime())
+    survivor_data.job_start_realtime = time_global()
+    target_camp.survivors[npc_id] = survivor_data
+
+    sb.teleport_npc_to_camp_hub(npc_id, target_hub_id)
+    sb.set_camp_settler_relations(target_hub_id, npc_id, true)
+
+    actor_menu.set_msg(1, string.format(game.translate_string("st_transfer_survivor_msg"), survivor_data.name or "Survivor", sb.get_camp_label(target_camp)), 4)
+    return true
+end
+
+-- ============================================================================
+-- Recruitment dialog camp-choice slots
+-- ============================================================================
+local function camp_slot_exists(actor, npc, n)
+    local sb = stalker_camp_builder
+    local a, target_npc = resolve_speakers(actor, npc)
+    local recruitable = sb.get_recruitable_camps(target_npc)
+    return recruitable[n] ~= nil
+end
+
+local function recruit_to_camp_slot(actor, npc, n)
+    local sb = stalker_camp_builder
+    local a, target_npc = resolve_speakers(actor, npc)
+    if not target_npc and sb.last_talked_npc then
+        target_npc = sb.last_talked_npc
+    end
+    local recruitable = sb.get_recruitable_camps(target_npc)
+    local entry = recruitable[n]
+    if entry and target_npc then
+        local can_join, reason, val1, val2 = sb.check_recruitment_requirements(target_npc, entry.hub_id)
+        if not can_join then
+            if reason == "fee" then
+                actor_menu.set_msg(1, string.format(game.translate_string("st_recruit_fee_insufficient"), val1), 4)
+            elseif reason == "defense" then
+                actor_menu.set_msg(1, string.format(game.translate_string("st_recruit_defense_insufficient"), val1, val2), 4)
+            elseif reason == "contract" then
+                actor_menu.set_msg(1, game.translate_string("st_recruit_contract_mercenary"), 4)
+            end
+            return
+        end
+
+        if val1 and val1 > 0 and db.actor then
+            db.actor:give_money(-val1)
+            -- GAMMA test stack may not ship interface\inv_money. Avoid forcing
+            -- a missing sound lookup during recruitment; the fee itself is unchanged.
+        end
+
+        sb.recruit_npc_to_camp(actor, target_npc, entry.hub_id)
+    end
+end
+
+function stalker_camp_builder.camp_slot_1_exists(actor, npc) return camp_slot_exists(actor, npc, 1) end
+function stalker_camp_builder.camp_slot_2_exists(actor, npc) return camp_slot_exists(actor, npc, 2) end
+function stalker_camp_builder.camp_slot_3_exists(actor, npc) return camp_slot_exists(actor, npc, 3) end
+function stalker_camp_builder.camp_slot_4_exists(actor, npc) return camp_slot_exists(actor, npc, 4) end
+
+function stalker_camp_builder.recruit_to_camp_slot_1(actor, npc) recruit_to_camp_slot(actor, npc, 1) end
+function stalker_camp_builder.recruit_to_camp_slot_2(actor, npc) recruit_to_camp_slot(actor, npc, 2) end
+function stalker_camp_builder.recruit_to_camp_slot_3(actor, npc) recruit_to_camp_slot(actor, npc, 3) end
+function stalker_camp_builder.recruit_to_camp_slot_4(actor, npc) recruit_to_camp_slot(actor, npc, 4) end
+
+local function get_camp_slot_text(n)
+    local sb = stalker_camp_builder
+    local npc = mob_trade and mob_trade.GetTalkingNpc and mob_trade.GetTalkingNpc()
+    if not npc then
+        npc = sb.last_talked_npc
+    end
+    local recruitable = sb.get_recruitable_camps(npc)
+    local entry = recruitable[n]
+    if entry then
+        local label = sb.get_camp_label(entry.camp or entry)
+        local fee = 0
+        pcall(function()
+            if npc and sb.get_recruitment_fee then
+                fee = sb.get_recruitment_fee(npc)
+            end
+        end)
+        if fee and fee > 0 then
+            return game.translate_string("st_recruit_camp_slot_prefix") .. " " .. label .. " (" .. tostring(fee) .. " RU)."
+        end
+        return game.translate_string("st_recruit_camp_slot_prefix") .. " " .. label .. "."
+    end
+    return ""
+end
+
+function stalker_camp_builder.get_camp_slot_1_text() return get_camp_slot_text(1) end
+function stalker_camp_builder.get_camp_slot_2_text() return get_camp_slot_text(2) end
+function stalker_camp_builder.get_camp_slot_3_text() return get_camp_slot_text(3) end
+function stalker_camp_builder.get_camp_slot_4_text() return get_camp_slot_text(4) end
+
+function stalker_camp_builder.is_camp_survivor(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        -- Active companions travel with the player; they do not show stationary camp management dialog
+        if sb.is_companion and sb.is_companion(npc) then
+            return false
+        end
+
+        for hub_id, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local s = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if s then
+                    if s.job == "companion" or s.is_companion then
+                        return false
+                    end
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+
+-- ============================================================================
+-- set_survivor_position / clear / set_to_actor
+-- ============================================================================
+function stalker_camp_builder.set_survivor_position(npc_id, lvid, pos)
+    local sb = stalker_camp_builder
+    local target_camp, target_hub_id = nil, nil
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] then
+            target_camp = camp
+            target_hub_id = hub_id
+            break
+        end
+    end
+    if not target_camp then return false, "not_found" end
+
+    local hub_obj = alife_object(target_hub_id)
+    if hub_obj and hub_obj.position then
+        local dx = pos.x - hub_obj.position.x
+        local dy = pos.y - hub_obj.position.y
+        local dz = pos.z - hub_obj.position.z
+        local b_dist = sb.cfg.boundary_dist or 50
+        if (dx*dx + dy*dy + dz*dz) > (b_dist * b_dist) then
+            return false, "too_far"
+        end
+    end
+    target_camp.survivors[npc_id].assigned_pos = {
+        lvid = lvid,
+        x = pos.x, y = pos.y, z = pos.z
+    }
+
+    -- INSTANT TELEPORT & BEH WAIT SCHEME ACTIVATION
+    local target_pos = vector():set(pos.x, pos.y, pos.z)
+    local se_npc = alife_object(npc_id)
+    local online_obj = level.object_by_id(npc_id)
+    local current_level = level.name()
+    local camp_level = target_camp.level or current_level
+    local same_level = (camp_level == current_level)
+
+    if online_obj and same_level then
+        pcall(function()
+            if online_obj and IsStalker(online_obj) and (not IsMonster(online_obj)) and online_obj.set_npc_position then
+                online_obj:set_npc_position(target_pos)
+            end
+            if se_npc then
+                se_npc.position = target_pos
+                se_npc.m_level_vertex_id = lvid
+            end
+        end)
+        if sb.setup_settler_beh_logic then
+            sb.setup_settler_beh_logic(online_obj, lvid, nil, "guard")
+        end
+    else
+        if se_npc then
+            pcall(function()
+                alife():teleport_object(npc_id, se_npc.m_game_vertex_id, lvid, target_pos)
+            end)
+            if same_level then
+                utils_obj.switch_online(npc_id)
+            end
+        end
+    end
+
+    return true
+end
+
+function stalker_camp_builder.clear_survivor_position(npc_id)
+    local sb = stalker_camp_builder
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors[npc_id] then
+            camp.survivors[npc_id].assigned_pos = nil
+            return true
+        end
+    end
+    return false
+end
+
+function stalker_camp_builder.set_survivor_position_to_actor(npc_id)
+    if not (db.actor and db.actor:alive()) then return false end
+    local sb = stalker_camp_builder
+    return sb.set_survivor_position(npc_id, db.actor:level_vertex_id(), db.actor:position())
+end
+
+function stalker_camp_builder.can_recruit_back(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return false end
+    local npc_id = npc:id()
+    if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+    local sb = stalker_camp_builder
+    -- If already an active companion, do not show "recruit back" option
+    if sb.is_companion and sb.is_companion(npc) then return false end
+
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        if camp.survivors then
+            local s = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)]
+            if s and s.job ~= "companion" and not s.is_companion then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function stalker_camp_builder.recruit_back(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    local sformat = string.format
+    local sb = stalker_camp_builder
+    if not npc then return end
+    local npc_id = npc:id()
+    if npc_id == 0 or (actor and npc_id == actor:id()) then return end
+
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] then
+            local survivor = camp.survivors[npc_id]
+            survivor.paused_job = (survivor.job ~= "companion") and (survivor.job or "idle") or (survivor.paused_job or "idle")
+            survivor.paused_xp = survivor.xp or 0
+            survivor.paused_tier = survivor.tier or 0
+            survivor.paused_job_progress = sb.get_job_progress and sb.get_job_progress(survivor) or 0
+            survivor.paused_job_start_realtime = survivor.job_start_realtime
+            survivor.job = "companion"
+            survivor.is_companion = true
+
+            sb.set_camp_settler_relations(hub_id, npc_id, false)
+
+            if level.object_by_id(npc_id) == nil then
+                utils_obj.switch_online(npc_id)
+            end
+
+            local retry_count = 0
+            CreateTimeEvent("recruit_back_" .. npc_id, "recruit_back_deferred_" .. npc_id, 0, function()
+                retry_count = retry_count + 1
+                local online_npc = level.object_by_id(npc_id)
+                if not online_npc then
+                    if retry_count > 30 then
+                        return true
+                    end
+                    return false
+                end
+
+                -- 1. Restore settler logic & clean up movement / state locks
+                if sb.restore_settler_logic then
+                    sb.restore_settler_logic(online_npc)
+                end
+                if xr_motivator and xr_motivator.script_release then
+                    pcall(function() xr_motivator.script_release(online_npc) end)
+                end
+                sb.camp_npc_released[npc_id] = nil
+
+                pcall(function()
+                    online_npc:set_movement_type(move.walk)
+                    online_npc:set_body_state(move.standing)
+                    online_npc:set_mental_state(anim.free)
+                    if state_mgr and state_mgr.set_state then
+                        state_mgr.set_state(online_npc, "idle")
+                    end
+                end)
+
+                local st = db.storage[npc_id]
+                if st then
+                    st.beh_homestead_active = nil
+                    if st.beh then
+                        st.beh.rally_lvid = nil
+                        st.beh.am_i_reached = nil
+                    end
+                end
+                save_var(online_npc, "fight_from_point", nil)
+
+                -- 2. Clear holding & settler infoportions
+                online_npc:disable_info_portion("npcx_beh_wait")
+                online_npc:disable_info_portion("npcx_beh_cannot_dismiss")
+                online_npc:disable_info_portion("homestead_settler_guard")
+                online_npc:disable_info_portion("homestead_settler_patrol")
+                if not online_npc:has_info("npcx_is_companion") then
+                    online_npc:give_info_portion("npcx_is_companion")
+                end
+
+                -- 3. Dedicated companion squad conversion
+                -- Anomaly/GAMMA companion tracking (axr_companions.companion_squads) tracks SQUADS,
+                -- and beh_companion requires a squad commander or actor target to follow!
+                if sb.convert_settler_to_companion_squad then
+                    sb.convert_settler_to_companion_squad(npc_id, online_npc)
+                end
+
+                -- 4. Hand off to axr_companions
+                if axr_companions and axr_companions.add_to_actor_squad then
+                    axr_companions.add_to_actor_squad(online_npc)
+                    if axr_companions.set_companion_to_follow_state then
+                        axr_companions.set_companion_to_follow_state(online_npc)
+                    end
+                end
+
+                -- 5. Feedback to player
+                actor_menu.set_msg(1, string.format(game.translate_string("st_recruit_back_msg") or "%s joined your squad as a companion.", survivor.name or "Settler"), 4)
+
+                return true
+            end)
+            break
+        end
+    end
+end
+
+-- ============================================================================
+-- Companion Settlement Return Handlers
+-- ============================================================================
+function stalker_camp_builder.can_return_to_settlement(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return false end
+    local npc_id = npc:id()
+    if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+    local sb = stalker_camp_builder
+    if not (sb.is_companion and sb.is_companion(npc)) then
+        return false
+    end
+
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        if camp.survivors then
+            local s = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)]
+            if s and (s.job == "companion" or s.is_companion or s.paused_job) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+function stalker_camp_builder.get_return_to_settlement_text(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    local sb = stalker_camp_builder
+    if npc then
+        local npc_id = npc:id()
+        for hub_id, camp in pairs(sb.active_camps or {}) do
+            if camp.survivors then
+                local s = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)]
+                if s and (s.job == "companion" or s.is_companion or s.paused_job) then
+                    local c_name = sb.get_camp_label(camp)
+                    return string.format(game.translate_string("st_return_to_settlement_ask_fmt") or "Return to your settlement duties at %s.", c_name)
+                end
+            end
+        end
+    end
+    return game.translate_string("st_return_to_settlement_ask") or "Return to your settlement duties."
+end
+
+function stalker_camp_builder.return_to_settlement(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return end
+    local npc_id = npc:id()
+    local sb = stalker_camp_builder
+
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        if camp.survivors then
+            local s = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)]
+            if s and (s.job == "companion" or s.is_companion or s.paused_job) then
+                if axr_companions and axr_companions.remove_from_actor_squad then
+                    axr_companions.remove_from_actor_squad(npc)
+                end
+                npc:disable_info_portion("npcx_is_companion")
+                npc:disable_info_portion("npcx_beh_wait")
+                npc:disable_info_portion("npcx_beh_cannot_dismiss")
+                npc:disable_info_portion("homestead_settler_guard")
+                npc:disable_info_portion("homestead_settler_patrol")
+
+                s.job = s.paused_job or "idle"
+                s.paused_job = nil
+                s.is_companion = nil
+                s.job_start_time = game.get_game_time():diffSec(game.CTime())
+                s.job_start_realtime = time_global()
+
+                sb.set_camp_settler_relations(hub_id, npc_id, true)
+                sb.teleport_npc_to_camp_hub(npc_id, hub_id, true)
+
+                local c_name = sb.get_camp_label(camp)
+                actor_menu.set_msg(1, string.format(game.translate_string("st_return_to_settlement_msg") or "%s is returning to settlement duties at %s.", s.name or "Settler", c_name), 4)
+                break
+            end
+        end
+    end
+end
+
+-- ============================================================================
+-- heal_stuck_companion_settlers -- Migration/Safety sweep for existing saves
+-- ----------------------------------------------------------------------------
+-- Detects any settler in active_camps with job="companion" whose squad was lost
+-- or unregistered from axr_companions.companion_squads in earlier builds,
+-- safely recreating their squad and putting them into follow mode.
+-- ============================================================================
+function stalker_camp_builder.heal_stuck_companion_settlers()
+    local sb = stalker_camp_builder
+    local healed = 0
+    local sim = alife()
+    if not sim then return 0 end
+
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        if camp.survivors then
+            for npc_id, survivor in pairs(camp.survivors) do
+                local id_num = tonumber(npc_id) or npc_id
+                if survivor and (survivor.job == "companion" or survivor.is_companion) then
+                    local se_npc = sim:object(id_num)
+                    if se_npc then
+                        local squad = get_object_squad(se_npc)
+                        local in_comp_squads = squad and axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id]
+                        if not in_comp_squads then
+                            local online_npc = level.object_by_id(id_num)
+                            if sb.convert_settler_to_companion_squad then
+                                squad = sb.convert_settler_to_companion_squad(id_num, online_npc)
+                            end
+                            if online_npc then
+                                if sb.restore_settler_logic then sb.restore_settler_logic(online_npc) end
+                                online_npc:disable_info_portion("npcx_beh_wait")
+                                online_npc:disable_info_portion("npcx_beh_cannot_dismiss")
+                                online_npc:disable_info_portion("homestead_settler_guard")
+                                online_npc:disable_info_portion("homestead_settler_patrol")
+                                if not online_npc:has_info("npcx_is_companion") then
+                                    online_npc:give_info_portion("npcx_is_companion")
+                                end
+                                pcall(function()
+                                    online_npc:set_movement_type(move.walk)
+                                    online_npc:set_body_state(move.standing)
+                                    online_npc:set_mental_state(anim.free)
+                                    if state_mgr and state_mgr.set_state then
+                                        state_mgr.set_state(online_npc, "idle")
+                                    end
+                                end)
+                                if axr_companions and axr_companions.add_to_actor_squad then
+                                    axr_companions.add_to_actor_squad(online_npc)
+                                    if axr_companions.set_companion_to_follow_state then
+                                        axr_companions.set_companion_to_follow_state(online_npc)
+                                    end
+                                end
+                            end
+                            healed = healed + 1
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return healed
+end
+
+
+function stalker_camp_builder.dismiss_survivor(actor, npc)
+    local sformat = string.format
+    local sb = stalker_camp_builder
+    if not npc then return end
+    local npc_id = npc:id()
+    -- printf(string.format("[Homestead] dismiss_survivor: called for npc %d", npc_id))
+
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] then
+            local survivor = camp.survivors[npc_id]
+            local name = survivor.name or "Survivor"
+
+            sb.set_camp_settler_relations(hub_id, npc_id, false)
+
+            camp.survivors[npc_id] = nil
+            sb.settler_lookup[npc_id] = nil
+
+            if sb.release_settler_home_squad then
+                sb.release_settler_home_squad(npc_id)
+            end
+
+            if axr_companions and axr_companions.remove_from_actor_squad then
+                local on_npc = level.object_by_id(npc_id) or npc
+                if on_npc then axr_companions.remove_from_actor_squad(on_npc) end
+            end
+
+            if npc.has_info then
+                if npc:has_info("homestead_settler_guard") then
+                    npc:disable_info_portion("homestead_settler_guard")
+                end
+                if npc:has_info("homestead_settler_patrol") then
+                    npc:disable_info_portion("homestead_settler_patrol")
+                end
+            end
+
+            sb.camp_npc_released[npc_id] = nil
+
+            utils_obj.switch_online(npc_id)
+
+            if db.actor then
+                actor_menu.set_msg(1, string.format(game.translate_string("st_settler_dismissed"), name), 4)
+            end
+            -- printf(string.format("[Homestead] dismiss_survivor: dismissed npc %d from camp %d", npc_id, hub_id))
+            return
+        end
+    end
+end
+
+function stalker_camp_builder.is_camp_settler(actor, npc)
+    local sb = stalker_camp_builder
+    if not npc then return false end
+    local npc_id = npc:id()
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] then
+            return true
+        end
+    end
+    return false
+end
+
+-- NOTE: is_camp_trader is defined later (merged caravan + settler trader check) -- do not define here
+
+-- ============================================================================
+-- can_banish / banish_npc -- release a settler back into the world
+-- ----------------------------------------------------------------------------
+-- Fix #11: banish_npc clears settler_lookup (already in source -- preserved)
+-- ============================================================================
+function stalker_camp_builder.can_banish(actor, npc)
+    local sb = stalker_camp_builder
+    if not npc then return false end
+    return sb.is_camp_survivor(actor, npc)
+end
+
+function stalker_camp_builder.banish_npc(actor, npc)
+    local sformat = string.format
+    local sb = stalker_camp_builder
+    if not npc then return end
+    local npc_id = npc:id()
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors[npc_id] then
+            local name = camp.survivors[npc_id].name or "settler"
+            sb.set_camp_settler_relations(hub_id, npc_id, false)
+            camp.survivors[npc_id] = nil
+            sb.settler_lookup[npc_id] = nil
+            -- printf(string.format("[Homestead] banish_npc: banished '%s' (id=%d) from camp %d", name, npc_id, hub_id))
+
+            if sb.release_settler_home_squad then
+                sb.release_settler_home_squad(npc_id)
+            end
+
+            if axr_companions and axr_companions.remove_from_actor_squad then
+                local on_npc = level.object_by_id(npc_id) or npc
+                if on_npc then axr_companions.remove_from_actor_squad(on_npc) end
+            end
+
+            if npc:has_info("npcx_is_companion") then
+                npc:disable_info_portion("npcx_is_companion")
+            end
+            if sb.restore_settler_logic then
+                sb.restore_settler_logic(npc)
+            end
+
+
+            local se = alife_object(npc_id)
+            if se then
+                local sq = get_object_squad(se)
+                local actor_sq = get_object_squad(db.actor)
+                if sq and actor_sq and sq.id == actor_sq.id then
+                    sq:unregister_member(npc_id)
+                    -- printf(string.format("[Homestead] banish_npc: unregistered npc %d from actor squad", npc_id))
+                end
+                if se.group_id ~= nil then se.group_id = 65535 end
+            end
+
+            utils_obj.switch_online(npc_id)
+
+            actor_menu.set_msg(1, string.format(game.translate_string("st_settler_banished"), name), 4)
+            return
+        end
+    end
+end
+
+-- ============================================================================
+-- rename_camp / rename_survivor
+-- ============================================================================
+function stalker_camp_builder.rename_camp(hub_id, name)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if camp then
+        camp.name = name
+        pcall(function() level.map_change_spot_hint(hub_id, "treasure_player", "Settlement: " .. name) end)
+        pcall(function() level.map_change_spot_hint(hub_id, "green_location", "Settlement: " .. name) end)
+        if camp.zone_id then
+            pcall(function() level.map_change_spot_hint(camp.zone_id, "ui_pda2_actor_sleep_location", "Camp Boundary: " .. name) end)
+        end
+    end
+end
+
+function stalker_camp_builder.rename_survivor(npc_id, new_name)
+    local sb = stalker_camp_builder
+    if not new_name or new_name == "" then return false, "empty_name" end
+    for hub_id, camp in pairs(sb.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] then
+            camp.survivors[npc_id].name = new_name
+            camp.survivors[npc_id].renamed = true
+            return true
+        end
+    end
+    return false, "not_found"
+end
+
+-- ============================================================================
+-- dismantle_camp -- clean teardown of a camp
+-- ============================================================================
+-- ============================================================================
+-- dismantle_camp -- v0.9.1 rewrite
+-- ----------------------------------------------------------------------------
+-- Two bugs fixed here, found from a log where dismantling a heavily-loaded
+-- camp (hundreds of artifacts/hides in its stash and fridge) corrupted the
+-- mod's own tracking data and then crashed the game outright:
+--
+-- 1. Bookkeeping cleared immediately, not left to server_entity_on_unregister.
+--    The old code released the hub/structures/zone via safe_alife_release and
+--    relied entirely on the server_entity_on_unregister callback to clear
+--    active_camps[hub_id] afterward. But v0.8.8 added a teardown-grace window
+--    to server_entity_on_unregister to stop it from treating routine
+--    save/level-transition unregister storms as real destruction. That grace
+--    window has no way to distinguish "engine tearing down the session" from
+--    "player just clicked Dismantle a few seconds after saving" -- both look
+--    identical from inside that callback. If a dismantle happened within the
+--    grace window, active_camps[hub_id] and camp.structures survived even
+--    though the underlying SE objects were actually destroyed, leaving stale
+--    structure IDs behind that later crashed check_camp_chest_supplies /
+--    safe_iterate_inventory_box when the player reopened the PDA.
+--    Fix: dismantle_camp now clears active_camps[hub_id] (and all of its
+--    structure/survivor tracking) itself, immediately, before attempting any
+--    native release. This makes intentional dismantles deterministic and
+--    completely independent of the passive teardown-grace mechanism, which
+--    should only ever apply to the passive unregister path.
+--
+-- 2. Structure releases deferred across ticks instead of one synchronous loop.
+--    The old code called safe_alife_release on every structure (including
+--    fully-stocked fridges/stashes) back-to-back in a single unyielding for
+--    loop. A camp stash holding hundreds of items means hundreds of
+--    synchronous native alife_release calls -- each walking that box's full
+--    inventory -- in one Lua call with no frame yield in between. The log
+--    showed repeated "[BusyHandsDebug] Runtime Error" warnings from the
+--    engine's own release() hook during this, immediately followed by the
+--    log simply stopping mid-item-dump (no FATAL banner) -- the signature of
+--    a hard native crash rather than a caught Lua error. Fix: structure
+--    releases are now queued and released one-per-tick via CreateTimeEvent,
+--    giving the engine a frame to breathe between each large-inventory
+--    release instead of hammering it synchronously.
+-- ============================================================================
+function stalker_camp_builder.dismantle_camp(hub_id)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp then return false, "no_camp" end
+    local hub_obj = alife_object(hub_id)
+    if not hub_obj then return false, "no_hub" end
+
+    -- printf(string.format("[Homestead] Dismantling camp %d (%s)", hub_id, tostring(camp.name)))
+
+    -- Cleanly free/release settler home squads so settlers are no longer bound to this settlement
+    if camp.survivors then
+        for npc_id, survivor in pairs(camp.survivors) do
+            -- Never force a client object online for an unloaded level. The server
+            -- entity can be released from Homestead bookkeeping while remaining offline.
+            if camp.level == level.name() then
+                pcall(function() utils_obj.switch_online(npc_id) end)
+            end
+            sb.camp_npc_released[npc_id] = nil
+            sb.refugee_ids[npc_id] = nil
+            sb.settler_lookup[npc_id] = nil
+            if sb.release_settler_home_squad then
+                sb.release_settler_home_squad(npc_id)
+            end
+        end
+    end
+
+    local zone_id = camp.zone_id
+
+    -- Clear settlement registry
+    sb.active_camps[hub_id] = nil
+    sb.invalidate_scan_camp_structures_cache(hub_id)
+
+    -- Remove PDA map spots
+    pcall(function()
+        level.map_remove_object_spot(hub_id, "ui_pda2_actor_sleep_location")
+        level.map_remove_object_spot(hub_id, "treasure_player")
+        level.map_remove_object_spot(hub_id, "green_location")
+    end)
+
+    -- Release only the boundary script zone (not physical furniture or storage containers)
+    if zone_id then
+        local se_zone = sb.safe_alife_object(zone_id)
+        if se_zone then
+            sb.safe_alife_release(se_zone)
+        end
+    end
+
+    -- NOTE: To prevent catastrophic player loot loss, physical workbenches,
+    -- storage boxes, and chests are NEVER deleted during settlement dismantling!
+    -- They remain intact as regular Hideout Furniture objects.
+
+    if db.actor then
+        actor_menu.set_msg(1, game.translate_string("st_dismantle_camp_done"), 5)
+    end
+    return true
+end
+
+-- ============================================================================
+-- Camp Specialization System
+-- ============================================================================
+function stalker_camp_builder.cycle_specialization(hub_id)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp then return end
+    local order = {"none", "outpost", "farm", "workshop", "hideout", "clinic"}
+    local current = camp.specialization or "none"
+    local idx = 1
+    for i, v in ipairs(order) do
+        if v == current then idx = i; break end
+    end
+    idx = idx + 1
+    if idx > #order then idx = 1 end
+    camp.specialization = order[idx]
+    local spec_table = (sb.defaults and sb.defaults.camp_specializations) or sb.camp_specializations
+    local spec = spec_table and spec_table[order[idx]]
+    local label = spec and spec.label or order[idx]
+    if db.actor then
+        actor_menu.set_msg(1, string.format(game.translate_string("st_camp_specialization_set"), label), 3)
+    end
+    -- printf(string.format("[Homestead] Camp %d specialization -> %s", hub_id, order[idx]))
+end
+
+function stalker_camp_builder.get_specialization_mult(camp, stat)
+    local sb = stalker_camp_builder
+    if not camp then return 1.0 end
+    local mult = 1.0
+    if camp.specialization and camp.specialization ~= "none" then
+        local spec_table = (sb.defaults and sb.defaults.camp_specializations) or sb.camp_specializations
+        local spec = spec_table and spec_table[camp.specialization]
+        if spec and spec[stat] then mult = mult * spec[stat] end
+    end
+    if camp.happiness and camp.happiness > 80 and stat ~= "defense" then
+        mult = mult * 1.10
+    end
+    return mult
+end
+
+function stalker_camp_builder.get_specialization_label(camp)
+    local sb = stalker_camp_builder
+    if not camp or not camp.specialization or camp.specialization == "none" then
+        return "Generic Camp"
+    end
+    local spec_table = (sb.defaults and sb.defaults.camp_specializations) or sb.camp_specializations
+    local spec = spec_table and spec_table[camp.specialization]
+    return spec and spec.label or "Generic Camp"
+end
+
+-- ============================================================================
+-- get_camp_dominant_faction -- pick the most common community among the
+-- camp's settlers. Used by the jobs module to spawn the caravan trader as
+-- the camp's dominant faction (Fix #5).
+-- ============================================================================
+function stalker_camp_builder.get_camp_dominant_faction(camp)
+    if not camp or not camp.survivors then return nil end
+    local counts = {}
+    for npc_id, survivor in pairs(camp.survivors) do
+        local comm = survivor.community
+        if not comm then
+            local obj = level.object_by_id(npc_id)
+            if obj and obj.character_community then
+                comm = obj:character_community()
+            end
+            if not comm then
+                local se_npc = alife_object(npc_id)
+                if se_npc and se_npc.community then
+                    comm = se_npc:community()
+                end
+            end
+        end
+        if comm then
+            survivor.community = comm
+            counts[comm] = (counts[comm] or 0) + 1
+        end
+    end
+    local best, best_count = nil, 0
+    for comm, c in pairs(counts) do
+        if c > best_count then
+            best = comm
+            best_count = c
+        end
+    end
+    return best
+end
+
+-- ============================================================================
+-- fast_travel_to_camp -- teleport actor to a camp on the same level
+-- ============================================================================
+function stalker_camp_builder.fast_travel_to_camp(hub_id, cost)
+  local actor_alao = db.actor
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp then return false, "no_camp" end
+    local hub_obj = alife_object(hub_id)
+    if not hub_obj then return false, "no_hub" end
+
+    cost = cost or 0
+
+    if actor_alao and actor_alao.best_enemy then
+        if actor_alao:best_enemy() ~= nil then
+            return false, "in_combat"
+        end
+    end
+
+    local current_level = level.name()
+    local hub_level = camp.level or alife():level_name(game_graph():vertex(hub_obj.m_game_vertex_id):level_id())
+
+    -- Cross-level fast travel is not supported via script in X-Ray.
+    -- The engine requires level changer UI for cross-level transitions,
+    -- which cannot be triggered programmatically. Only same-level teleport
+    -- (via actor:set_position) works reliably.
+    if current_level ~= hub_level then
+        return false, "cross_level_unsupported"
+    end
+
+    -- Same-level teleport
+    if cost > 0 and actor_alao then
+        local money = actor_alao.money and actor_alao:money() or 0
+        if money < cost then
+            return false, "insufficient_funds"
+        end
+        pcall(function() actor_alao:set_money(money - cost) end)
+    end
+
+    local actor = actor_alao
+    if not actor then return false, "no_actor" end
+
+    -- Calculate safe stand position 1.5m offset from workbench to avoid collision mesh lock
+    local hub_pos = hub_obj.position
+    local target_pos = vector():set(hub_pos.x + 1.2, hub_pos.y, hub_pos.z + 1.2)
+    local target_lvid = level.vertex_id(target_pos)
+    if target_lvid and target_lvid < 4294967295 and target_lvid ~= -1 then
+        target_pos = level.vertex_position(target_lvid)
+    else
+        target_pos = hub_pos
+    end
+
+    if db.actor.set_actor_position then
+        db.actor:set_actor_position(target_pos)
+    elseif actor.set_position then
+        actor:set_position(target_pos)
+    end
+
+    if actor_alao then
+        news_manager.send_tip(actor_alao, string.format(game.translate_string("st_fast_travel_success"), (camp.name or "camp"), cost), nil, "general_stalker", 8000)
+    end
+    -- printf(string.format("[Homestead] Fast-traveled actor to camp %d (%s), cost %d RU", hub_id, tostring(camp.name), cost))
+    return true
+end
+
+-- ============================================================================
+-- get_camp_trader_section -- resolve the appropriate faction trader section
+-- so summoned and random caravan traders do not spawn as hostile Loners in
+-- Mercenary, Bandit, Military, Freedom, or Duty camps.
+-- ============================================================================
+function stalker_camp_builder.get_camp_trader_section(camp)
+    local comm = nil
+    if stalker_camp_builder.get_camp_dominant_faction and camp then
+        comm = stalker_camp_builder.get_camp_dominant_faction(camp)
+    end
+    if not comm and camp and camp.faction then
+        comm = camp.faction
+    end
+    if not comm and db.actor and db.actor.character_community then
+        local raw = db.actor:character_community() or ""
+        comm = raw:gsub("^actor_", "")
+    end
+    comm = comm or "stalker"
+
+    local faction_map = {
+        stalker  = "sim_default_stalker_trader",
+        loner    = "sim_default_stalker_trader",
+        bandit   = "sim_default_bandit_trader",
+        dolg     = "sim_default_dolg_trader",
+        duty     = "sim_default_dolg_trader",
+        freedom  = "sim_default_freedom_trader",
+        killer   = "sim_default_killer_trader",
+        merc     = "sim_default_killer_trader",
+        military = "sim_default_army_trader",
+        army     = "sim_default_army_trader",
+        csky     = "sim_default_csky_trader",
+        ecolog   = "sim_default_ecolog_trader",
+        monolith = "sim_default_monolith_trader",
+        renegade = "sim_default_renegade_trader",
+        isg      = "sim_default_isg_trader",
+        greh     = "sim_default_greh_trader",
+    }
+    local sec = faction_map[comm] or "sim_default_stalker_trader"
+    if ini_sys and ini_sys.section_exist and ini_sys:section_exist(sec) then
+        return sec, comm
+    end
+    return "stalker_regular", comm
+end
+
+-- ============================================================================
+-- summon_caravan -- manually call a trader to a camp
+-- ============================================================================
+function stalker_camp_builder.summon_caravan(hub_id)
+    local sb = stalker_camp_builder
+    local camp = sb.active_camps[hub_id]
+    if not camp then return false, "no_camp" end
+    local hub_obj = alife_object(hub_id)
+    if not hub_obj then return false, "no_hub" end
+
+    if camp.active_trader_id then
+        return false, "trader_present"
+    end
+
+    local current_sec = game.get_game_time():diffSec(game.CTime())
+    if camp.last_caravan_summon_sec then
+        local elapsed = current_sec - camp.last_caravan_summon_sec
+        if elapsed < 14400 then
+            return false, "cooldown"
+        end
+    end
+
+    local pos = vector():set(hub_obj.position.x + 2, hub_obj.position.y, hub_obj.position.z + 2)
+    local sec, comm = sb.get_camp_trader_section(camp)
+    local se_trader = alife():create(sec, pos, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
+    if se_trader then
+        camp.active_trader_id = se_trader.id
+        camp.trader_spawn_time = current_sec
+        camp.trader_needs_stock = true
+        camp.trader_community = comm
+        camp.last_caravan_summon_sec = current_sec
+        -- printf(string.format("[Homestead] Summoned caravan to camp %d (%s), trader_id=%d", hub_id, sec, se_trader.id))
+        return true
+    end
+    return false, "spawn_failed"
+end
+
+-- ============================================================================
+-- start_camp_trader_trade -- open trade UI with the camp trader
+-- ============================================================================
+function stalker_camp_builder.start_camp_trader_trade(actor, npc)
+    local actor_alao = db.actor
+    local sb = stalker_camp_builder
+    if not npc then return end
+
+    if bind_trading_computer and bind_trading_computer.is_connection_blocked and bind_trading_computer.is_connection_blocked() then
+        news_manager.send_tip(actor_alao, game.translate_string("st_trade_network_offline"), nil, "red_danger", 10000)
+        return
+    end
+
+    local npc_id = npc:id()
+    local hub_id = nil
+    for h_id, camp in pairs(sb.active_camps) do
+        if camp.active_trader_id == npc_id then
+            hub_id = h_id
+            break
+        end
+    end
+
+    if hub_id then
+        local camp = sb.active_camps[hub_id]
+        local has_computer = false
+        for id, struct_type in pairs(camp.structures or {}) do
+            local se_obj = alife_object(id)
+            if se_obj and se_obj:section_name() == "placeable_trading_computer" then
+                has_computer = true
+                break
+            end
+        end
+
+        if has_computer and bind_trading_computer and bind_trading_computer.open_trade_by_id then
+            bind_trading_computer.open_trade_by_id(npc_id)
+            CreateTimeEvent("homestead_trader_break_dialog", "homestead_trader_break_dialog", 0.1, function()
+                if actor_alao then
+                    dialogs.break_dialog(actor_alao, npc)
+                end
+                return true
+            end)
+            return
+        end
+    end
+
+    npc:enable_trade()
+    npc:start_trade(actor)
+    CreateTimeEvent("homestead_trader_break_dialog", "homestead_trader_break_dialog", 0.1, function()
+        if actor_alao then
+            dialogs.break_dialog(actor_alao, npc)
+        end
+        return true
+    end)
+end
+
+-- ============================================================================
+-- Specialist Interactive Dialog Preconditions & Action Handlers (v1.0.0)
+-- ============================================================================
+function stalker_camp_builder.is_camp_medic(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if surv and surv.job == "medic" then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+function stalker_camp_builder.is_camp_repairer(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if surv and surv.job == "repair" then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+function stalker_camp_builder.is_camp_trader(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" then
+                if camp.active_trader_id == npc_id then
+                    return true
+                end
+                if camp.survivors then
+                    local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                    if surv and surv.job == "trader" then
+                        return true
+                    end
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+function stalker_camp_builder.open_technician_workbench(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    local sb = stalker_camp_builder
+    if dialogs and dialogs.break_dialog then
+        pcall(dialogs.break_dialog)
+    end
+    -- Find the camp this technician belongs to
+    local target_hub_id = nil
+    local n_id = n and n:id()
+    if n_id then
+        for hub_id, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                if camp.survivors[n_id] or camp.survivors[tostring(n_id)] or camp.survivors[tonumber(n_id)] then
+                    target_hub_id = hub_id
+                    break
+                end
+            end
+        end
+    end
+    target_hub_id = target_hub_id or (sb.get_current_camp_id and sb.get_current_camp_id())
+    if not target_hub_id and sb.get_active_camp_near and db.actor then
+        target_hub_id = sb.get_active_camp_near(db.actor:position())
+    end
+    if target_hub_id and ui_furniture_workshop and ui_furniture_workshop.start_dialog then
+        CreateTimeEvent("homestead_tech_wb", "open", 0.1, function()
+            ui_furniture_workshop.start_dialog(target_hub_id)
+            return true
+        end)
+    end
+end
+
+function stalker_camp_builder.actor_has_drugkit(actor, npc)
+    return db.actor and (db.actor:object("itm_drugkit") ~= nil or db.actor:object("drugkit") ~= nil)
+end
+
+function stalker_camp_builder.actor_has_toolkit1(actor, npc)
+    return db.actor and (db.actor:object("toolkit_1") ~= nil or db.actor:object("itm_basickit") ~= nil)
+end
+
+function stalker_camp_builder.actor_has_toolkit2(actor, npc)
+    return db.actor and (db.actor:object("toolkit_2") ~= nil or db.actor:object("itm_advancedkit") ~= nil)
+end
+
+function stalker_camp_builder.actor_has_toolkit3(actor, npc)
+    return db.actor and (db.actor:object("toolkit_3") ~= nil or db.actor:object("itm_expertkit") ~= nil)
+end
+
+function stalker_camp_builder.medic_treat_actor(actor, npc)
+    local actor_alao = db.actor
+    if not actor_alao then return end
+    local sb = stalker_camp_builder
+
+    local hub_id, camp = sb.get_active_camp_near(actor_alao:position())
+    local morale = camp and camp.morale or 50
+    local is_free = (morale >= 80)
+    local cost = is_free and 0 or 750
+
+    if not is_free and actor_alao:money() < cost then
+        news_manager.send_tip(actor_alao, game.translate_string("st_medic_no_money") .. " (" .. cost .. " RU)", nil, "general_stalker", 6000)
+        return
+    end
+
+    if not is_free then
+        actor_alao:give_money(-cost)
+    end
+
+    actor_alao.health = 1.0
+    actor_alao.bleeding = 1.0
+    actor_alao.radiation = 0.0
+    actor_alao.psy_health = 1.0
+
+    pcall(function()
+        if z_body_health_system and z_body_health_system.heal_all_limbs then
+            z_body_health_system.heal_all_limbs()
+        elseif body_health_system and body_health_system.heal_all_limbs then
+            body_health_system.heal_all_limbs()
+        end
+    end)
+
+    local snd = sound_object([[interface\inv_medkit]])
+    if snd then snd:play(actor_alao, 0, sound_object.s2d) end
+    level.add_pp_effector("blink.ppe", 2026, false)
+    news_manager.send_tip(actor_alao, game.translate_string("st_medic_treated"), nil, "general_stalker", 6000)
+end
+
+-- NOTE: start_camp_medic_trade is defined later (with resolve_speakers) -- do not define here
+
+function stalker_camp_builder.give_medic_drugkit(actor, npc)
+    local actor_alao = db.actor
+    if not actor_alao then return end
+    local itm = actor_alao:object("itm_drugkit") or actor_alao:object("drugkit")
+    if itm then
+        alife_release(alife_object(itm:id()))
+        local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
+        if camp then
+            camp.has_drugkit = true
+            camp.morale = math.min(100, (camp.morale or 50) + 15)
+        end
+        news_manager.send_tip(actor_alao, game.translate_string("st_medic_drugkit_delivered"), nil, "general_stalker", 8000)
+    end
+end
+
+function stalker_camp_builder.open_technician_upgrade_ui(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return end
+
+    if inventory_upgrades then
+        inventory_upgrades.victim_id = n:id()
+    end
+    if dialogs and dialogs.hide_hud_inventory then
+        dialogs.hide_hud_inventory()
+    end
+    if n.start_upgrade then
+        n:start_upgrade(db.actor)
+    elseif ui_inventory and ui_inventory.start then
+        ui_inventory.start("repair", n)
+    end
+end
+
+function stalker_camp_builder.start_camp_tech_trade(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return end
+
+    n:enable_trade()
+    if dialogs and dialogs.hide_hud_inventory then
+        dialogs.hide_hud_inventory()
+    end
+    if n.start_trade then
+        n:start_trade(db.actor)
+    end
+end
+
+function stalker_camp_builder.start_camp_medic_trade(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return end
+
+    n:enable_trade()
+    if dialogs and dialogs.hide_hud_inventory then
+        dialogs.hide_hud_inventory()
+    end
+    if n.start_trade then
+        n:start_trade(db.actor)
+    end
+end
+
+-- NOTE: start_camp_trader_trade is defined earlier (with trading computer support) -- do not redefine here
+
+local function deliver_toolkit(kit_section, tier)
+    local actor_alao = db.actor
+    if not actor_alao then return end
+    -- Try both naming conventions (toolkit_N and itm_basickit/advancedkit/expertkit)
+    local alt_names = {
+        ["toolkit_1"] = "itm_basickit",
+        ["toolkit_2"] = "itm_advancedkit",
+        ["toolkit_3"] = "itm_expertkit",
+    }
+    local itm = actor_alao:object(kit_section) or (alt_names[kit_section] and actor_alao:object(alt_names[kit_section]))
+    if not itm then return end
+
+    alife_release(alife_object(itm:id()))
+
+    local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
+    if camp then
+        camp.tech_toolkit_tier = math.max(camp.tech_toolkit_tier or 0, tier)
+        camp.morale = math.min(100, (camp.morale or 50) + 10)
+    end
+
+    local tier_names = { [1] = "Basic", [2] = "Advanced", [3] = "Expert" }
+    news_manager.send_tip(actor_alao, string.format(game.translate_string("st_tech_toolkit_delivered"), tier), nil, "general_stalker", 8000)
+end
+
+function stalker_camp_builder.give_tech_toolkit1(actor, npc) deliver_toolkit("toolkit_1", 1) end
+function stalker_camp_builder.give_tech_toolkit2(actor, npc) deliver_toolkit("toolkit_2", 2) end
+function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("toolkit_3", 3) end
+
+function stalker_camp_builder.dialog_auto_sort_supplies(actor, npc)
+    stalker_camp_builder.smart_dump_to_camp_storage()
+end
+
+
+-- ============================================================================
+-- WPO Weapon & Parts Overhaul System (v1.2.5 -- Type A/B/C/D Scaled Pricing)
+-- ============================================================================
+local function get_wpn_parts_table(wpn)
+    local type_ = type
+    if not wpn then return nil end
+    local wpn_id = wpn:id()
+    local parts = nil
+    if item_parts and item_parts.get_parts_con then
+        parts = item_parts.get_parts_con(wpn, wpn_id, false)
+    end
+    if type_(parts) ~= "table" then
+        parts = se_load_var(wpn_id, wpn:name(), "parts") or se_load_var(wpn_id, nil, "parts")
+    end
+    if type_(parts) ~= "table" then
+        if item_parts and item_parts.evaluate_parts then
+            item_parts.evaluate_parts(wpn)
+            parts = item_parts.get_parts_con(wpn, wpn_id, false)
+        end
+    end
+    if type_(parts) ~= "table" then
+        parts = {}
+    end
+    return parts
+end
+
+local function get_weapon_repair_tier(sec)
+    local sfind = string.find
+    if not sec then return "A", 45, 25000 end
+    local parent_sec = ini_sys and ini_sys:r_string_ex(sec, "parent_section") or sec
+    local rep_type = ini_sys and ini_sys:r_string_ex(parent_sec, "repair_type") or ""
+    local cost = ini_sys and ini_sys:r_u32(parent_sec, "cost") or 10000
+    local ammo_class = ini_sys and ini_sys:r_string_ex(parent_sec, "ammo_class") or ""
+
+    -- Type D: Heavy Weapons, Gauss, Anti-Materiel, .338 Lapua, 12.7, PKM, RPG, or base cost > 110,000 RU
+    if sfind(ammo_class, "ammo_gauss", 1, true) or sfind(ammo_class, "ammo_pkm", 1, true) or sfind(ammo_class, "ammo_12.7") or sfind(ammo_class, "ammo_magnum", 1, true) or sfind(ammo_class, "338", 1, true) or sfind(sec, "gauss", 1, true) or sfind(sec, "pkm", 1, true) or sfind(sec, "pkp", 1, true) or sfind(sec, "rpg", 1, true) or cost >= 110000 then
+        return "D", 260, 200000
+    end
+
+    -- Type C: 7.62 Calibers, 9x39, DMRs, Sniper Rifles, or base cost >= 50,000 RU
+    if rep_type == "rifle_7" or sfind(ammo_class, "7.62x54") or sfind(ammo_class, "7.62x51") or sfind(ammo_class, "7.62x39") or sfind(ammo_class, "9x39", 1, true) or cost >= 50000 then
+        return "C", 175, 135000
+    end
+
+    -- Type B: 5.45/5.56 Rifles, Shotguns, SMGs with intermediate calibers, or base cost >= 22,000 RU
+    if rep_type == "shotgun" or rep_type == "rifle_5" or sfind(ammo_class, "5.45x39") or sfind(ammo_class, "5.56x45") or sfind(ammo_class, "12x70", 1, true) or sfind(ammo_class, "12x76", 1, true) or cost >= 22000 then
+        return "B", 95, 70000
+    end
+
+    -- Type A: Pistols, Sawn-offs, Basic SMGs (9x18, 9x19, .45 ACP, 7.62x25, .357)
+    return "A", 45, 25000
+end
+
+function stalker_camp_builder.get_tech_overhaul_ask_text(actor, npc)
+    local mfloor = math.floor
+    local mmax = math.max
+    local actor_obj = actor or db.actor
+    if not actor_obj then return game.translate_string("st_camp_tech_overhaul_ask") or "Overhaul equipped weapon and parts..." end
+
+    local wpn = actor_obj:active_item()
+    if not (wpn and IsWeapon(wpn)) then
+        return game.translate_string("st_camp_tech_overhaul_no_wpn") or "Overhaul equipped weapon (No weapon in hands)"
+    end
+
+    local wpn_sec = wpn:section()
+    local wpn_name = ui_item and ui_item.get_sec_name(wpn_sec) or wpn_sec
+    local cur_cond = wpn:condition()
+    local parts = get_wpn_parts_table(wpn)
+
+    local base_deficit = mmax(0, mfloor((1.0 - cur_cond) * 100))
+    local parts_deficit = 0
+    local ini_parts = itms_manager and itms_manager.ini_parts
+    local sec = ini_sys and ini_sys:r_string_ex(wpn_sec, "parent_section") or wpn_sec
+    local parts_str = ini_parts and ini_parts:r_string_ex("con_parts_list", sec)
+    local parts_list = parts_str and str_explode(parts_str, ",") or {}
+
+    for _, p_name in ipairs(parts_list) do
+        local p_con = parts[p_name] or mfloor(cur_cond * 100)
+        parts_deficit = parts_deficit + mmax(0, 100 - p_con)
+    end
+
+    local total_deficit = base_deficit + parts_deficit
+    if total_deficit <= 0 then
+        return string.format(game.translate_string("st_camp_tech_overhaul_mint") or "Overhaul %s (Already 100%%)", wpn_name)
+    end
+
+    local tier_letter, tier_rate, tier_cap = get_weapon_repair_tier(wpn_sec)
+    local raw_cost = total_deficit * tier_rate
+    local renown_disc = (stalker_camp_builder.has_renown_perk and stalker_camp_builder.has_renown_perk("forge_master")) and 0.85 or 1.0
+    local total_cost = mfloor(math.min(tier_cap, mmax(150, raw_cost)) * renown_disc)
+
+    return string.format(game.translate_string("st_camp_tech_overhaul_cost") or "Overhaul %s [Type %s, %d parts] (%d RU)", wpn_name, tier_letter, #parts_list, total_cost)
+end
+
+function stalker_camp_builder.repair_equipped_weapon_and_parts(actor, npc)
+    local mfloor = math.floor
+    local mmax = math.max
+    local sformat = string.format
+    local actor_obj = actor or db.actor
+    if not actor_obj then return end
+
+    local wpn = actor_obj:active_item()
+    if not (wpn and IsWeapon(wpn)) then
+        actor_menu.set_msg(1, game.translate_string("st_homestead_no_weapon_equipped") or "Equip a weapon in your hands first.", 4)
+        return
+    end
+
+    local wpn_id = wpn:id()
+    local wpn_sec = wpn:section()
+    local wpn_name = ui_item and ui_item.get_sec_name(wpn_sec) or wpn_sec
+    local cur_cond = wpn:condition()
+    local parts = get_wpn_parts_table(wpn)
+
+    local base_deficit = mmax(0, mfloor((1.0 - cur_cond) * 100))
+    local parts_deficit = 0
+    local ini_parts = itms_manager and itms_manager.ini_parts
+    local sec = ini_sys and ini_sys:r_string_ex(wpn_sec, "parent_section") or wpn_sec
+    local parts_str = ini_parts and ini_parts:r_string_ex("con_parts_list", sec)
+    local parts_list = parts_str and str_explode(parts_str, ",") or {}
+
+    for _, p_name in ipairs(parts_list) do
+        local p_con = parts[p_name] or mfloor(cur_cond * 100)
+        parts_deficit = parts_deficit + mmax(0, 100 - p_con)
+    end
+
+    local total_deficit = base_deficit + parts_deficit
+    if total_deficit <= 0 then
+        actor_menu.set_msg(1, sformat(game.translate_string("st_homestead_weapon_already_repaired") or "%s and all its parts are already in 100%% mint condition.", wpn_name), 4)
+        return
+    end
+
+    local tier_letter, tier_rate, tier_cap = get_weapon_repair_tier(wpn_sec)
+    local raw_cost = total_deficit * tier_rate
+    local renown_disc = (stalker_camp_builder.has_renown_perk and stalker_camp_builder.has_renown_perk("forge_master")) and 0.85 or 1.0
+    local total_cost = mfloor(math.min(tier_cap, mmax(150, raw_cost)) * renown_disc)
+
+    local actor_money = actor_obj:money()
+    if actor_money < total_cost then
+        actor_menu.set_msg(1, sformat(game.translate_string("st_homestead_not_enough_money_tech") or "Not enough money. Overhaul cost: %d RU (you have %d RU).", total_cost, actor_money), 4)
+        return
+    end
+
+    -- Charge money
+    actor_obj:give_money(-total_cost)
+
+    -- 1. Restore base weapon condition and clear C++ misfire
+    wpn:set_condition(1.0)
+    local se_wpn = alife_object(wpn_id)
+    if se_wpn then
+        pcall(function() se_wpn.condition = 1.0 end)
+    end
+    pcall(function()
+        local c_wpn = wpn:cast_Weapon()
+        if c_wpn then
+            c_wpn:SetMisfire(false)
+            if c_wpn.SetCondition then c_wpn:SetCondition(1.0) end
+        end
+    end)
+
+    -- 2. Restore all WPO parts to 100%
+    for _, p_name in ipairs(parts_list) do
+        parts[p_name] = 100
+    end
+    parts[sec] = 100
+    for k in pairs(parts) do
+        parts[k] = 100
+    end
+
+    -- 3. Save to both nil and name keys in SE storage
+    se_save_var(wpn_id, nil, "parts", parts)
+    se_save_var(wpn_id, wpn:name(), "parts", parts)
+    if item_parts and item_parts.set_parts_con then
+        item_parts.set_parts_con(wpn_id, parts)
+    end
+
+    -- 4. Reset arti_jamming cache and clear jam state
+    if arti_jamming then
+        if arti_jamming.set_jam_status then
+            arti_jamming.set_jam_status(wpn_id, nil)
+        end
+        if arti_jamming.reset_cgd then
+            arti_jamming.reset_cgd()
+        end
+    end
+
+    -- 5. Play confirmation sound and notification
+    xr_sound.set_sound_play(actor_obj:id(), "pda_news")
+    actor_menu.set_msg(1, sformat(game.translate_string("st_homestead_weapon_overhauled") or "Overhauled %s [Type %s] and all internal parts to 100%% for %d RU.", wpn_name, tier_letter, total_cost), 5)
+end
+
+-- ============================================================================
+-- Settlement Medic Multi-Option Treatment System (v1.0.0)
+-- ============================================================================
+function stalker_camp_builder.is_actor_healthy(actor, npc)
+    local a = db.actor
+    if not a then return true end
+    local health = a.health or 1.0
+    local rad = a.radiation or 0.0
+    local bleed = a.bleeding or 0.0
+    return (health >= 0.98 and rad <= 0.01 and bleed <= 0.01)
+end
+
+function stalker_camp_builder.is_actor_not_healthy(actor, npc)
+    local a = db.actor
+    if not a then return false end
+    local health = a.health or 1.0
+    local rad = a.radiation or 0.0
+    local bleed = a.bleeding or 0.0
+    return (health < 0.98 or rad > 0.01 or bleed > 0.01)
+end
+
+function stalker_camp_builder.is_actor_injured(actor, npc)
+    local a = db.actor
+    if not a then return false end
+    local health = a.health or 1.0
+    local bleed = a.bleeding or 0.0
+    return (health < 0.98 or bleed > 0.01)
+end
+
+function stalker_camp_builder.is_actor_irradiated(actor, npc)
+    local a = db.actor
+    if not a then return false end
+    local rad = a.radiation or 0.0
+    return (rad > 0.01)
+end
+
+function stalker_camp_builder.is_actor_injured_irradiated(actor, npc)
+    local a = db.actor
+    if not a then return false end
+    local health = a.health or 1.0
+    local bleed = a.bleeding or 0.0
+    local rad = a.radiation or 0.0
+    return ((health < 0.98 or bleed > 0.01) and (rad > 0.01))
+end
+
+function stalker_camp_builder.medic_heal_wounds(actor, npc)
+    local a = db.actor
+    if not a then return end
+    local cost = 1850
+    if a:money() < cost then
+        actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
+        return
+    end
+    a:give_money(-cost)
+    a.health = 1.0
+    a.bleeding = 1.0
+    pcall(function()
+        if z_body_health_system and z_body_health_system.heal_all_limbs then
+            z_body_health_system.heal_all_limbs()
+        elseif body_health_system and body_health_system.heal_all_limbs then
+            body_health_system.heal_all_limbs()
+        end
+    end)
+    local snd = sound_object([[interface\inv_medkit]])
+    if snd then snd:play(a, 0, sound_object.s2d) end
+    level.add_pp_effector("blink.ppe", 2026, false)
+    actor_menu.set_msg(1, game.translate_string("st_camp_medic_heal_done") or "Wounds patched and bleeding stopped.", 5)
+end
+
+function stalker_camp_builder.medic_cure_rad(actor, npc)
+    local a = db.actor
+    if not a then return end
+    local cost = 1480
+    if a:money() < cost then
+        actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
+        return
+    end
+    a:give_money(-cost)
+    a.radiation = 0.0
+    local snd = sound_object([[interface\inv_drink]])
+    if snd then snd:play(a, 0, sound_object.s2d) end
+    level.add_pp_effector("fade_in.ppe", 2027, false)
+    actor_menu.set_msg(1, game.translate_string("st_camp_medic_heal_done") or "Radiation purged completely.", 5)
+end
+
+function stalker_camp_builder.medic_full_treat(actor, npc)
+    local a = db.actor
+    if not a then return end
+    local cost = 3350
+    if a:money() < cost then
+        actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
+        return
+    end
+    a:give_money(-cost)
+    a.health = 1.0
+    a.bleeding = 1.0
+    a.radiation = 0.0
+    a.psy_health = 1.0
+    pcall(function()
+        if z_body_health_system and z_body_health_system.heal_all_limbs then
+            z_body_health_system.heal_all_limbs()
+        elseif body_health_system and body_health_system.heal_all_limbs then
+            body_health_system.heal_all_limbs()
+        end
+    end)
+    local snd = sound_object([[interface\inv_medkit]])
+    if snd then snd:play(a, 0, sound_object.s2d) end
+    level.add_pp_effector("blink.ppe", 2026, false)
+    actor_menu.set_msg(1, game.translate_string("st_camp_medic_heal_done") or "Full physical and radiation treatment complete.", 5)
+end
+
+-- ============================================================================
+-- Custom Station Positioning Dialogue Handlers (v1.0.0)
+-- ============================================================================
+function stalker_camp_builder.dialog_set_survivor_position_to_actor(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return end
+    local npc_id = n:id()
+    local ok, res = stalker_camp_builder.set_survivor_position_to_actor(npc_id)
+    if ok then
+        local lvid = db.actor:level_vertex_id()
+        if stalker_camp_builder.setup_settler_beh_logic then
+            stalker_camp_builder.setup_settler_beh_logic(n, lvid, nil, "guard")
+        end
+        actor_menu.set_msg(1, game.translate_string("st_dialog_hold_position_done") or "Position anchored to current spot.", 4)
+    end
+end
+
+function stalker_camp_builder.dialog_clear_survivor_position(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return end
+    local npc_id = n:id()
+    stalker_camp_builder.clear_survivor_position(npc_id)
+    actor_menu.set_msg(1, game.translate_string("st_dialog_clear_position_done") or "Station anchor cleared.", 4)
+end
+
+function stalker_camp_builder.survivor_has_custom_position(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
+    if not n then return false end
+    local npc_id = n:id()
+    for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
+        if camp.survivors and camp.survivors[npc_id] and camp.survivors[npc_id].assigned_pos then
+            return true
+        end
+    end
+    return false
+end

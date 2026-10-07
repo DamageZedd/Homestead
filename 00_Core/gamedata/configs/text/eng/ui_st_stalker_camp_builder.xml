@@ -1,0 +1,2171 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<string_table>
+    <string id="st_recruit_to_camp_ask">
+        <text>Would you like to join one of my settlements?</text>
+    </string>
+    <string id="st_recruit_to_camp_answer">
+        <text>Sure, I can use a safe place to rest and work. What do you need me to do?</text>
+    </string>
+    <string id="st_recruit_to_camp_accept">
+        <text>Sure, I can help manage one of your settlements. Which camp should I head to?</text>
+    </string>
+    <string id="st_recruit_to_camp_reject">
+        <text>No thanks, I'm doing fine on my own and prefer to keep traveling.</text>
+    </string>
+    <string id="st_recruit_no_camps">
+        <text>You don't have any settlements established yet. Deploy a workbench somewhere in the Zone first.</text>
+    </string>
+    <string id="st_recruit_camps_full">
+        <text>All of your active settlements are at full capacity. You'll need to place more beds before I can join.</text>
+    </string>
+    <string id="st_recruit_to_camp_close">
+        <text>I see.</text>
+    </string>
+    <string id="st_recruit_camp_slot_1">
+        <text>Sure, send me to Settlement #1.</text>
+    </string>
+    <string id="st_recruit_camp_slot_2">
+        <text>Sure, send me to Settlement #2.</text>
+    </string>
+    <string id="st_recruit_camp_slot_3">
+        <text>Sure, send me to Settlement #3.</text>
+    </string>
+    <string id="st_recruit_camp_slot_4">
+        <text>Sure, send me to Settlement #4.</text>
+    </string>
+    <string id="st_recruit_joined_camp">
+        <text>%s has joined %s and will head there shortly.</text>
+    </string>
+    <string id="st_transfer_survivor_msg">
+        <text>%s is being reassigned to %s.</text>
+    </string>
+    <string id="st_manage_camp_ask">
+        <text>I want to assign you to a job in the camp.</text>
+    </string>
+    <string id="st_manage_camp_answer">
+        <text>What would you like me to do?</text>
+    </string>
+    <string id="st_job_scavenge_ask">
+        <text>Go out and scavenge for supplies.</text>
+    </string>
+    <string id="st_job_scavenge_done">
+        <text>Alright, I'll pack up and head out. Check the camp chest in 24 hours.</text>
+    </string>
+    <string id="st_job_craft_ask">
+        <text>Work on crafting ammunition at the bench.</text>
+    </string>
+    <string id="st_job_craft_done">
+        <text>Got it. Keep the workbench chest supplied with gunpowder and scrap metal.</text>
+    </string>
+    <string id="st_job_repair_ask">
+        <text>Take charge of repairing gear.</text>
+    </string>
+    <string id="st_job_repair_done">
+        <text>Sure. Put any damaged weapons/outfits in the chest along with some food or vodka as payment.</text>
+    </string>
+    <string id="st_job_idle_ask">
+        <text>Just relax and take it easy around the camp for now.</text>
+    </string>
+    <string id="st_job_idle_done">
+        <text>Understood, I'll be around the campfire.</text>
+    </string>
+    <string id="st_recruit_back_ask">
+        <text>I need you back in my squad. Let's move out.</text>
+    </string>
+    <string id="st_recruit_back_done">
+        <text>Good to be back on the trail. Let's go.</text>
+    </string>
+    <string id="st_recruit_back_msg">
+        <text>%s joined your squad as a companion.</text>
+    </string>
+    <string id="st_return_to_settlement_ask">
+        <text>Return to your settlement duties.</text>
+    </string>
+    <string id="st_return_to_settlement_ask_fmt">
+        <text>Return to your settlement duties at %s.</text>
+    </string>
+    <string id="st_return_to_settlement_done">
+        <text>Understood, heading back to camp now.</text>
+    </string>
+    <string id="st_return_to_settlement_msg">
+        <text>%s is returning to settlement duties at %s.</text>
+    </string>
+    <string id="st_job_guard_ask">
+        <text>We need you to stand guard and defend the camp.</text>
+    </string>
+    <string id="st_job_guard_done">
+        <text>Got it. I'll keep watch at the barricades.</text>
+    </string>
+    <string id="st_camp_status_ask">
+        <text>How is the camp doing?</text>
+    </string>
+    <string id="st_hf_requirement_warning">
+        <text>WARNING: Stalker Camp Builder requires 'Hideout Furniture [Base]' mod to be installed!</text>
+    </string>
+    <string id="st_hg_requirement_warning">
+        <text>WARNING: Stalker Camp Builder requires 'Hideout Gadgets [Version 0.7.2]' mod to be installed for defense systems!</text>
+    </string>
+    <string id="st_hfe_requirement_warning">
+        <text>WARNING: Stalker Camp Builder requires 'Hideout Furniture Expansion' mod to be installed for advanced furniture detection!</text>
+    </string>
+    <string id="st_emf_requirement_warning">
+        <text>WARNING: Stalker Camp Builder requires 'Even More Hideout Furniture' mod to be installed for expanded furniture detection!</text>
+    </string>
+    <string id="st_job_cook_ask">
+        <text>Work on cooking meals at the stove.</text>
+    </string>
+    <string id="st_job_cook_done">
+        <text>Understood, I'll cook up whatever raw meat you store in the chest.</text>
+    </string>
+    <string id="st_camp_trader_ask">
+        <text>I want to trade supplies.</text>
+    </string>
+    <string id="st_camp_trader_answer">
+        <text>Sure, let's see what you've got.</text>
+    </string>
+    <string id="ui_mcm_menu_stalker_camp_builder">
+        <text>Homestead</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_title">
+        <text>Homestead (Stalker Settlement Builder)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_general_header">
+        <text>General Settlement Settings</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_boundary_dist">
+        <text>Camp Boundary Radius (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_boundary_dist_desc">
+        <text>Sets the active area around a Camp Hub where placed structures are detected.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_npc_leash_radius">
+        <text>Idle NPC Leash Radius (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_npc_leash_radius_desc">
+        <text>How far idle settlers can wander from the Camp Hub. Job NPCs (cook, crafter, etc.) use the full Camp Boundary to reach their furniture. Default: 10m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_slope_tolerance">
+        <text>Rival Camp Slope Tolerance (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_slope_tolerance_desc">
+        <text>Max height difference allowed between a rival camp chest and the ground 5m around it. Rejects positions on steep hillsides where decorations would clip into terrain or float. Set higher (5-8m) to allow camps on moderately sloped terrain, lower (1-2m) for strict flat-ground only. Default: 2.5m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_min">
+        <text>Rival Camp Spawn Distance Min (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_min_desc">
+        <text>Minimum distance from a smart terrain where rival camps can spawn. Wider ranges give the slope check more candidates to find flat ground. Default: 25m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_max">
+        <text>Rival Camp Spawn Distance Max (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_max_desc">
+        <text>Maximum distance from a smart terrain where rival camps can spawn. Must be greater than Min. Default: 50m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_setup_duration_hr">
+        <text>Rival Camp Occupancy Duration (game hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_setup_duration_hr_desc">
+        <text>How long (in game hours) a rival camp squad occupies a camp before abandoning it. After this duration, the squad departs and the camp becomes unoccupied. Default: 24 game hours.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_notifications_header">
+        <text>Notifications and Quality-of-Life</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_verbose_notifications">
+        <text>Verbose Notifications</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_verbose_notifications_desc">
+        <text>When ON, shows routine job-completion toasts (cook, craft, repair, scavenge, trader arrivals). When OFF, only danger/raid alerts are shown. Recommended OFF for players with multiple active camps to reduce toast spam.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_craft_output_multiplier">
+        <text>Craft Output Multiplier</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_craft_output_multiplier_desc">
+        <text>Multiplies the output of every job cycle (cook, craft, repair, medic). Set to 1 for vanilla balance, 2-3 for faster progression, 5 for testing. Does NOT affect scavenge loot.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fast_travel_cost">
+        <text>Fast Travel Cost (RU)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fast_travel_cost_desc">
+        <text>RU cost to fast-travel to a camp via the PDA Travel button. Set to 0 for free travel. Default: 2000 RU.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_deficit_mult">
+        <text>Raid Defense Deficit Multiplier</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_deficit_mult_desc">
+        <text>How aggressively raids scale with defense deficit. Higher = more frequent raids when defenses are low. Default: 3.</text>
+    </string>
+    <string id="st_pda_job_btn_medic">
+        <text>Assign Medic</text>
+    </string>
+    <string id="st_pda_btn_travel">
+        <text>Travel Here</text>
+    </string>
+    <string id="st_pda_btn_summon_caravan">
+        <text>Summon Trade Caravan</text>
+    </string>
+    <string id="st_pda_btn_recall_settlers">
+        <text>Recall All Settlers (Cross-Level)</text>
+    </string>
+    <string id="st_pda_specialization_lbl">
+        <text>Camp Specialization (click to cycle)</text>
+    </string>
+    <string id="st_pda_dashboard_lbl">
+        <text>Resource Dashboard (All Camps)</text>
+    </string>
+    <string id="st_job_medic_ask">
+        <text>Can you work as a medic at the medstation?</text>
+    </string>
+    <string id="st_job_medic_done">
+        <text>Understood. I'll prepare medical supplies at the medstation.</text>
+    </string>
+    <string id="st_fast_travel_success">
+        <text>Fast-traveled to %s (-%d RU)</text>
+    </string>
+    <string id="st_fast_travel_need_ru">
+        <text>Need %d RU to fast-travel to this camp.</text>
+    </string>
+    <string id="st_fast_travel_same_level">
+        <text>You're already on this level. Walk to your camp.</text>
+    </string>
+    <string id="st_fast_travel_in_combat">
+        <text>Cannot fast-travel while in combat!</text>
+    </string>
+    <string id="st_fast_travel_no_hub">
+        <text>Camp hub not found.</text>
+    </string>
+    <string id="st_fast_travel_cross_level">
+        <text>Cross-level travel not supported. Walk to a level transition.</text>
+    </string>
+    <string id="st_caravan_summoned">
+        <text>Caravan summoned! A trader will arrive shortly.</text>
+    </string>
+    <string id="st_caravan_cooldown">
+        <text>A caravan was recently summoned. Wait a while.</text>
+    </string>
+    <string id="st_caravan_present">
+        <text>A caravan is already at this camp.</text>
+    </string>
+    <string id="st_caravan_spawn_failed">
+        <text>Could not summon caravan.</text>
+    </string>
+    <string id="st_dismantle_camp">
+        <text>Dismantle Camp</text>
+    </string>
+    <string id="st_dismantle_camp_confirm">
+        <text>Dismantle this settlement? Settlement tracking, zone, and settler assignments will be removed. Workbenches and storage containers remain safe in the world.</text>
+    </string>
+    <string id="st_dismantle_camp_done">
+        <text>Settlement disbanded. Workbenches and storage containers remain intact.</text>
+    </string>
+    <string id="st_rename_survivor">
+        <text>Rename Survivor</text>
+    </string>
+    <string id="st_transfer_supplies">
+        <text>Transfer Supplies</text>
+    </string>
+    <string id="st_transfer_supplies_lbl">
+        <text>Select items to transfer to:</text>
+    </string>
+    <string id="st_btn_transfer_items">
+        <text>Transfer Selected Items</text>
+    </string>
+    <string id="st_trade_route_established">
+        <text>Trade route established between %s and %s.</text>
+    </string>
+    <string id="st_trade_route_removed">
+        <text>Trade route removed.</text>
+    </string>
+    <string id="st_btn_trade_route">
+        <text>Manage Trade Routes</text>
+    </string>
+    <string id="st_camp_morale_low">
+        <text>Morale at %s is low (%d%%). Survivors may abandon the camp!</text>
+    </string>
+    <string id="st_camp_morale_high">
+        <text>Morale at %s is high (%d%%). Production bonus active!</text>
+    </string>
+    <string id="st_survivor_abandoned">
+        <text>%s has abandoned %s due to low morale!</text>
+    </string>
+    <string id="st_pda_morale_lbl">
+        <text>Morale</text>
+    </string>
+    <string id="st_raid_summary">
+        <text>Raid on %s repelled! Raiders killed: %d, guards lost: %d.</text>
+    </string>
+    <string id="st_raid_failed">
+        <text>Raid on %s succeeded! Camp ransacked, supplies stolen.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hub_min_dist">
+        <text>Minimum Hub Overlap Distance (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hub_min_dist_desc">
+        <text>Minimum required distance between different Settlement Camp Hubs to prevent overlap.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_jobs_header">
+        <text>Survivor Jobs &amp; Scavenging Balance</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_job_update_interval_hr">
+        <text>Job Update Cycle (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_job_update_interval_hr_desc">
+        <text>Game hours between survivor job outputs (crafting, repairing, cooking, scavenging).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_cook_interval_min">
+        <text>Cook Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_cook_interval_min_desc">
+        <text>Real minutes between cook job processing runs. Progress advances live while playing, not only when sleeping/waiting.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_craft_interval_min">
+        <text>Crafter Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_craft_interval_min_desc">
+        <text>Real minutes between ammo crafting and turret maintenance runs. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_repair_interval_min">
+        <text>Repairer Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_repair_interval_min_desc">
+        <text>Real minutes between gear repair job processing runs. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_scavenge_interval_min">
+        <text>Scavenger Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_scavenge_interval_min_desc">
+        <text>Real minutes between scavenger loot return checks. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_ambush_chance">
+        <text>Scavenger Ambush Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_ambush_chance_desc">
+        <text>Percentage chance that a scavenger gets ambushed, returning empty-handed and needing rest.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_min_items">
+        <text>Scavenge Minimum Items</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_min_items_desc">
+        <text>Minimum amount of loot items a successful scavenger returns with.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_max_items">
+        <text>Scavenge Maximum Items</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenge_max_items_desc">
+        <text>Maximum amount of loot items a successful scavenger returns with.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_repair_percent_per_cycle">
+        <text>Repair Condition Gain per Cycle (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_repair_percent_per_cycle_desc">
+        <text>Percentage of condition restored to a weapon, outfit, or helmet per repair cycle. Default: 25% (requires 4 cycles to repair from 0% to 100%).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_craft_prefer_turret_ammo">
+        <text>Crafter Prioritizes Turret Ammo</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_craft_prefer_turret_ammo_desc">
+        <text>When enabled, crafters prioritize producing 9x19mm and 9x18mm ammunition if the camp has auto-turrets, keeping defensive turrets continuously reloaded. Default: ON.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_upkeep_header">
+        <text>Upkeep &amp; Preservation Systems</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fridge_interval_hr">
+        <text>Fridge Preservation Cycle (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fridge_interval_hr_desc">
+        <text>Game hours between fridge preservation runs in the camp chest.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fridge_cond_restore">
+        <text>Fridge Food Preservation Amount</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_fridge_cond_restore_desc">
+        <text>Incremental condition restored to fresh foods (+0.25 is default).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_water_interval_hr">
+        <text>Water Generation Cycle (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_water_interval_hr_desc">
+        <text>Game hours between clean water generation runs by active pumps.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_food_consumption_interval_hr">
+        <text>Settler Food Ration Cycle (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_food_consumption_interval_hr_desc">
+        <text>Game hours between settler meals. Each settler eats 1 food item from camp storage per cycle (default 24 hours = 1 food per settler per day). Settlers continue to consume rations continuously even when you are away on other maps.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_events_header">
+        <text>Random Events &amp; Raids Frequency</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_cooldown_hr">
+        <text>Camp Raid Cooldown (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_cooldown_hr_desc">
+        <text>Minimum game hours between camp raids.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_base_chance">
+        <text>Raid Base Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raid_base_chance_desc">
+        <text>Base chance of a raid triggering during checking interval.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_cooldown_hr">
+        <text>Random Event Cooldown (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_cooldown_hr_desc">
+        <text>Minimum game hours between random camp events (refugees, merchant, mutant migrations).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_chance">
+        <text>Random Event Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_chance_desc">
+        <text>Percentage chance of triggering a random event.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_friendly_takeover">
+        <text>Rival Securing Takeover Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_friendly_takeover_desc">
+        <text>Percentage chance that clearing a rival camp results in random faction takeover rather than dismantling.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_debug_header">
+        <text>Debug Options</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_respawn_rival_camps">
+        <text>Respawn/Refresh Rival Camps</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_respawn_rival_camps_desc">
+        <text>Clears all current rival camps and resets the dynamic lifecycle so outposts establish organically over time. Option auto-resets.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_uninstall_purge_rival_furniture">
+        <text>Uninstall Prep: Purge All Rival Camp Furniture</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_uninstall_purge_rival_furniture_desc">
+        <text>Releases all tracked rival-camp furniture and decorations from the save using ALife release, then resets this toggle. Use before removing Homestead.</text>
+    </string>
+    <string id="st_homestead_uninstall_purge_done">
+        <text>Homestead uninstall prep complete. Rival camp furniture released: %d</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_purge_rival_furniture">
+        <text>Uninstall Prep: Purge All Rival Camp Furniture</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_purge_rival_furniture_desc">
+        <text>Releases all tracked rival-camp furniture and decorations from the save using ALife release, then resets this toggle. Use before removing Homestead.</text>
+    </string>
+    <string id="st_homestead_rival_furniture_purged">
+        <text>Homestead uninstall prep complete. Rival camp furniture released.</text>
+    </string>
+    <string id="st_itm_water_pump">
+        <text>Camp Water Pump</text>
+    </string>
+    <string id="st_itm_water_pump_descr">
+        <text>A heavy, hand-operated water pump. Place it in your camp to generate clean drinking water directly into storage completely for free with zero filters or charcoal required. Available from Sidorovich and tool traders.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_defense_cap">
+        <text>Defense Rating Cap</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_defense_cap_desc">
+        <text>Maximum defense rating a camp can reach. Prevents stacking gadgets/turrets from making raids impossible. Default: 150.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_base_recruit_chance">
+        <text>Base Recruitment Chance</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_base_recruit_chance_desc">
+        <text>The base chance (in percent) for same-faction generic stalkers to join your camp. This is further increased by player rank and faction goodwill. Default: 15%.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_rival_camps">
+        <text>Max Rival Camps</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_rival_camps_desc">
+        <text>Controls maximum active rival/competing outposts across the Zone. Supports high density across all levels. Default: 25.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camps_per_level_max">
+        <text>Max Camps Per Map</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camps_per_level_max_desc">
+        <text>Maximum rival outposts allowed to spawn on a single map level. Default: 3.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_min_spacing">
+        <text>Min Camp Spacing (Meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_min_spacing_desc">
+        <text>Minimum distance between separate rival camps. Lower values allow competing factions to set up close to each other, sparking territorial battles. Default: 35m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_interval_hours">
+        <text>Spawn Attempt Interval (Game Hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_interval_hours_desc">
+        <text>How many in-game hours must pass between rival camp establishment attempts. Default: 3 hours.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_chance">
+        <text>Spawn Attempt Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_chance_desc">
+        <text>Probability that a rival faction establishes a new camp when the interval timer expires. Default: 33%.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_progression">
+        <text>Camp Tier Progression</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_progression_desc">
+        <text>Enables rival camps to evolve from basic scout camps (Tier 1) into fortified outposts (Tier 2) and heavily defended regional strongholds (Tier 3) over time.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_distress_calls">
+        <text>Radio Distress Calls (SOS)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_distress_calls_desc">
+        <text>Friendly and neutral rival outposts broadcast emergency radio calls when under attack. Responding and defending them rewards money and faction goodwill.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_convoys">
+        <text>Dynamic Supply Convoys</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_convoys_desc">
+        <text>Enables supply courier squads to physically travel across maps delivering food, medical supplies, and ammunition to advanced rival outposts.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_surge_effects">
+        <text>Emission Effects &amp; Mutant Nests</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_surge_effects_desc">
+        <text>Blowouts and psy-storms can zombify exposed wilderness outposts, and mutant attacks can convert fallen camps into active mutant breeding dens.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_retaliation_raids">
+        <text>Faction Retaliation Raids</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_retaliation_raids_desc">
+        <text>Eliminating hostile rival camps has a chance to provoke the defeated faction into deploying a dedicated retaliation hit squad.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_hospitality">
+        <text>Friendly Camp Hospitality</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_hospitality_desc">
+        <text>Grants health, stamina, and psy recovery buffs when resting near campfires at friendly rival outposts.</text>
+    </string>
+    <string id="st_mcm_boundary_rescanned">
+        <text>Camp boundary radius updated - all settlement structures have been rescanned.</text>
+    </string>
+    <string id="pda_btn_settlement">
+        <text>Settlements</text>
+    </string>
+    <string id="st_pda_settlements_title">
+        <text>Active Settlements</text>
+    </string>
+    <string id="st_pda_rivals_title">
+        <text>Rival Camps in the Zone</text>
+    </string>
+    <string id="st_pda_no_settlements">
+        <text>No active settlements. Place a Camp Hub to start building.</text>
+    </string>
+    <string id="st_pda_camp_name">
+        <text>Settlement</text>
+    </string>
+    <string id="st_pda_camp_pop">
+        <text>Population: %d / %d Beds</text>
+    </string>
+    <string id="st_pda_camp_happy">
+        <text>Happiness: %d%%</text>
+    </string>
+    <string id="st_pda_camp_def">
+        <text>Defense Rating: %d / %d</text>
+    </string>
+    <string id="st_pda_camp_def_breakdown">
+        <text>Barricades: %d | Guards: %d | Turrets: %d</text>
+    </string>
+    <string id="st_pda_camp_water">
+        <text>Water Pumps: %d</text>
+    </string>
+    <string id="st_pda_camp_morale">
+        <text>Pianos: %d | Radios: %d</text>
+    </string>
+    <string id="st_pda_camp_supplies">
+        <text>Chest Supplies: Food (%s), Water (%s)</text>
+    </string>
+    <string id="st_pda_settlement_supplies_ok">
+        <text>OK</text>
+    </string>
+    <string id="st_pda_settlement_supplies_missing">
+        <text>MISSING</text>
+    </string>
+    <string id="st_pda_survivors_title">
+        <text>Survivors &amp; Job Reassignment</text>
+    </string>
+    <string id="st_pda_assign_job_label">
+        <text>Reassign Job:</text>
+    </string>
+    <string id="st_pda_job_btn_idle">
+        <text>Idle</text>
+    </string>
+    <string id="st_pda_job_btn_guard">
+        <text>Guard</text>
+    </string>
+    <string id="st_pda_job_btn_scavenger">
+        <text>Scavenger</text>
+    </string>
+    <string id="st_pda_job_btn_crafter">
+        <text>Crafter</text>
+    </string>
+    <string id="st_pda_job_btn_repairer">
+        <text>Repairer</text>
+    </string>
+    <string id="st_pda_job_btn_cook">
+        <text>Cook</text>
+    </string>
+    <string id="st_pda_position_btn_here">
+        <text>Send Here</text>
+    </string>
+    <string id="st_pda_position_btn_recall">
+        <text>Recall to Camp</text>
+    </string>
+    <string id="st_pda_position_status_custom">
+        <text>Position: Custom (assigned)</text>
+    </string>
+    <string id="st_pda_position_status_default">
+        <text>Position: Default (camp duties)</text>
+    </string>
+    <string id="st_pda_position_set">
+        <text>Survivor will move to your position.</text>
+    </string>
+    <string id="st_pda_position_cleared">
+        <text>Survivor returned to default camp duties.</text>
+    </string>
+    <string id="st_pda_position_too_far">
+        <text>Too far from the camp hub - position not within the camp boundary.</text>
+    </string>
+    <string id="st_pda_transfer_lbl">
+        <text>Transfer to Settlement:</text>
+    </string>
+    <string id="st_pda_transfer_btn">
+        <text>Transfer</text>
+    </string>
+    <string id="st_pda_transfer_full">
+        <text>That settlement has no free beds.</text>
+    </string>
+    <string id="st_pda_settlement_job_idle">
+        <text>Idle</text>
+    </string>
+    <string id="st_pda_settlement_job_guard">
+        <text>Guard</text>
+    </string>
+    <string id="st_pda_settlement_job_scavenge">
+        <text>Scavenger</text>
+    </string>
+    <string id="st_pda_settlement_job_craft">
+        <text>Crafter</text>
+    </string>
+    <string id="st_pda_settlement_job_repair">
+        <text>Repairer</text>
+    </string>
+    <string id="st_pda_settlement_job_cook">
+        <text>Cook</text>
+    </string>
+    <string id="st_pda_settlement_job_medic">
+        <text>Medic</text>
+    </string>
+    <string id="st_pda_settlement_assign_job">
+        <text>Current Job:</text>
+    </string>
+    <string id="st_pda_settlement_rival_status_active">
+        <text>Hostile / Active</text>
+    </string>
+    <string id="st_pda_settlement_rival_status_friendly">
+        <text>Friendly / Secured</text>
+    </string>
+    <string id="st_pda_btn_rename">
+        <text>Rename</text>
+    </string>
+    <string id="st_pda_rename_title">
+        <text>Rename Settlement</text>
+    </string>
+    <string id="st_pda_tab_overview">
+        <text>Overview</text>
+    </string>
+    <string id="st_pda_tab_survivors">
+        <text>Survivors</text>
+    </string>
+    <string id="st_pda_tab_rivals">
+        <text>Rival Camps</text>
+    </string>
+    <string id="st_pda_settlement_pop_lbl">
+        <text>POPULATION</text>
+    </string>
+    <string id="st_pda_settlement_morale_lbl">
+        <text>MORALE</text>
+    </string>
+    <string id="st_pda_settlement_def_lbl">
+        <text>SECURITY</text>
+    </string>
+    <string id="st_pda_settlement_water_lbl">
+        <text>WATER PUMPS</text>
+    </string>
+    <string id="st_pda_settlement_supplies_lbl">
+        <text>RESOURCES &amp; FOOD SUPPLY</text>
+    </string>
+    <string id="st_pda_settlement_breakdown_lbl">
+        <text>DEFENSE INFRASTRUCTURE BREAKDOWN</text>
+    </string>
+    <string id="st_pda_settlement_survivors_count">
+        <text>survivors</text>
+    </string>
+    <string id="st_pda_tab_guide">
+        <text>How to Play</text>
+    </string>
+    <string id="st_pda_how_to_play_text">
+        <text>See the structured guide sections below.</text>
+    </string>
+    <string id="st_guide_s1_header">
+        <text>1. ESTABLISHING A SETTLEMENT (HUBS, BOUNDARIES &amp; STORAGE)</text>
+    </string>
+    <string id="st_guide_s1_body">
+        <text>%c[255,238,196,112]>> 1. PLACING A SETTLEMENT HUB%c[default]\n \n  - %c[255,238,196,112]Workbench Core:%c[default] Place any %c[255,100,200,255]Hideout Furniture Workbench%c[default] (Workshop Bench, Crafting Table, Vise Table, or Anvil).\n  - %c[255,238,196,112]Auto-Registration:%c[default] Placing the workbench instantly registers the location as an active settlement hub.\n  - %c[255,144,238,144]Zone Network:%c[default] You can establish up to %c[255,144,238,144]8 independent settlements%c[default] across any connected maps in the Zone!\n  - %c[255,238,196,112]Settlement Renaming:%c[default] Click %c[255,100,200,255]"Rename Settlement"%c[default] on the PDA Overview tab to assign custom names (e.g. "Rostok Outpost").\n \n%c[255,238,196,112]>> 2. TERRITORY &amp; BOUNDARY RADIUS%c[default]\n \n  - %c[255,238,196,112]Active Radius:%c[default] Each base controls an active radius of %c[255,100,200,255]35 meters%c[default] (up to 50m max) around the hub.\n  - %c[255,238,196,112]Structure Recognition:%c[default] Beds, workbenches, stoves, clinics, storage chests, barricades, and turrets placed within this radius are automatically linked.\n \n%c[255,238,196,112]>> 3. SMART STORAGE &amp; SUPPLY CHAINS%c[default]\n \n  - %c[255,238,196,112]Container Distance:%c[default] Place camp storage chests and furniture within %c[255,100,200,255]15 meters%c[default] of your hub workbench.\n  - %c[255,238,196,112]Universal Ingestion:%c[default] Settlers can pull required crafting and cooking ingredients from %c[255,100,200,255]any camp container%c[default] within the base radius.\n  - %c[255,238,196,112]Thematic Deposits:%c[default] Finished goods and scavenged loot are automatically sorted into the most logical containers (Fridges, Gun Cabinets, Med Cabinets, Toolboxes, Ammo Boxes).</text>
+    </string>
+    <string id="st_guide_s2_header">
+        <text>2. RECRUITMENT, HOUSING CAPACITY &amp; ROSTER MANAGEMENT</text>
+    </string>
+    <string id="st_guide_s2_body">
+        <text>%c[255,238,196,112]>> 1. HOUSING CAPACITY (THE BED FORMULA)%c[default]\n \n  - %c[255,144,238,144]Housing Formula:%c[default] %c[255,144,238,144]1 Bed / Couch / Stretcher = 1 Survivor Slot%c[default].\n  - %c[255,238,196,112]Supported Furniture:%c[default] Sleeping Bags, Metal Frame Beds, Wooden Bunk Beds, Leather Couches, and Medical Stretchers.\n  - %c[255,238,196,112]Capacity Scaling:%c[default] Build more beds to expand your base population (supports up to 10+ survivors per camp).\n \n%c[255,238,196,112]>> 2. HOW TO RECRUIT STALKERS%c[default]\n \n  - %c[255,238,196,112]Eligible Factions:%c[default] Friendly stalkers from Loners, Clear Sky, Duty, Freedom, Mercenaries, and Ecologists.\n  - %c[255,238,196,112]Prerequisites:%c[default] Faction reputation &gt;= 200 and available bed housing capacity.\n  - %c[255,238,196,112]Signing Bonus:%c[default] Standard hiring contract of %c[255,100,200,255]3,000 - 5,000 RU%c[default].\n  - %c[255,144,238,144]Companions Join Free:%c[default] Active squad companions can be recruited with %c[255,144,238,144]0 RU signing fee%c[default]!\n \n%c[255,238,196,112]>> 3. REMOTE ROSTER MANAGEMENT (PDA)%c[default]\n \n  - %c[255,238,196,112]Live Avatars &amp; Dossiers:%c[default] View face portraits, health, assigned jobs, and XP progress in the %c[255,100,200,255]Survivors Tab%c[default].\n  - %c[255,238,196,112]Remote Reassignment:%c[default] Change professions instantly from anywhere across the Zone.\n  - %c[255,238,196,112]Inter-Base Transfer:%c[default] Relocate survivors between your 8 settlements with a single click.\n  - %c[255,238,196,112]Banish Stalker:%c[default] Dismiss settlers if you need to free up housing capacity.</text>
+    </string>
+    <string id="st_guide_s3_header">
+        <text>3. SETTLER PROFESSIONS &amp; AUTOMATION WORK CYCLES</text>
+    </string>
+    <string id="st_guide_s3_body">
+        <text>Homestead features %c[255,144,238,144]12 distinct settler roles%c[default] (11 active professions + Off-Duty/Idle). Assign jobs via direct dialogue or remotely in the %c[255,238,196,112]PDA Survivors Tab%c[default].\n \nSettlers autonomously run camp security, ammo crafting, weapon/armor repairs, gourmet cooking, hospital triage, wilderness expeditions, trophy hunting, power generation, forestry logging, alcohol distillation, and scrap metal salvage!</text>
+    </string>
+    <string id="st_guide_s3a_header">
+        <text>JOB: IDLE &amp; OFF-DUTY (RECREATION &amp; MORALE)</text>
+    </string>
+    <string id="st_guide_s3a_body">
+        <text>%c[255,238,196,112]>> BEHAVIOR &amp; AMBIANCE%c[default]\n \n  - Sits around lit campfires, plays acoustic guitar, drinks vodka and beer, sleeps in open beds, and socializes with fellow settlers.\n \n%c[255,238,196,112]>> SETTLEMENT BENEFITS%c[default]\n \n  - %c[255,144,238,144]+5 to +15 Camp Morale:%c[default] Generates passive morale over time when resting at well-equipped camps.\n  - %c[255,238,196,112]Stress Recovery:%c[default] Provides a morale buffer after stressful raids, blowout storms, and mutant assaults.</text>
+    </string>
+    <string id="st_guide_s3b_header">
+        <text>JOB: GUARD &amp; SENTRIES (PERIMETER SECURITY &amp; ALARMS)</text>
+    </string>
+    <string id="st_guide_s3b_body">
+        <text>%c[255,238,196,112]>> PATROLS &amp; CHOKEPOINTS%c[default]\n \n  - Patrols the base perimeter, garrisons sandbag bunkers, and mans watchtower vantage points with weapons drawn.\n \n%c[255,238,196,112]>> COMBAT &amp; SECURITY BENEFITS%c[default]\n \n  - %c[255,144,238,144]+10 Defense Rating%c[default] per active guard.\n  - %c[255,100,200,255]75m Threat Detection:%c[default] Continuously scans for hostile mutants, bandits, and enemy raid squads.\n  - %c[255,255,100,100]Alarm Siren Activation:%c[default] Automatically sounds placed sirens and rallies all armed settlers into coordinated firing lines!</text>
+    </string>
+    <string id="st_guide_s3c_header">
+        <text>JOB: SCAVENGER (REMOTE STASH EXPEDITIONS &amp; SALVAGE)</text>
+    </string>
+    <string id="st_guide_s3c_body">
+        <text>%c[255,238,196,112]>> EXPEDITION DISPATCH%c[default]\n \n  - Autonomous scouts dispatched to recover marked secret stashes across any level of the Zone.\n  - %c[255,100,200,255]Calibrated Speed:%c[default] 1.2 km/h = %c[255,144,238,144]5 in-game minutes per 100 meters%c[default] of physical distance.\n \n%c[255,238,196,112]>> EXPEDITION DANGER &amp; SALVAGE TIERS%c[default]\n \n  - %c[255,238,196,112]Tier 1-2 (Cordon / Garbage / Valley):%c[default] Basic calibers, medkits, food, novice suits, Basic Toolkits.\n  - %c[255,238,196,112]Tier 3-4 (Rostok / Army Warehouses / Red Forest):%c[default] NATO/Warsaw AP ammo, pristine WPO parts, Advanced Toolkits.\n  - %c[255,144,238,144]Tier 5 (Outskirts / Pripyat / CNPP / Generators):%c[default] Expert Toolkits, Gauss/9x39 AP ammo, rare artifacts, and exoskeleton armor components!\n \n%c[255,238,196,112]>> AMBUSHES &amp; SPOILS%c[default]\n \n  - Armed scavengers repel ambushes and return with bonus loot and combat XP.\n  - Expeditions can be recalled early at any time from the PDA Survivors tab.</text>
+    </string>
+    <string id="st_guide_s3_hunter_header">
+        <text>JOB: HUNTER (MUTANT TROPHIES &amp; PANTRY STOCKING)</text>
+    </string>
+    <string id="st_guide_s3_hunter_body">
+        <text>%c[255,238,196,112]>> WILDERNESS HUNTING EXPEDITIONS%c[default]\n \n  - Dispatched into the surrounding wilderness to hunt mutants, skin beasts, and harvest valuable monster parts.\n  - Yields fresh mutant meats (boar, flesh, pseudodog, bloodsucker, chimera), animal hides, and rare trophies.\n \n%c[255,238,196,112]>> AMBUSH DANGER &amp; EXPERIENCE%c[default]\n \n  - Hunters face mutant pack ambushes in the wild; successful hunts award survival XP and higher harvest yields.\n \n%c[255,238,196,112]>> SMART PANTRY STORAGE%c[default]\n \n  - %c[255,144,238,144]Fridge &amp; Pantry Priority:%c[default] Automatically stocks hunted meat directly into Camp Refrigerators and food containers for your Chef!</text>
+    </string>
+    <string id="st_guide_s3d_header">
+        <text>JOB: CRAFTER (AMMUNITION SYNTHESIS &amp; TURRETS)</text>
+    </string>
+    <string id="st_guide_s3d_body">
+        <text>%c[255,238,196,112]>> WORKSTATION%c[default]\n \n  - Requires Workbench, Placeable Workshop, Anvil, or Counter.\n \n%c[255,238,196,112]>> AUTOMATED AMMO SYNTHESIS (EVERY 10 MINS)%c[default]\n \n  - %c[255,238,196,112]Consumes:%c[default] 1x Gunpowder + 1x Metal Scrap from camp storage.\n  - %c[255,144,238,144]Produces:%c[default] Boxed 9x18, 9x19, .45 ACP, 5.45x39, 5.56x45, 7.62x39, 7.62x54R, or 12x70 ammo.\n  - %c[255,100,200,255]Thematic Storage:%c[default] Finished ammunition is deposited directly into camp Ammo Boxes and military chests.\n \n%c[255,238,196,112]>> TURRET SERVICING%c[default]\n \n  - Crafters automatically reload and maintain placed Pistol Turrets (+15 Defense each).</text>
+    </string>
+    <string id="st_guide_s3e_header">
+        <text>JOB: TECHNICIAN (REPAIR GUI, WPO RESTORATION &amp; TOOLKITS)</text>
+    </string>
+    <string id="st_guide_s3e_body">
+        <text>%c[255,238,196,112]>> WORKSTATION%c[default]\n \n  - Requires Repair Bench, Vise, Tool Table, or Workbench.\n \n%c[255,238,196,112]>> 1. OFFICIAL VANILLA REPAIR &amp; UPGRADE GUI%c[default]\n \n  - Talk to your Technician to open the %c[255,100,200,255]official Anomaly Repair &amp; Upgrade GUI%c[default] directly inside your base!\n \n%c[255,238,196,112]>> 2. DYNAMIC WORK-SCALED WPO PRICING%c[default]\n \n  - Price scales by weapon deficit + each damaged internal WPO part (barrel, bolt, trigger, gas tube, receiver):\n    - %c[255,238,196,112]Type A (Pistols / Small SMGs):%c[default] 3-4 parts, ~45 RU/pt, capped at ~25,000 RU.\n    - %c[255,238,196,112]Type B (Shotguns / Rifles):%c[default] 4-5 parts, ~95 RU/pt, capped at ~70,000 RU.\n    - %c[255,238,196,112]Type C (Battle Rifles / SVD / 9x39):%c[default] 5-6 parts, ~175 RU/pt, capped at ~135,000 RU.\n    - %c[255,238,196,112]Type D (Gauss / PKM / Heavy):%c[default] Hard ceiling of 200,000 RU.\n \n%c[255,238,196,112]>> 3. 100%% PARTS RESTORATION &amp; UNJAMMING%c[default]\n \n  - Paying for repair restores the weapon AND %c[255,144,238,144]all internal parts to 100%% factory mint%c[default] with C++ misfire clearance.\n \n%c[255,238,196,112]>> 4. TOOLKIT DELIVERIES &amp; PASSIVE STORAGE REPAIR%c[default]\n \n  - Deliver Basic, Advanced, and Expert Toolkits to unlock Tier 1-3 upgrades.\n  - Technicians gradually repair damaged weapons and armor stored in camp chests over time.</text>
+    </string>
+    <string id="st_guide_s3f_header">
+        <text>JOB: COOK (GOURMET FEASTS &amp; HOSPITALITY BUFFS)</text>
+    </string>
+    <string id="st_guide_s3f_body">
+        <text>%c[255,238,196,112]>> WORKSTATION%c[default]\n \n  - Requires Metal Stove, Wood Stove, Campfire, or Brick Oven.\n \n%c[255,238,196,112]>> AUTOMATED COOKING (EVERY 5 MINS)%c[default]\n \n  - %c[255,238,196,112]Consumes:%c[default] 1x Raw Mutant Meat from camp storage.\n  - %c[255,144,238,144]Produces:%c[default] Non-irradiated cooked steaks, canned stews, and sausages.\n  - %c[255,100,200,255]Pantry Deposit:%c[default] Meals are placed directly into Camp Refrigerators and pantries.\n \n%c[255,238,196,112]>> 4-HOUR HOSPITALITY BUFF%c[default]\n \n  - Eating cook meals or resting at a &gt;= 50 Morale base grants:\n    - %c[255,144,238,144]+10kg Maximum Carry Capacity%c[default]\n    - %c[255,144,238,144]+15%% Stamina Regeneration%c[default]\n    - %c[255,144,238,144]Passive Bleeding Resistance%c[default]</text>
+    </string>
+    <string id="st_guide_s3g_header">
+        <text>JOB: MEDIC (DIAGNOSTIC TRIAGE, RAD PURGING &amp; DRUGKITS)</text>
+    </string>
+    <string id="st_guide_s3g_body">
+        <text>%c[255,238,196,112]>> WORKSTATION%c[default]\n \n  - Requires Medical Table, Clinic Equipment, or First Aid Station.\n \n%c[255,238,196,112]>> COMPLETE DIAGNOSTIC TRIAGE MENU%c[default]\n \n  - %c[255,100,200,255]Patch Wounds &amp; Bleeding (1,850 RU):%c[default] Restores health, stamina, stops bleeding, heals Body Health System (BHS) limbs, and plays medkit animation.\n  - %c[255,100,200,255]Cure Radiation Poisoning (1,480 RU):%c[default] Purges radiation to 0 mSv with anti-rad injection animation.\n  - %c[255,100,200,255]Complete Treatment (3,350 RU):%c[default] Full physical and radiological restoration.\n \n%c[255,238,196,112]>> DRUGKIT DELIVERIES &amp; PHARMACY%c[default]\n \n  - Synthesizes Bandages (1x Vodka), AI-2 Medkits (2x Vodka), Potassium Iodide (3x Vodka), and Ibuprofen (5x Vodka) directly into Medical Chests using Nemiroff Vodka provided by your Brewer.\n  - Production directives can be configured via dialogue or the PDA Survivors tab.\n  - Delivering a %c[255,144,238,144]Drug-Making Kit%c[default] doubles pharmaceutical output (2x Boost)!</text>
+    </string>
+    <string id="st_guide_s3h_header">
+        <text>JOB: ELECTRICIAN (POWER GRID, LAMPS &amp; BATTERY RECHARGING)</text>
+    </string>
+    <string id="st_guide_s3h_body">
+        <text>%c[255,238,196,112]>> CAMP ILLUMINATION &amp; POWER GRID%c[default]\n \n  - Maintains placed spotlights, floodlights, and fluorescent tube lamps completely for free (zero generator fuel or battery upkeep required).\n  - %c[255,144,238,144]Night Defense Boost:%c[default] Active lighting provides +5 Defense rating per illuminated sector.\n \n%c[255,238,196,112]>> AUTOMATED BATTERY RECHARGING%c[default]\n \n  - Actively scans camp storage every cycle and recharges drained weapon batteries and exoskeleton batteries back to %c[255,144,238,144]100%% condition%c[default]!</text>
+    </string>
+    <string id="st_guide_s3i_header">
+        <text>JOB: WOODCUTTER (TIMBER LOGGING &amp; CHARCOAL KILN)</text>
+    </string>
+    <string id="st_guide_s3i_body">
+        <text>%c[255,238,196,112]>> TIMBER HARVESTING &amp; CHARCOAL PRODUCTION%c[default]\n \n  - %c[255,144,238,144]Timber Cycle:%c[default] Fells trees to harvest 15-20 wooden parts per cycle. Handing the woodcutter a felling axe doubles harvest to 30-40 parts (2x Boost)!\n  - %c[255,144,238,144]Kiln Cycle:%c[default] Burns 15 wood scraps in a camp kiln/fire to produce 3-5 bags of clean charcoal fuel.\n  - %c[255,238,196,112]Directives:%c[default] Switchable between Auto-Rotate (50/50 balance), Timber Focus (wood only), and Charcoal Focus (fuel only) via dialogue or the PDA.\n  - %c[255,100,200,255]Storage Routing:%c[default] Timber and charcoal are neatly deposited into Toolboxes and Workbench Chests.</text>
+    </string>
+    <string id="st_guide_s3j_header">
+        <text>JOB: BREWER (ALCOHOL DISTILLERY &amp; MEDICAL SUPPLY CHAIN)</text>
+    </string>
+    <string id="st_guide_s3j_body">
+        <text>%c[255,238,196,112]>> DISTILLATION PROCESS%c[default]\n \n  - %c[255,144,238,144]Workstation:%c[default] Requires a placed Milk Can (Bidon) or Camp Stove.\n  - %c[255,238,196,112]Ingredients:%c[default] Consumes 15 wood scraps and 1 clean water to distill 5 bottles of Nemiroff Vodka.\n  - %c[255,144,238,144]Distillery Kit Upgrade:%c[default] Delivering a Drug-Making Kit to the brewer doubles output to 10 bottles per cycle (2x Boost)!\n  - %c[255,100,200,255]Medical Supply Chain:%c[default] Nemiroff Vodka is the essential precursor required by Settlement Medics to synthesize medicine.</text>
+    </string>
+    <string id="st_guide_s3k_header">
+        <text>JOB: SCRAPPER (METAL SALVAGE &amp; HARDWARE PRODUCTION)</text>
+    </string>
+    <string id="st_guide_s3k_body">
+        <text>%c[255,238,196,112]>> RECYCLING &amp; HARVESTING%c[default]\n \n  - %c[255,144,238,144]Workstation:%c[default] Requires an assembled Workbench.\n  - %c[255,238,196,112]Production:%c[default] Gathers 10-15 scrap metal and 5-10 hardware fasteners from Zone debris per cycle.\n  - %c[255,144,238,144]Demolition Tools Upgrade:%c[default] Handing the scrapper a crowbar, sledgehammer, or toolkit doubles yield to 20-30 scrap and 10-20 fasteners (2x Boost)!\n  - %c[255,100,200,255]Storage Routing:%c[default] Salvaged metal and hardware are organized into Toolboxes and Workbench Chests.</text>
+    </string>
+    <string id="st_guide_s4_header">
+        <text>4. SMART THEMATIC STORAGE ROUTING &amp; UTILITIES</text>
+    </string>
+    <string id="st_guide_s4_body">
+        <text>%c[255,238,196,112]>> 1. 1-CLICK PDA AUTO-SORT%c[default]\n \n  - Click %c[255,238,196,112]"Auto-Sort Inventory"%c[default] on the PDA Overview tab to instantly offload supplies into themed containers across your base.\n  - %c[255,144,238,144]Equipped Gear Protected:%c[default] Equipped weapons, armor, helmets, detectors, backpacks, belt items, and quest items are NEVER touched!\n \n%c[255,238,196,112]>> 2. 13-CATEGORY SMART STORAGE ROUTING%c[default]\n \nSettlers and Auto-Sort automatically route items to the most logical container within 35m:\n  - %c[255,100,200,255]Fridges &amp; Pantries:%c[default] Food, drinks, fresh cooked meat, canned rations, monster cuts.\n  - %c[255,100,200,255]Gun Cabinets &amp; Racks:%c[default] Rifles, shotguns, pistols, snipers, repaired firearms.\n  - %c[255,100,200,255]Ammo Boxes:%c[default] Boxed ammunition, loose cartridges, grenades, explosives.\n  - %c[255,100,200,255]Toolboxes &amp; Benches:%c[default] Repair kits, weapon parts, scrap metal, hardware fasteners, tools.\n  - %c[255,100,200,255]Medical Cabinets:%c[default] Medkits, bandages, stimpacks, pills, rad cures, surgical drugs.\n  - %c[255,100,200,255]Safes &amp; Strongboxes:%c[default] Artifacts, anomaly samples, cash, rare mutant parts.\n  - %c[255,100,200,255]Bookcases &amp; Shelves:%c[default] PDA memory drives, maps, technical repair manuals.\n  - %c[255,100,200,255]Wardrobes &amp; Lockers:%c[default] Armored suits, SEVA suits, helmets, gas masks, tactical vests.\n  - %c[255,200,200,200]Camp Storage Fallback:%c[default] If a specialized container is not built, items safely route to your main Blue Chest.\n \n%c[255,238,196,112]>> 3. REFRIGERATORS &amp; SPOILAGE RESTORATION%c[default]\n \n  - Placed fridges actively preserve stored food, restoring +25%% condition every 2 game hours.\n \n%c[255,238,196,112]>> 4. WATER PUMPS (FREE CLEAN WATER)%c[default]\n \n  - Placed Water Pumps draw clean groundwater, pumping %c[255,100,200,255]Clean Water Flasks%c[default] directly into camp storage completely for free with zero filters or charcoal required!</text>
+    </string>
+    <string id="st_guide_s5_header">
+        <text>5. BASE DEFENSE, TURRETS, GADGETS &amp; RAID DEFENSE</text>
+    </string>
+    <string id="st_guide_s5_body">
+        <text>%c[255,238,196,112]>> DEFENSE STRUCTURE RATINGS%c[default]\n \n  - %c[255,144,238,144]Pistol Turret:%c[default] +15 Defense (Automated 360-degree perimeter fire).\n  - %c[255,144,238,144]Guards:%c[default] +10 Defense per armed settler.\n  - %c[255,144,238,144]Alarm Siren:%c[default] +15 Defense (Alerts camp and coordinates firing lines).\n  - %c[255,144,238,144]Sandbag Bunkers:%c[default] +5 Defense per fortification.\n  - %c[255,144,238,144]Spotlights:%c[default] +5 Defense per powered light.\n \n%c[255,238,196,112]>> HOSTILE RAIDS &amp; SPOILS%c[default]\n \n  - Raid difficulty scales with total wealth stored in camp chests.\n  - Maintaining high defense prevents raids or effortlessly crushes attackers, yielding valuable weapons, ammo, and faction patches.</text>
+    </string>
+    <string id="st_guide_s6_header">
+        <text>6. RIVAL WILDERNESS CAMPS &amp; TACTICAL INTEL</text>
+    </string>
+    <string id="st_guide_s6_body">
+        <text>%c[255,238,196,112]>> LIVING ZONE OUTPOSTS%c[default]\n \n  - Bandits, Monolith, and rival factions establish fortified outposts across the Zone.\n  - Review threat levels, garrison numbers, and tactical intel in the %c[255,238,196,112]PDA Rivals Tab%c[default].\n  - %c[255,100,200,255]Locate on Map:%c[default] Click "Locate on Map" to center the PDA map on rival coordinates.\n  - %c[255,255,100,100]Assaulting Rivals:%c[default] Clearing out rival outposts yields massive loot caches, rare weaponry, and dismantles enemy supply networks.</text>
+    </string>
+    <string id="st_guide_s7_header">
+        <text>7. SETTLEMENT RADIO FEED &amp; EVENT LOGGING</text>
+    </string>
+    <string id="st_guide_s7_body">
+        <text>%c[255,238,196,112]>> LIVE BASE INTERCEPTS%c[default]\n \n  - Open the %c[255,238,196,112]Radio Feed Tab%c[default] to view real-time transmissions from your settlements:\n    - %c[255,100,200,255]Expeditions:%c[default] Scavenger departures, route checkpoints, ambushes, and loot return summaries.\n    - %c[255,144,238,144]Workshops:%c[default] Ammo crafted, food cooked, water pumped, timber logged, and items repaired.\n    - %c[255,255,100,100]Combat &amp; Raids:%c[default] Attack alarms, turret engagements, and defense victories.\n  - %c[255,200,200,200]Filter Chips:%c[default] Use [All], [Exped], [Work], and [Combat] buttons to filter your log feed.</text>
+    </string>
+    <string id="st_guide_s8_header">
+        <text>8. SPECIALIZATIONS, MORALE &amp; TRADE CARAVANS</text>
+    </string>
+    <string id="st_guide_s8_body">
+        <text>%c[255,238,196,112]>> CAMP SPECIALIZATIONS%c[default]\n \n  - Cycle specialization on the Overview tab to focus base productivity:\n    - %c[255,100,200,255]Military Outpost:%c[default] +50%% Defense rating.\n    - %c[255,144,238,144]Agricultural Farm:%c[default] +50%% Food &amp; Water yield.\n    - %c[255,238,196,112]Industrial Workshop:%c[default] +50%% Crafting &amp; Repair speed.\n    - %c[255,200,200,200]Scavenger Hideout:%c[default] +50%% Scavenger loot yield.\n    - %c[255,144,238,144]Medical Clinic:%c[default] +100%% Medicine production.\n \n%c[255,238,196,112]>> TRADE CARAVANS%c[default]\n \n  - Click %c[255,144,238,144]"Summon Trade Caravan"%c[default] to call traveling merchant stalkers directly to your settlement with ammo, food, and supplies!</text>
+    </string>
+    <string id="st_guide_s9_header">
+        <text>9. MCM CONFIGURATION &amp; CUSTOMIZATION</text>
+    </string>
+    <string id="st_guide_s9_body">
+        <text>%c[255,238,196,112]>> MCM OPTIONS MENU%c[default]\n \n  - Open Main Menu -&gt; Options -&gt; Mod Configuration Menu (MCM) -&gt; %c[255,238,196,112]Homestead%c[default]:\n    - %c[255,200,200,200]Scavenger Walk Speed:%c[default] Adjust speed (Default: 1.2 km/h = 5 in-game mins per 100m).\n    - %c[255,200,200,200]Fast Travel Cost:%c[default] Customize or disable RU fast travel fees.\n    - %c[255,200,200,200]Job Interval Sliders:%c[default] Fine-tune crafting, cooking, repair, logging, and scavenging timers.\n    - %c[255,200,200,200]Settler Invincibility:%c[default] Optional cheat toggle for casual gameplay.</text>
+    </string>
+    <string id="st_guide_s10_header">
+        <text>10. QUICK-START SURVIVAL CHECKLIST</text>
+    </string>
+    <string id="st_guide_s10_body">
+        <text>%c[255,238,196,112]>> STEP-BY-STEP CHECKLIST%c[default]\n \n  1. Place a %c[255,100,200,255]Workbench%c[default] in a safe shelter to establish your Hub.\n  2. Place a %c[255,100,200,255]Storage Chest%c[default] within 15m of the workbench.\n  3. Place at least 2 %c[255,144,238,144]Sleeping Beds%c[default] for housing capacity.\n  4. Recruit friendly stalkers or companions to join your base.\n  5. Assign one %c[255,144,238,144]Guard%c[default] and one %c[255,238,196,112]Scavenger%c[default] via the PDA Survivors Tab.\n  6. Place a %c[255,100,200,255]Cook Stove%c[default] and %c[255,100,200,255]Water Pump%c[default] for self-sufficient sustenance.\n  7. Place %c[255,255,100,100]Pistol Turrets%c[default] and an %c[255,255,100,100]Alarm Siren%c[default] for fortified defense.\n  8. Use %c[255,238,196,112]"Auto-Sort Inventory"%c[default] whenever returning from the Zone!</text>
+    </string>
+    <string id="st_pda_btn_refresh_survivors">
+        <text>Refresh</text>
+    </string>
+    <string id="st_pda_btn_banish">
+        <text>Banish from Camp</text>
+    </string>
+    <string id="st_banish_confirm_ask">
+        <text>You're no longer welcome here. Take your gear and go.</text>
+    </string>
+    <string id="st_banish_confirm_done">
+        <text>Fine. I know when I'm not wanted.</text>
+    </string>
+    <string id="st_can_banish_ask">
+        <text>I'm letting you go. You're banished from this camp.</text>
+    </string>
+    <string id="pda_main_menu_back">
+        <text>Back</text>
+    </string>
+    <string id="st_pda_rival_garrison_label">
+        <text>GARRISON STRENGTH</text>
+    </string>
+    <string id="st_pda_rival_threat_label">
+        <text>THREAT LEVEL</text>
+    </string>
+    <string id="st_pda_rival_faction_label">
+        <text>OCCUPYING FACTION</text>
+    </string>
+    <string id="st_pda_rival_location_label">
+        <text>LOCATION</text>
+    </string>
+    <string id="st_pda_rival_intel_label">
+        <text>TACTICAL INTEL</text>
+    </string>
+    <string id="st_pda_rival_garrison_none">
+        <text>None</text>
+    </string>
+    <string id="st_pda_rival_garrison_count">
+        <text>%d Combatants</text>
+    </string>
+    <string id="st_pda_rival_dismantled">
+        <text>Dismantled / Secured</text>
+    </string>
+    <string id="st_pda_rival_intel_fallback">
+        <text>No recent tactical intelligence reports are available for this enclave. Reconnaissance patrols have confirmed hostile presence in the area. Extreme caution is advised.</text>
+    </string>
+    <string id="st_pda_rival_intel_esc_smart_terrain_5_7">
+        <text>An abandoned farmstead east of the main road. Hostiles use the crumbling barn and house as a staging post to intercept rookies arriving from the southern checkpoint. Watch the windows.</text>
+    </string>
+    <string id="st_pda_rival_intel_gar_smart_terrain_3_5">
+        <text>The old train depot at the center of the Garbage. A highly strategic stronghold fortified with heavy metal plates and junk barricades. Frontal assault is suicide; look for flanking routes.</text>
+    </string>
+    <string id="st_pda_rival_intel_agr_smart_terrain_1_6">
+        <text>A damp, fog-covered swamp in Agroprom. The reeds provide excellent concealment for hostile scouts. Be careful when crossing the open water, and listen for movement in the grass.</text>
+    </string>
+    <string id="st_pda_rival_intel_val_smart_terrain_7_4">
+        <text>A ruined refueling station in the Dark Valley. Hostiles have reinforced the main building and use the canopy to overlook the surrounding wasteland. Sniper nests have been spotted on the roof.</text>
+    </string>
+    <string id="st_pda_rival_intel_mil_smart_terrain_2_2">
+        <text>A crumbling village near the Army Warehouses. Bloodsuckers are common here, forcing the occupying hostile squads to stay alert and heavily armed. Watch for claymores and traps.</text>
+    </string>
+    <string id="st_pda_rival_btn_refresh">
+        <text>SCAN ZONE FOR THREATS</text>
+    </string>
+    <string id="st_pda_guide_title">
+        <text>HOMESTEAD SURVIVAL GUIDE</text>
+    </string>
+    <string id="st_pda_rival_status_unoccupied">
+        <text>Unoccupied</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_pda_header">
+        <text>PDA Integration</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_enable_pda_tab">
+        <text>Enable PDA Left-Rail Tab</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_enable_pda_tab_desc">
+        <text>Enable the Settlement tab button on the left rail of the 3D Interactive PDA. Disable this if using Mod App Creator (MAC) to avoid layout breakage and redundancy.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hotkey_pda">
+        <text>Direct Settlement PDA Hotkey</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hotkey_pda_desc">
+        <text>Press this key at any time to directly open the Homestead Settlement Management UI. Default: K.</text>
+    </string>
+    <string id="st_pda_boundary_lbl">
+        <text>Boundary:</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_player_camp">
+        <text>Max Survivors (Player Settlement)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_player_camp_desc">
+        <text>Hard cap on the number of survivors in player settlements, independent of bed count. Range: 1-25. Default: 12.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_rival_camp">
+        <text>Max Survivors (Rival Camp)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_rival_camp_desc">
+        <text>Maximum number of stalkers occupying rival camps and outposts. Range: 1-10. Default: 5.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_per_camp">
+        <text>Max Survivors Per Camp (Legacy)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_max_survivors_per_camp_desc">
+        <text>Hard cap on the number of survivors per camp. Kept for backwards compatibility.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_trader_despawn_time_hr">
+        <text>Trader Caravan Despawn Time (hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_trader_despawn_time_hr_desc">
+        <text>How long (in game hours) a trade caravan stays at your camp before packing up and leaving. Default: 12 hours.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_cook_requires_fuel">
+        <text>Cook Requires Fuel</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_cook_requires_fuel_desc">
+        <text>When ON, the cook job requires charcoal/kerosene/gasoline in a camp container for actual stoves. Campfires are always free. Turn OFF for a more relaxed experience.</text>
+    </string>
+    <string id="st_dismiss_ask">
+        <text>You're dismissed from the settlement. Go in peace.</text>
+    </string>
+    <string id="st_dismiss_done">
+        <text>Understood. Farewell.</text>
+    </string>
+    <string id="st_pda_alerts_lbl">
+        <text>Camp Alerts</text>
+    </string>
+    <string id="st_pda_camp_log_lbl">
+        <text>Camp Log</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_camp_rest_bonus">
+        <text>Camp Rest Bonus</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_camp_rest_bonus_desc">
+        <text>When ON, sleeping in a camp boundary restores satiety, power, and thirst to full.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_medic_job_interval_min">
+        <text>Medic Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_medic_job_interval_min_desc">
+        <text>Real minutes between medic job processing runs. Default: 8 minutes.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_player_dist">
+        <text>Event/Raid Player Distance (meters)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_event_player_dist_desc">
+        <text>Maximum distance from camp for events and raids to trigger. Default: 100m.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_alarm_defense_bonus">
+        <text>Alarm Defense Bonus</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_alarm_defense_bonus_desc">
+        <text>Additional defense rating provided by an active alarm system during a raid. Default: 15.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_decor_happiness_bonus">
+        <text>Decor Happiness Bonus (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_decor_happiness_bonus_desc">
+        <text>Morale/happiness percentage added to camp satisfaction per placed decoration item. Default: 0.5%.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_debug_logging">
+        <text>Debug Logging</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_debug_logging_desc">
+        <text>Enable verbose engine logging in the console/log file for settlement builder events. Default: OFF.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settler_invincible">
+        <text>Invincible Settlers</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_settler_invincible_desc">
+        <text>When ON, settlers are healed to full health every tick. They cannot die while this is enabled. Useful for Anthology or other mods with aggressive spawns when you cannot always defend your camp.</text>
+    </string>
+    <string id="st_recruit_camp_slot_prefix">
+        <text>Sure, send me to</text>
+    </string>
+    <string id="st_camp_status_not_near">
+        <text>We are not near any Camp Hub.</text>
+    </string>
+    <string id="st_camp_status_cant_access">
+        <text>I can't access the Camp Hub system right now.</text>
+    </string>
+    <string id="st_camp_status_intro">
+        <text>Here is how our settlement is doing in the level</text>
+    </string>
+    <string id="st_camp_status_beds">
+        <text>Beds</text>
+    </string>
+    <string id="st_camp_status_barricades">
+        <text>Barricades</text>
+    </string>
+    <string id="st_camp_status_guards">
+        <text>Guards</text>
+    </string>
+    <string id="st_camp_status_turrets">
+        <text>Turrets</text>
+    </string>
+    <string id="st_camp_status_pumps">
+        <text>Water Pumps</text>
+    </string>
+    <string id="st_camp_status_pianos">
+        <text>Pianos</text>
+    </string>
+    <string id="st_camp_status_radios">
+        <text>Radios</text>
+    </string>
+    <string id="st_camp_status_morale">
+        <text>Happiness</text>
+    </string>
+    <string id="st_camp_status_jobs">
+        <text>Job Distribution</text>
+    </string>
+    <string id="st_camp_status_scavengers">
+        <text>Scavengers</text>
+    </string>
+    <string id="st_camp_status_crafters">
+        <text>Crafters</text>
+    </string>
+    <string id="st_camp_status_repairers">
+        <text>Repairers</text>
+    </string>
+    <string id="st_camp_status_cooks">
+        <text>Cooks</text>
+    </string>
+    <string id="st_camp_status_idlers">
+        <text>Idle</text>
+    </string>
+    <string id="st_camp_status_outro">
+        <text>What other instructions do you have?</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_cook_output_tier">
+        <text>Cook Output Tier</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_cook_output_tier_desc">
+        <text>Quality of meals produced by the cook. 1=Basic, 2=Prepared/Tinned, 3=Gourmet. Falls back to basic if the higher-tier section does not exist.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_show_rival_camp_map_spots">
+        <text>Show Rival Camp Map Spots</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_show_rival_camp_map_spots_desc">
+        <text>When ON, rival and occupied camps are shown as map markers. Turn OFF to hide them from the PDA map.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_furniture">
+        <text>Rival Camp Furniture</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_furniture_desc">
+        <text>When ON, rival camps spawn decorations around their chest (lamps, radios, barricades, tier upgrades). Turn OFF to strip rival camps down to just the chest and squad — existing furniture is cleared on the next update tick.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min">
+        <text>Electrician Interval (min)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min_desc">
+        <text>How often the electrician recharges camp lamps. Default: 10 minutes.</text>
+    </string>
+    <string id="st_pda_job_btn_electrician">
+        <text>Electrician</text>
+    </string>
+    <string id="st_pda_settlement_job_electrician">
+        <text>Electrician</text>
+    </string>
+    <string id="st_job_electrician_ask">
+        <text>Can you maintain the lamps and lights?</text>
+    </string>
+    <string id="st_job_electrician_done">
+        <text>Alright, I'll keep the lights on.</text>
+    </string>
+    <string id="st_camp_medic_ask">
+        <text>Medic, I need your help.</text>
+    </string>
+    <string id="st_camp_medic_heal_ask">
+        <text>Patch me up, Doc. Treat my wounds and purge radiation.</text>
+    </string>
+    <string id="st_camp_medic_heal_done">
+        <text>Hold still for a moment... All done! You're back in fighting shape.</text>
+    </string>
+    <string id="st_camp_medic_trade_ask">
+        <text>Show me what medical supplies and pharmaceuticals you have.</text>
+    </string>
+    <string id="st_camp_medic_drugkit_ask">
+        <text>I brought you a medical drug-making kit for your clinic.</text>
+    </string>
+    <string id="st_camp_medic_drugkit_done">
+        <text>Excellent! With this equipment I can synthesize advanced medicines and field stimulants.</text>
+    </string>
+    <string id="st_medic_no_money">
+        <text>You do not have enough money for treatment.</text>
+    </string>
+    <string id="st_medic_treated">
+        <text>Medic treated your wounds, stopped bleeding, and purged radiation.</text>
+    </string>
+    <string id="st_medic_drugkit_delivered">
+        <text>Delivered Drug-Making Kit to camp medic! Settlement morale and medical crafting improved.</text>
+    </string>
+    <string id="st_camp_tech_ask">
+        <text>Technician, let's talk about equipment maintenance.</text>
+    </string>
+    <string id="st_camp_tech_upgrade_ask">
+        <text>Can you modify or repair my equipment?</text>
+    </string>
+    <string id="st_camp_tech_use_workbench">
+        <text>I'd like to use the settlement workbench myself.</text>
+    </string>
+    <string id="st_camp_tech_trade_ask">
+        <text>Show me your spare parts, gun oils, and cleaning kits.</text>
+    </string>
+    <string id="st_camp_tech_tools1_ask">
+        <text>I have a set of Basic Tools for your workbench.</text>
+    </string>
+    <string id="st_camp_tech_tools2_ask">
+        <text>I have a set of Advanced Tools for your workbench.</text>
+    </string>
+    <string id="st_camp_tech_tools3_ask">
+        <text>I have a set of Expert Tools for your workbench.</text>
+    </string>
+    <string id="st_camp_tech_tools_done">
+        <text>Fantastic! These tools will let me perform higher-grade modifications and faster repairs.</text>
+    </string>
+    <string id="st_tech_toolkit_delivered">
+        <text>Delivered Tier %d Toolkit to camp technician! Workshop upgrades unlocked and repair speed increased.</text>
+    </string>
+    <string id="st_pda_btn_auto_sort">
+        <text>Auto-Sort Stash</text>
+    </string>
+    <string id="st_auto_sort_success">
+        <text>AUTO-SORT COMPLETE: Transferred %d crafting &amp; survival items into camp specialized containers.</text>
+    </string>
+    <string id="st_auto_sort_empty">
+        <text>No crafting materials, meats, or repair supplies found in backpack to sort.</text>
+    </string>
+    <string id="st_dialog_auto_sort_ask">
+        <text>Sort and deposit all my crafting supplies into camp storage.</text>
+    </string>
+    <string id="st_dialog_auto_sort_done">
+        <text>All set! Meat is stored by the stove, ammo parts are in the workshop, and medical supplies are organized in the clinic.</text>
+    </string>
+    <string id="st_pda_send_scavenger_stash">
+        <text>Send Scavenger to Retrieve Stash</text>
+    </string>
+    <string id="st_pda_scavenger_in_transit">
+        <text>Scavenger In-Transit...</text>
+    </string>
+    <string id="st_scavenger_already_dispatched">
+        <text>A scavenger is already dispatched to this location.</text>
+    </string>
+    <string id="st_no_available_scavengers">
+        <text>No available Scavengers in your settlements to dispatch. Assign a settler to Scavenge job first.</text>
+    </string>
+    <string id="st_scavenger_departed">
+        <text>DISPATCH: %s has departed from %s to retrieve the stash in %s (Est. Travel: %s hrs).</text>
+    </string>
+    <string id="st_scavenger_ambush_win">
+        <text>RADIO: %s was ambushed near the stash but fought off the attackers, securing extra enemy supplies!</text>
+    </string>
+    <string id="st_scavenger_ambush_fled">
+        <text>RADIO: %s encountered heavy hostile resistance near the stash and retreated with minor wounds.</text>
+    </string>
+    <string id="st_scavenger_expedition_done">
+        <text>EXPEDITION SUCCESS: %s has returned from %s! Retrieved %d items and deposited them into %s storage.</text>
+    </string>
+    <string id="st_buff_hospitality_applied">
+        <text>SETTLEMENT HOSPITALITY: Well Fed &amp; Rested (+10kg carry capacity, +15% stamina recovery).</text>
+    </string>
+    <string id="st_scavenger_recalled_success">
+        <text>RADIO: %s has aborted the expedition and is returning to settlement.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_tier2_hours">
+        <text>Rival Outpost Tier 2 Evolution (Hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_tier3_hours">
+        <text>Rival Outpost Tier 3 Evolution (Hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_convoy_interval_hours">
+        <text>Rival Outpost Supply Courier Interval (Hours)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenger_ambush_chance">
+        <text>Scavenger Stash Expedition Ambush Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenger_walk_speed_kmh">
+        <text>Scavenger Walk Speed (km/h)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenger_walk_speed_kmh_desc">
+        <text>Base walking speed for scavengers travelling between stashes in the Zone (Default: 1.2 km/h = 5 in-game minutes per 100 meters).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenger_expedition_speed_mult">
+        <text>Scavenger Expedition Travel Speed Multiplier</text>
+    </string>
+    <string id="st_camp_tech_overhaul_ask">
+        <text>Can you overhaul my equipped weapon and all its internal parts?</text>
+    </string>
+    <string id="st_camp_tech_overhaul_no_wpn">
+        <text>Overhaul equipped weapon (No weapon in hands)</text>
+    </string>
+    <string id="st_camp_tech_overhaul_mint">
+        <text>Overhaul %s (Already 100%% mint)</text>
+    </string>
+    <string id="st_camp_tech_overhaul_cost">
+        <text>Overhaul %s [Type %s, %d parts] (%d RU)</text>
+    </string>
+    <string id="st_camp_tech_overhaul_done">
+        <text>All done. Every part has been cleaned, aligned, and restored to factory condition.</text>
+    </string>
+    <string id="st_homestead_no_weapon_equipped">
+        <text>Equip a weapon in your hands first to overhaul its parts.</text>
+    </string>
+    <string id="st_homestead_weapon_already_repaired">
+        <text>%s and all its internal parts are already in 100%% mint condition.</text>
+    </string>
+    <string id="st_homestead_not_enough_money_tech">
+        <text>Not enough money. Overhaul cost: %d RU (you have %d RU).</text>
+    </string>
+    <string id="st_homestead_weapon_overhauled">
+        <text>Overhauled %s [Type %s] and all internal parts to 100%% for %d RU.</text>
+    </string>
+    <string id="st_camp_medic_need_help">
+        <text>I need medical assistance.</text>
+    </string>
+    <string id="st_camp_medic_healthy_reply">
+        <text>You look completely healthy to me, stalker. Come back if you get wounded or irradiated.</text>
+    </string>
+    <string id="st_camp_medic_need_treat_reply">
+        <text>Let me take a look at you... What needs treating?</text>
+    </string>
+    <string id="st_camp_medic_heal_wounds_text">
+        <text>Patch up my wounds and stop the bleeding (1,850 RU).</text>
+    </string>
+    <string id="st_camp_medic_cure_rad_text">
+        <text>Cure my radiation poisoning (1,480 RU).</text>
+    </string>
+    <string id="st_camp_medic_full_treat_text">
+        <text>Treat all my injuries and radiation poisoning (3,350 RU).</text>
+    </string>
+    <string id="st_camp_medic_treat_back">
+        <text>Never mind, I'll manage for now.</text>
+    </string>
+    <string id="st_camp_medic_heal_done">
+        <text>There you go. All patched up. Take it easy out there.</text>
+    </string>
+    <string id="st_manage_camp_close_reply">
+        <text>Take care out there, stalker.</text>
+    </string>
+    <string id="st_camp_tech_reply">
+        <text>Sure thing. What do you need done with your equipment?</text>
+    </string>
+    <string id="st_dialog_hold_position_ask">
+        <text>Hold this position as your station.</text>
+    </string>
+    <string id="st_dialog_hold_position_done">
+        <text>Understood. I will hold this position.</text>
+    </string>
+    <string id="st_dialog_clear_position_ask">
+        <text>Resume your standard camp workstation duties.</text>
+    </string>
+    <string id="st_dialog_clear_position_done">
+        <text>Understood. Returning to my standard workstation.</text>
+    </string>
+    <string id="st_transfer_hostile_territory">
+        <text>Transfer blocked: %s (%s) cannot live in %s. This territory is held by %s forces, who will attack them on sight.</text>
+    </string>
+    <string id="st_transfer_hostile_settler">
+        <text>Transfer blocked: %s (%s) cannot live in %s due to faction hostility with resident %s (%s).</text>
+    </string>
+    <string id="st_recruit_hostile_territory">
+        <text>Cannot recruit %s (%s) to %s: This territory is controlled by %s forces, who will attack them on sight.</text>
+    </string>
+    <string id="st_pda_send_scavenger_prefix">
+        <text>Dispatch Scavenger: </text>
+    </string>
+    <string id="st_pda_sweep_stashes_prefix">
+        <text>Sweep All %s Stashes (%d Total): </text>
+    </string>
+    <string id="st_scavenger_sweep_departed">
+        <text>REGIONAL SWEEP: %s has departed from %s to sweep and plunder all %d marked stashes across %s (Est. Duration: %s hrs).</text>
+    </string>
+    <string id="st_scavenger_radio_25">
+        <text>%s (Radio): 'Crossing sector border towards %s. Keeping low and scanning for hostiles...'</text>
+    </string>
+    <string id="st_scavenger_radio_50">
+        <text>%s (Radio): 'Target coordinates reached in %s! Cracking the stash container and packing the gear into my rucksack now...'</text>
+    </string>
+    <string id="st_scavenger_radio_75">
+        <text>%s (Radio): 'On the return leg back to %s with the haul. Everything intact, watching my six...'</text>
+    </string>
+    <string id="st_scavenger_receipt_title">
+        <text>EXPEDITION COMPLETED</text>
+    </string>
+    <string id="st_scavenger_receipt_body">
+        <text>EXPEDITION REPORT: %s returned to %s!\n- Recovered Stashes: %s\n- Items Transferred: %d items deposited into %s\n- Bonus Salvage: %s\n- Experience: +%d XP (Total: %d XP - Tier %d)</text>
+    </string>
+    <string id="st_pda_spec_none">
+        <text>Generic Settlement</text>
+    </string>
+    <string id="st_pda_spec_outpost">
+        <text>Military Outpost (+50% Defense)</text>
+    </string>
+    <string id="st_pda_spec_farm">
+        <text>Agricultural Farmstead (+50% Food/Water)</text>
+    </string>
+    <string id="st_pda_spec_workshop">
+        <text>Tech Workshop (+50% Craft/Repair)</text>
+    </string>
+    <string id="st_pda_spec_hideout">
+        <text>Scavenger Hideout (+50% Scavenging)</text>
+    </string>
+    <string id="st_pda_spec_clinic">
+        <text>Medical Clinic (+100% Medical Yield)</text>
+    </string>
+    <string id="st_pda_btn_locate_map">
+        <text>Show on Map</text>
+    </string>
+    <string id="st_pda_located_map">
+        <text>Coordinates marked on PDA Map</text>
+    </string>
+    <string id="st_pda_raid_alert_active">
+        <text>! RAID IN PROGRESS: Defend Settlement !</text>
+    </string>
+    <string id="st_pda_raid_alert_secure">
+        <text>Perimeter Secure - Defenses Active</text>
+    </string>
+    <string id="st_pda_filter_all">
+        <text>All</text>
+    </string>
+    <string id="st_pda_filter_exp">
+        <text>Exped</text>
+    </string>
+    <string id="st_pda_filter_work">
+        <text>Work</text>
+    </string>
+    <string id="st_pda_filter_idle">
+        <text>Idle</text>
+    </string>
+    <string id="st_pda_storage_lbl">
+        <text>CAMP STORAGE</text>
+    </string>
+    <string id="st_pda_tab_radio">
+        <text>Radio Feed</text>
+    </string>
+    <string id="st_pda_radio_title">
+        <text>Settlement Radio Intercepts &amp; Activity Log</text>
+    </string>
+    <string id="st_pda_radio_filter_all">
+        <text>All Logs</text>
+    </string>
+    <string id="st_pda_radio_filter_exp">
+        <text>Expeditions</text>
+    </string>
+    <string id="st_pda_radio_filter_work">
+        <text>Workshops</text>
+    </string>
+    <string id="st_pda_radio_filter_combat">
+        <text>Combat &amp; Raids</text>
+    </string>
+    <string id="st_pda_radio_clear">
+        <text>Clear Log</text>
+    </string>
+    <string id="st_pda_radio_no_logs">
+        <text>No radio activity recorded for this settlement.</text>
+    </string>
+    <string id="st_pda_radio_init_msg">
+        <text>Homestead Radio Relay Online. Monitoring Zone frequencies...</text>
+    </string>
+    <string id="st_pda_radio_scan">
+        <text>Scan Zone</text>
+    </string>
+    <string id="st_job_idle_btn">
+        <text>Idle</text>
+    </string>
+    <string id="st_job_guard_btn">
+        <text>Guard</text>
+    </string>
+    <string id="st_job_scavenge_btn">
+        <text>Scavenge</text>
+    </string>
+    <string id="st_job_hunter_btn">
+        <text>Hunter</text>
+    </string>
+    <string id="st_job_hunter_ask">
+        <text>Head out and hunt mutants for meat and useful supplies.</text>
+    </string>
+    <string id="st_job_hunter_done">
+        <text>Understood. I'll hunt nearby mutant territory and bring back what I can.</text>
+    </string>
+    <string id="st_job_craft_btn">
+        <text>Craft</text>
+    </string>
+    <string id="st_job_repair_btn">
+        <text>Repair</text>
+    </string>
+    <string id="st_job_cook_btn">
+        <text>Cook</text>
+    </string>
+    <string id="st_job_medic_btn">
+        <text>Medic</text>
+    </string>
+    <string id="st_job_electrician_btn">
+        <text>Electrician</text>
+    </string>
+    <string id="st_pda_btn_position_here">
+        <text>Anchor Position Here</text>
+    </string>
+    <string id="st_pda_btn_position_recall">
+        <text>Recall to Workbench</text>
+    </string>
+    <string id="st_pda_btn_rename_survivor">
+        <text>Rename Survivor</text>
+    </string>
+    <string id="st_pda_btn_transfer">
+        <text>Transfer to Camp</text>
+    </string>
+    <string id="st_pda_rival_status_lbl">
+        <text>STATUS</text>
+    </string>
+    <string id="st_pda_rival_faction_lbl">
+        <text>FACTION</text>
+    </string>
+    <string id="st_pda_rival_location_lbl">
+        <text>LOCATION</text>
+    </string>
+    <string id="st_pda_rival_garrison_lbl">
+        <text>GARRISON</text>
+    </string>
+    <string id="st_rename_settlement_title">
+        <text>Rename Settlement</text>
+    </string>
+    <string id="ui_st_ok">
+        <text>OK</text>
+    </string>
+    <string id="ui_st_cancel">
+        <text>Cancel</text>
+    </string>
+    <string id="st_pda_settlement_actions_title">
+        <text>-- SETTLEMENT COMMAND DIRECTIVES --</text>
+    </string>
+    <string id="st_pda_job_telemetry_title">
+        <text>DUTY &amp; TELEMETRY</text>
+    </string>
+    <string id="st_pda_rival_faction_title">
+        <text>FACTION ALIGNMENT &amp; COMBAT READINESS</text>
+    </string>
+    <string id="st_pda_rival_location_garrison_title">
+        <text>STRATEGIC LOCATION &amp; GARRISON FORCE</text>
+    </string>
+    <string id="ui_st_refresh">
+        <text>REFRESH</text>
+    </string>
+    <string id="st_pda_job_reassign_title">
+        <text>REASSIGN PROFESSION</text>
+    </string>
+    <string id="st_pda_job_orders_title">
+        <text>FIELD STATION &amp; ORDERS</text>
+    </string>
+    <string id="st_recruit_fee_insufficient">
+        <text>You do not have enough money for the recruitment fee (%d RU required).</text>
+    </string>
+    <string id="st_recruit_defense_insufficient">
+        <text>This stalker is too experienced to join a poorly defended camp. (Requires camp defense >= %d, currently %d).</text>
+    </string>
+    <string id="st_recruit_contract_mercenary">
+        <text>I am currently under an active contract and cannot join your settlement.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_recruitment_rank_requirements">
+        <text>Recruitment Rank &amp; Fee Requirements</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_recruitment_rank_requirements_desc">
+        <text>When enabled, experienced and veteran stalkers require a one-time sign-on bonus and minimum camp defense before agreeing to join your settlement.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_recruitment_cost_mult">
+        <text>Recruitment Fee Multiplier</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_recruitment_cost_mult_desc">
+        <text>Scales the sign-on fee required to recruit experienced and veteran stalkers (Default: 1.0).</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_enforce_territory_safety">
+        <text>Enforce Territory Faction Safety</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_enforce_territory_safety_desc">
+        <text>When enabled, recruits from factions hostile to a level's ruling faction (e.g. Freedom in Duty-held Rostok) cannot be assigned to settlements on that level. Loners are always allowed anywhere.</text>
+    </string>
+
+    <!-- v1.1.3 Job Automation: Woodcutter, Brewer, Scrapper & Medical Supply Chain -->
+    <string id="st_job_woodcutter_btn">
+        <text>Woodcutter</text>
+    </string>
+    <string id="st_job_brewer_btn">
+        <text>Brewer</text>
+    </string>
+    <string id="st_job_scrapper_btn">
+        <text>Scrapper</text>
+    </string>
+
+    <string id="st_pda_settlement_job_woodcutter">
+        <text>Woodcutter</text>
+    </string>
+    <string id="st_pda_settlement_job_brewer">
+        <text>Brewer</text>
+    </string>
+    <string id="st_pda_settlement_job_scrapper">
+        <text>Scrapper</text>
+    </string>
+
+    <string id="st_pda_btn_job_directive">
+        <text>Orders / Directives</text>
+    </string>
+
+    <!-- Dialog Strings: Job Assignment -->
+    <string id="st_job_woodcutter_ask">
+        <text>I want you to work as a woodcutter and process timber.</text>
+    </string>
+    <string id="st_job_woodcutter_done">
+        <text>Understood. Hand me an axe or I'll harvest with whatever I find. Timber and charcoal on the way.</text>
+    </string>
+
+    <string id="st_job_brewer_ask">
+        <text>I want you to manage distillation and brew alcohol.</text>
+    </string>
+    <string id="st_job_brewer_done">
+        <text>A fine trade. Get me wood and water, and I'll keep the settlement well supplied with spirits.</text>
+    </string>
+
+    <string id="st_job_scrapper_ask">
+        <text>I want you to scavenge scrap metal and hardware from debris.</text>
+    </string>
+    <string id="st_job_scrapper_done">
+        <text>You got it. Give me a workbench and I'll salvage all the scrap and fasteners we need.</text>
+    </string>
+
+    <!-- Dialog Strings: Tool Donations & Boosts -->
+    <string id="st_camp_woodcutter_axe_ask">
+        <text>Here is a heavy felling axe for your forestry work.</text>
+    </string>
+    <string id="st_camp_woodcutter_axe_done">
+        <text>Much obliged! With a proper blade, my timber yield will double!</text>
+    </string>
+    <string id="st_woodcutter_axe_delivered">
+        <text>You handed a felling axe to the woodcutter! Timber production doubled (2x Production Boost).</text>
+    </string>
+
+    <string id="st_camp_brewer_kit_ask">
+        <text>Here is a chemical drug-making kit for your distillery apparatus.</text>
+    </string>
+    <string id="st_camp_brewer_kit_done">
+        <text>Fantastic equipment! With this laboratory glass and burner, my distillation output will double!</text>
+    </string>
+    <string id="st_brewer_kit_delivered">
+        <text>You handed a chemical kit to the brewer! Alcohol distillation output doubled (2x Production Boost).</text>
+    </string>
+
+    <string id="st_camp_scrapper_tools_ask">
+        <text>Here are heavy demolition tools (crowbar / sledgehammer / toolkit) for salvaging.</text>
+    </string>
+    <string id="st_camp_scrapper_tools_done">
+        <text>Heavy duty iron! With these tools I can tear apart rusted machinery twice as fast!</text>
+    </string>
+    <string id="st_scrapper_tools_delivered">
+        <text>You handed demolition tools to the scrapper! Scrap salvage yield doubled (2x Production Boost).</text>
+    </string>
+
+    <!-- Dialog Strings: Woodcutter Directives -->
+    <string id="st_camp_woodcutter_ask">
+        <text>How is the forestry work going?</text>
+    </string>
+    <string id="st_camp_woodcutter_reply">
+        <text>Swinging away. What kind of wood products does the settlement need most?</text>
+    </string>
+    <string id="st_camp_woodcutter_mode_ask">
+        <text>Let's change your harvest directives.</text>
+    </string>
+    <string id="st_camp_woodcutter_mode_reply">
+        <text>Sure thing. What do you want me focusing on?</text>
+    </string>
+    <string id="st_woodcutter_mode_auto_dialog">
+        <text>Balance your work: alternate between felling timber and burning charcoal.</text>
+    </string>
+    <string id="st_woodcutter_mode_timber_dialog">
+        <text>Focus entirely on harvesting raw timber and wooden parts.</text>
+    </string>
+    <string id="st_woodcutter_mode_charcoal_dialog">
+        <text>Focus on kiln operation: convert wood scraps into clean charcoal.</text>
+    </string>
+    <string id="st_camp_woodcutter_mode_done">
+        <text>Understood, orders updated. Getting right to it.</text>
+    </string>
+    <string id="st_woodcutter_mode_auto_set">
+        <text>Woodcutter directive updated: Auto-Rotate (Timber &amp; Charcoal balance).</text>
+    </string>
+    <string id="st_woodcutter_mode_timber_set">
+        <text>Woodcutter directive updated: Timber Focus (Wood parts only).</text>
+    </string>
+    <string id="st_woodcutter_mode_charcoal_set">
+        <text>Woodcutter directive updated: Charcoal Focus (Kiln burning only).</text>
+    </string>
+
+    <!-- Dialog Strings: Brewer & Scrapper Chat -->
+    <string id="st_camp_brewer_ask">
+        <text>How goes the distillation process?</text>
+    </string>
+    <string id="st_camp_brewer_reply">
+        <text>Pipes are steaming and the spirits are high. What do you need?</text>
+    </string>
+
+    <string id="st_camp_scrapper_ask">
+        <text>Found anything useful in the ruins?</text>
+    </string>
+    <string id="st_camp_scrapper_reply">
+        <text>Always searching. Piles of scrap iron and buckets of bolts.</text>
+    </string>
+
+    <!-- Dialog Strings: Medical Synthesis Orders -->
+    <string id="st_camp_medic_order_ask">
+        <text>Let's review our medical synthesis priorities.</text>
+    </string>
+    <string id="st_camp_medic_order_reply">
+        <text>Understood. Using the pure alcohol distilled by our brewer, what medications should I formulate?</text>
+    </string>
+    <string id="st_camp_medic_order_auto">
+        <text>Synthesize an auto-balanced reserve of all foundational medicines.</text>
+    </string>
+    <string id="st_camp_medic_order_bandage">
+        <text>Focus exclusively on sterile bandages (1 bottle of vodka per bandage).</text>
+    </string>
+    <string id="st_camp_medic_order_medkit">
+        <text>Focus exclusively on AI-2 orange medkits (2 bottles of vodka per 2-charge kit).</text>
+    </string>
+    <string id="st_camp_medic_order_kalium">
+        <text>Focus exclusively on Potassium Iodide radioprotector tablets (3 bottles of vodka per 3-charge pack).</text>
+    </string>
+    <string id="st_camp_medic_order_akvatab">
+        <text>Focus exclusively on Ibuprofen painkiller blisters (5 bottles of vodka per 5-charge blister).</text>
+    </string>
+    <string id="st_camp_medic_order_done">
+        <text>Prescriptions logged. I'll synthesize supplies according to your orders.</text>
+    </string>
+    <string id="st_medic_order_auto_set">
+        <text>Medic directive updated: Auto-Balanced synthesis.</text>
+    </string>
+    <string id="st_medic_order_bandage_set">
+        <text>Medic directive updated: Bandages priority (1x Vodka).</text>
+    </string>
+    <string id="st_medic_order_medkit_set">
+        <text>Medic directive updated: AI-2 Medkits priority (2x Vodka).</text>
+    </string>
+    <string id="st_medic_order_kalium_set">
+        <text>Medic directive updated: Potassium Iodide priority (3x Vodka).</text>
+    </string>
+    <string id="st_medic_order_akvatab_set">
+        <text>Medic directive updated: Ibuprofen priority (5x Vodka).</text>
+    </string>
+
+    <!-- MCM Tab Headers & Submenu Titles -->
+    <string id="ui_mcm_stalker_camp_builder_general">
+        <text>General</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_general_desc">
+        <text>Configure camp territory boundaries, NPC tethering leash, recruitment parameters, and travel options.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_jobs">
+        <text>Jobs &amp; Production</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_jobs_desc">
+        <text>Adjust working intervals, production quotas, crafting rates, and survival upkeep cycles.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rivals">
+        <text>Rival Settlements</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rivals_desc">
+        <text>Configure dynamic AI faction outposts, spawn rates, tier progression, convoys, and territorial hostility.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raids_events">
+        <text>Raids &amp; Events</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_raids_events_desc">
+        <text>Manage settlement defense raids, hazard cooldowns, wandering merchants, and expedition ambushes.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_qol_debug">
+        <text>Quality of Life &amp; Debug</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_qol_debug_desc">
+        <text>Display preferences, notifications, settler invulnerability toggles, and camp reset utilities.</text>
+    </string>
+
+    <!-- MCM Jobs & Hunter Settings -->
+    <string id="ui_mcm_stalker_camp_builder_enable_surplus_cap">
+        <text>Enable Supply Surplus Cap</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_enable_surplus_cap_desc">
+        <text>When enabled, camp cooks, crafters, and medics pause production when camp storage already holds abundant supplies (15+ cooked meals, 8+ medical items, 6+ ammo boxes) to prevent overflowing while away. Turn OFF for infinite production.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_hunter_interval_min">
+        <text>Hunter Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_hunter_interval_min_desc">
+        <text>Real-time minutes between hunter expeditions. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_woodcutter_interval_min">
+        <text>Woodcutter Job Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_woodcutter_interval_min_desc">
+        <text>Real-time minutes required for a Woodcutter to fell timber or produce a batch of charcoal. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_brewer_interval_min">
+        <text>Brewer Distillation Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_brewer_interval_min_desc">
+        <text>Real-time minutes required for a Brewer to distill a batch of Nemiroff Vodka. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_scrapper_interval_min">
+        <text>Scrapper Salvage Cycle (minutes)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_realtime_job_scrapper_interval_min_desc">
+        <text>Real-time minutes required for a Scrapper to salvage scrap metal and fasteners from Zone debris. Progress advances live while playing.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_min_meat">
+        <text>Hunter Minimum Meat Yield</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_min_meat_desc">
+        <text>Minimum number of raw mutant meat parts brought back by a hunter per expedition. Default: 1.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_max_meat">
+        <text>Hunter Maximum Meat Yield</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_max_meat_desc">
+        <text>Maximum number of raw mutant meat parts brought back by a hunter per expedition. Default: 2.</text>
+    </string>
+
+    <!-- MCM Rivals Progression & Convoy Descriptions -->
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_tier2_hours_desc">
+        <text>In-game hours required for a Tier 1 rival camp to upgrade into a fortified Tier 2 outpost with barricades and better loot. Default: 4 hours.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_tier3_hours_desc">
+        <text>In-game hours required for a Tier 2 rival camp to upgrade into a heavily fortified Tier 3 stronghold with turrets and elite squads. Default: 8 hours.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_rival_camp_convoy_interval_hours_desc">
+        <text>In-game hours between dynamic supply convoy dispatches sent to reinforce advanced rival outposts. Default: 6 hours.</text>
+    </string>
+
+    <!-- MCM Raids & Ambush Descriptions -->
+    <string id="ui_mcm_stalker_camp_builder_scavenger_ambush_chance_desc">
+        <text>Percentage chance for a scavenger to encounter hostiles during an expedition, returning wounded without loot. Default: 20%.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_ambush_chance">
+        <text>Hunter Ambush Chance (%)</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_hunter_ambush_chance_desc">
+        <text>Percentage chance for a hunter to encounter hostile mutants, returning empty-handed. Default: 20%.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_scavenger_expedition_speed_mult_desc">
+        <text>Multiplier for scavenger expedition speed. Higher values reduce travel duration. Default: 1.0.</text>
+    </string>
+
+    <!-- In-Game Notifications & Radios (v1.1.6 Localization) -->
+    <string id="st_recon_camp_reinforced_stronghold">
+        <text>RECON REPORT: %s at %s have received fresh supplies and reinforced their stronghold.</text>
+    </string>
+    <string id="st_recon_camp_moved_on">
+        <text>RECON REPORT: The forces at %s have packed up and moved on. The camp is now an abandoned outpost.</text>
+    </string>
+    <string id="st_mayday_forces_taking_fire">
+        <text>MAYDAY: %s forces taking heavy fire near %s (%s)! Requesting emergency support!</text>
+    </string>
+    <string id="st_zone_skirmish_cleansed">
+        <text>ZONE SKIRMISH: %s forces have cleansed and seized %s from %s!</text>
+    </string>
+    <string id="st_recon_garrison_eliminated">
+        <text>RECON REPORT: The garrison at %s (%s) has been eliminated. The camp is now an abandoned outpost.</text>
+    </string>
+    <string id="st_recon_camp_occupied_hostile">
+        <text>ALERT: The abandoned camp at %s has been occupied by hostile %s forces!</text>
+    </string>
+    <string id="st_recon_camp_claimed_friendly">
+        <text>The abandoned camp at %s has been claimed by friendly/neutral %s forces.</text>
+    </string>
+    <string id="st_recon_camp_destroyed">
+        <text>RECON REPORT: The camp at %s has been destroyed.</text>
+    </string>
+    <string id="st_recon_post_emission_expedition">
+        <text>RECON REPORT: Faction expedition squads are moving out into the field following the emission.</text>
+    </string>
+    <string id="st_recon_retaliatory_expedition">
+        <text>RECON REPORT: %s forces have launched a retaliatory expedition in response to previous losses!</text>
+    </string>
+    <string id="st_recon_new_camp_established">
+        <text>RECON REPORT: A new camp has been established in %s by %s forces.</text>
+    </string>
+    <string id="st_debug_refreshed_rival_camps">
+        <text>DEBUG: Refreshed rival camps. Spawned %d dynamic outposts across the Zone (random 1-4).</text>
+    </string>
+    <string id="st_recon_reinforced_outpost">
+        <text>RECON REPORT: %s at %s have reinforced their position into a Fortified Outpost.</text>
+    </string>
+    <string id="st_recon_expanded_stronghold">
+        <text>RECON REPORT: %s at %s (%s) have expanded into a regional Stronghold!</text>
+    </string>
+    <string id="st_recon_psy_surge_zombified">
+        <text>PSY-SURGE ALERT: The garrison at %s (%s) was caught in the emission and turned into zombified stalkers!</text>
+    </string>
+    <string id="st_recon_mutant_overrun_den">
+        <text>HAZARD REPORT: A ferocious mutant pack has overrun %s (%s) and established a feeding den!</text>
+    </string>
+    <string id="st_recon_retaliation_hit_squad">
+        <text>RADIO INTERCEPT: %s command has deployed a retaliation hit squad to hunt down the attackers!</text>
+    </string>
+    <string id="st_recon_rescue_complete">
+        <text>RESCUE COMPLETE: %s commander: 'Thank you for the backup, stalker! Take these %d RU as a reward.'</text>
+    </string>
+    <string id="st_job_ammo_stocked">
+        <text>%s inspected the armory: ammo supplies are fully stocked!</text>
+    </string>
+    <string id="st_job_ammo_crafted">
+        <text>%s crafted %s in the armory for camp defense.</text>
+    </string>
+    <string id="st_job_gear_repaired">
+        <text>%s repaired your %s to %s%% condition.</text>
+    </string>
+    <string id="st_job_food_stocked">
+        <text>%s inspected the provisions: food storage is fully stocked!</text>
+    </string>
+    <string id="st_job_cook_no_meat">
+        <text>The cook has no raw mutant meat to prepare!</text>
+    </string>
+    <string id="st_job_meds_stocked">
+        <text>%s inspected the infirmary: medical supplies are fully stocked!</text>
+    </string>
+    <string id="st_job_meds_synthesized">
+        <text>%s synthesized %s at the medical lab.</text>
+    </string>
+    <string id="st_job_meds_treated">
+        <text>%s treated and bandaged wounded settlers in camp.</text>
+    </string>
+    <string id="st_job_meds_need_materials">
+        <text>%s requires alcohol, clean water, or textiles to prepare medical supplies.</text>
+    </string>
+    <string id="st_job_electrician_no_lamps">
+        <text>%s has no lamps to maintain.</text>
+    </string>
+    <string id="st_job_electrician_no_battery">
+        <text>%s has lamps to maintain but no battery available.</text>
+    </string>
+    <string id="st_job_electrician_recharged">
+        <text>%s recharged %d lamp(s) in the camp! (Used 1 battery)</text>
+    </string>
+    <string id="st_job_electrician_all_powered">
+        <text>%s found no lamps needing maintenance.</text>
+    </string>
+    <string id="st_job_woodcutter_charcoal">
+        <text>%s burned %d wood scraps into %d bags of clean charcoal fuel.</text>
+    </string>
+    <string id="st_job_woodcutter_need_wood">
+        <text>%s needs wood scraps to operate the charcoal kiln.</text>
+    </string>
+    <string id="st_job_woodcutter_harvested">
+        <text>%s felled timber and harvested %d wooden parts for camp storage.</text>
+    </string>
+    <string id="st_job_brewer_need_still">
+        <text>%s needs a Milk Can (Bidon) or Stove to distill vodka!</text>
+    </string>
+    <string id="st_job_brewer_need_water">
+        <text>%s needs clean water to operate the distillery.</text>
+    </string>
+    <string id="st_job_brewer_distilled">
+        <text>%s distilled %d bottles of Nemiroff Vodka for camp rations and medical trade.</text>
+    </string>
+    <string id="st_job_scrapper_salvaged">
+        <text>%s salvaged Zone debris, depositing %d scrap metal and %d fasteners.</text>
+    </string>
+    <string id="st_job_turret_refilled">
+        <text>%s refilled the ammo for defensive turrets!</text>
+    </string>
+    <string id="st_job_caravan_departed">
+        <text>The traveling trade caravan has packed up and departed from your camp.</text>
+    </string>
+    <string id="st_job_water_pumped">
+        <text>Clean water has been filtered, pumped, and stored in the camp cistern.</text>
+    </string>
+    <string id="st_job_water_no_filters">
+        <text>Camp water pumps are inactive: no charcoal or paper filters found in camp storage!</text>
+    </string>
+    <string id="st_job_fridge_chilled">
+        <text>The camp fridge has chilled and partially preserved your stored perishables!</text>
+    </string>
+    <string id="st_job_scavenger_ambushed">
+        <text>%s was ambushed while scavenging!</text>
+    </string>
+    <string id="st_job_scavenger_returned">
+        <text>%s returned from scavenging with a [%s] haul (%d items)! Heading out again...</text>
+    </string>
+    <string id="st_job_scavenger_radio_feed">
+        <text>%s brought back a %s stash haul to %s (%d items).</text>
+    </string>
+    <string id="st_job_scavenger_no_chest">
+        <text>%s returned from scavenging, but could not find a chest to deposit items.</text>
+    </string>
+    <string id="st_job_hunter_ambushed">
+        <text>%s was ambushed by mutants while hunting!</text>
+    </string>
+    <string id="st_job_hunter_returned">
+        <text>%s returned from hunting with %s! Heading out again...</text>
+    </string>
+    <string id="st_job_hunter_radio_feed">
+        <text>%s brought back %s to %s.</text>
+    </string>
+    <string id="st_job_hunter_no_chest">
+        <text>%s returned from hunting, but could not find a fridge/chest to deposit meat.</text>
+    </string>
+    <string id="st_event_refugees_departed">
+        <text>The refugees at your camp have moved on (%d group(s)).</text>
+    </string>
+    <string id="st_event_settlements_on_level">
+        <text>Settlements on this level: %s</text>
+    </string>
+    <string id="st_event_refugees_arrived">
+        <text>Settlement Event: Refugees have arrived at your camp looking for shelter.</text>
+    </string>
+    <string id="st_event_mutant_migration">
+        <text>ALERT: A localized mutant migration is passing close to your settlement!</text>
+    </string>
+    <string id="st_event_caravan_arrived">
+        <text>Settlement Event: A traveling trade caravan has arrived at your camp! Traders have set up shop.</text>
+    </string>
+    <string id="st_event_harvester_degraded">
+        <text>Settlement Event: An artifact harvester at %s was damaged by anomalies.</text>
+    </string>
+    <string id="st_event_camp_under_attack">
+        <text>ALERT: Your settlement in %s is under attack by %s!</text>
+    </string>
+    <string id="st_event_rest_bonus">
+        <text>You rested well at your camp. Satiety, power, and thirst fully restored.</text>
+    </string>
+    <string id="st_event_settler_promoted">
+        <text>%s has been promoted to %s %s!</text>
+    </string>
+    <string id="st_event_settler_recovered">
+        <text>%s was critically wounded but recovered at camp!</text>
+    </string>
+    <string id="st_event_camp_warning">
+        <text>WARNING: %s is %s!</text>
+    </string>
+    <string id="st_camp_recall_expedition">
+        <text>RECALL: %s was ordered to abort the expedition and return to %s immediately.</text>
+    </string>
+    <string id="st_scavenger_expedition_departed">
+        <text>EXPEDITION: %s departed from %s to %s%s (Est. Duration: %s).</text>
+    </string>
+    <string id="st_trade_network_offline">
+        <text>Trade network offline: Connection blocked by emission/psi-storm.</text>
+    </string>
+    <string id="st_scavenger_receipt_body_full">
+        <text>EXPEDITION REPORT: %s returned to %s!
+Target: %s (%s)
+Deposited Items (%d total):
+%s
+Experience: +%d XP (Total: %d XP - Tier %d)</text>
+    </string>
+    <string id="st_event_settler_killed">
+        <text>Your settler '%s' has been killed.</text>
+    </string>
+    <string id="st_job_cook_success_fridge">
+        <text>%s took %s from the fridge, cooked it %s (Tier %d), and stored the prepared %s in the fridge!</text>
+    </string>
+    <string id="st_job_cook_success_campfire">
+        <text>%s cooked %s %s (Tier %d)!</text>
+    </string>
+    <string id="st_cooking_at_campfire">
+        <text>at the campfire</text>
+    </string>
+    <string id="st_cooking_on_stove">
+        <text>on the cooking stove</text>
+    </string>
+    <string id="st_job_meds_synthesized_from">
+        <text>%s synthesized %s at the medstation using %s!</text>
+    </string>
+    <!-- ==================== v1.1.7 localization additions ==================== -->
+    <string id="st_turret_already_loaded">
+        <text>Turret is already loaded.</text>
+    </string>
+    <string id="st_turret_no_ammo">
+        <text>I don't have any ammo for this.</text>
+    </string>
+    <string id="st_turret_reloaded_full">
+        <text>Turret fully reloaded.</text>
+    </string>
+    <string id="st_turret_reloaded_count">
+        <text>Reloaded %d rounds.</text>
+    </string>
+    <string id="st_turret_recovered_rounds">
+        <text>Recovered %d rounds.</text>
+    </string>
+    <string id="st_alarm_pda_offline">
+        <text>Alarm System Offline. Connection lost.</text>
+    </string>
+    <string id="st_alarm_pda_online">
+        <text>Alarm System Online. Connection successful.</text>
+    </string>
+    <string id="st_hub_workbench_added">
+        <text>Workbench added to settlement workstations.</text>
+    </string>
+    <string id="st_hub_too_close">
+        <text>Cannot establish new settlement: Too close to another settlement!</text>
+    </string>
+    <string id="st_hub_established">
+        <text>Settlement Camp Hub established!</text>
+    </string>
+    <string id="st_hub_furniture_joined_warn">
+        <text>%s is now part of %s (Warning: near %dm boundary!)</text>
+    </string>
+    <string id="st_hub_furniture_joined">
+        <text>%s is now part of %s</text>
+    </string>
+    <string id="st_hub_furniture_outside">
+        <text>%s placed outside any camp boundary (no camp hub nearby).</text>
+    </string>
+    <string id="st_hub_removed">
+        <text>Settlement Camp Hub removed.</text>
+    </string>
+    <string id="st_settler_banished">
+        <text>%s has been banished from the settlement.</text>
+    </string>
+    <string id="st_settler_dismissed">
+        <text>%s has been dismissed from the settlement.</text>
+    </string>
+    <string id="st_camp_rest_bonus_msg">
+        <text>You rested well at your camp. Satiety, power, and thirst fully restored.</text>
+    </string>
+    <string id="st_radio_autosort_deposited">
+        <text>Auto-Sort: Player deposited %d supplies into settlement storage</text>
+    </string>
+    <string id="st_job_medic_treated_wounded">
+        <text>%s treated and bandaged wounded settlers in camp.</text>
+    </string>
+    <string id="st_recruit_cap_reached">
+        <text>This camp is at the survivor cap (%d/%d). Build more beds or dismantle furniture to increase capacity.</text>
+    </string>
+    <string id="st_camp_specialization_set">
+        <text>Camp specialization: %s</text>
+    </string>
+    <string id="st_pda_settler_recalled">
+        <text>Settler recalled to camp.</text>
+    </string>
+    <string id="st_pda_recall_reason">
+        <text>Recall: %s</text>
+    </string>
+    <string id="st_pda_medic_directive">
+        <text>Medic directive: %s</text>
+    </string>
+    <string id="st_pda_woodcutter_mode">
+        <text>Woodcutter mode: %s</text>
+    </string>
+    <string id="st_pda_crafter_directive">
+        <text>Crafter directive: %s</text>
+    </string>
+    <string id="st_pda_fast_travel_failed">
+        <text>Fast travel failed: %s</text>
+    </string>
+    <string id="st_pda_caravan_failed">
+        <text>Could not summon caravan: %s</text>
+    </string>
+    <string id="st_pda_dismantle_failed">
+        <text>Could not dismantle camp: %s</text>
+    </string>
+    <string id="st_pda_recalled_count">
+        <text>Recalled %d settler(s) to camp.</text>
+    </string>
+    <string id="st_pda_all_stationed">
+        <text>All settlers are already at their stations.</text>
+    </string>
+    <string id="st_alarm_pda_triggered">
+        <text>Alarm triggered.</text>
+    </string>
+    <string id="st_hostiles">
+        <text>hostiles</text>
+    </string>
+    <string id="unknown">
+        <text>Unknown</text>
+    </string>
+    <string id="st_directive_medic_auto">
+        <text>Auto-Balanced</text>
+    </string>
+    <string id="st_directive_medic_bandage">
+        <text>Bandages (1x Vodka)</text>
+    </string>
+    <string id="st_directive_medic_medkit">
+        <text>AI-2 Kits (2x Vodka)</text>
+    </string>
+    <string id="st_directive_medic_kalium">
+        <text>Potassium Iodide (3x Vodka)</text>
+    </string>
+    <string id="st_directive_medic_akvatab">
+        <text>Ibuprofen (5x Vodka)</text>
+    </string>
+    <string id="st_directive_woodcutter_auto">
+        <text>Auto-Rotate (Timber &amp; Charcoal)</text>
+    </string>
+    <string id="st_directive_woodcutter_timber">
+        <text>Timber Focus (Wood Only)</text>
+    </string>
+    <string id="st_directive_woodcutter_charcoal">
+        <text>Charcoal Focus (Kiln Only)</text>
+    </string>
+    <string id="st_directive_craft_auto">
+        <text>Auto-Balanced (By Powder Tier)</text>
+    </string>
+    <string id="st_directive_craft_pistol">
+        <text>Handgun Calibers (9x18, 9x19, .45 ACP)</text>
+    </string>
+    <string id="st_directive_craft_shotgun">
+        <text>Shotgun Shells (12ga Buck)</text>
+    </string>
+    <string id="st_directive_craft_rifle_soviet">
+        <text>Soviet Rifles (5.45x39 FMJ)</text>
+    </string>
+    <string id="st_directive_craft_rifle_nato">
+        <text>NATO Rifles (5.56x45 FMJ)</text>
+    </string>
+    <string id="st_directive_craft_rifle_heavy">
+        <text>Assault Rifles (7.62x39 FMJ)</text>
+    </string>
+    <string id="st_directive_craft_sniper">
+        <text>Marksman Rifles (7.62x54 / 7.62x51)</text>
+    </string>
+    <string id="st_directive_craft_turret">
+        <text>Turret Defenses (Camp Turret Calibers)</text>
+    </string>
+    <string id="st_directive_btn_orders">
+        <text>Orders</text>
+    </string>
+    <string id="st_directive_btn_harvest_mode">
+        <text>Harvest Mode</text>
+    </string>
+    <string id="st_directive_btn_ammo_focus">
+        <text>Ammo Focus</text>
+    </string>
+</string_table>
