@@ -5983,7 +5983,9 @@ function on_game_start()
         end)
     end)
 
-    safe_register_callback("on_before_level_changing", function()
+    -- on_level_changing, not on_before_level_changing: the area-transition prompt sends that
+    -- before a same-level teleport too, and nothing would clear the flags until the next load
+    safe_register_callback("on_level_changing", function()
         pcall(function()
             homestead_is_disconnecting = true
             stalker_camp_builder.homestead_is_disconnecting = true
@@ -6010,13 +6012,6 @@ function on_game_start()
                 end
             end
         end)
-    end)
-
-    safe_register_callback("on_level_changing", function()
-        homestead_is_disconnecting = true
-        stalker_camp_builder.homestead_is_disconnecting = true
-        homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
-        stalker_camp_builder.homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
     end)
 
     if hf_obj_manager and hf_obj_manager.get_data then

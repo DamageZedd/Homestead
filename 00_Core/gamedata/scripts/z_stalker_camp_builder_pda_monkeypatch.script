@@ -371,7 +371,6 @@ function on_game_start()
                 stalker_camp_builder.homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
             end
         end
-        RegisterScriptCallback("on_before_level_changing", engage_homestead_disconnect_grace)
         RegisterScriptCallback("on_level_changing", engage_homestead_disconnect_grace)
         RegisterScriptCallback("actor_on_net_destroy", engage_homestead_disconnect_grace)
     end
