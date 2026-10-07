@@ -29,6 +29,14 @@
   - **Outpost Map Marker**: Faction Insignias (Recommended) / Tactical Status Outposts / PAW Pushpins / Classic Colored Dots.
 - **DXML Engine Safety**: Mapspot definitions are dynamically injected at runtime via `modxml_stalker_camp_builder.script`, ensuring zero missing-texture crashes even if PAW is not installed.
 
+### ⚡ Performance Optimization & Engine Hardening (ALAO & Codex Audit):
+- **Lua 5.1 Prototype Local Limit Resolution (`update_rival_camps`)**: Eliminated an engine prototype limit issue where `update_rival_camps` accumulated 236 locals (exceeding Lua 5.1's 200-local prototype ceiling). Modularized the lifecycle loop into `process_single_rival_camp` (dropping locals to 92) and hoisted `spawn_rival_camp_defenses_and_decor` to module scope (reducing `spawn_single_rival_camp` locals to 134).
+- **Hot-Path Closure Allocation Elimination**: Replaced anonymous function heap allocations inside `pcall` (e.g. `pcall(function() return pos:distance_to(pos2) end)`) with direct method invocations `pcall(pos.distance_to, pos, pos2)` in `safe_distance` and `is_squad_alive`, eliminating garbage collection stutter during distance scans.
+- **Fast Distance Sqr Calculations**: Converted repeated `distance_to()` distance checks to `distance_to_sqr()` across entity scans and radius checks.
+- **Scratch Vector Pre-Allocation**: Pre-allocated scratch vectors outside loops across squad positioning routines (`setup_rival_squad_positions`, `update_rival_camps`), avoiding constant C++ vector allocations and deallocations.
+- **Fast Literal String Matching**: Added `plain = true` to fixed string searches in monkeypatched PDA scripts.
+- **Dead Code Pruning**: Stripped unused functions, legacy stubs, and dead variables across `bind_display_counter.script`, `ui_stalker_camp_builder_pda.script`, and `stalker_camp_builder.script`.
+
 ## v1.2.1 — Community Hotfix: Ghost Companions & Settler Idle Animations
 
 ### 👻 "Ghost Companion" Desync Elimination (Community / OnariX):
