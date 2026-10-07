@@ -1,4 +1,5 @@
 local sformat = string.format
+local colorize_pda_text   -- defined below; the radio rows above it call it
 
 local function make_gauge_bar(current, max_val, length, fill_char, empty_char)
     local len = length or 8
@@ -52,7 +53,7 @@ local function escape_pda_pattern(str)
     return (str:gsub("([%(%)%.%%%+%-%*%?%[%]%^%$])", "%%%1"))
 end
 
-local function colorize_pda_text(text)
+function colorize_pda_text(text)
     if not text or text == "" then return "" end
 
     local faction_colors = {
@@ -1646,11 +1647,11 @@ function SettlementManagerPDA:OnSurvivorSelected()
         job_lbl = job:sub(1,1):upper() .. job:sub(2)
     end
 
+    local si = self.settlement_list and self.settlement_list:GetSelectedItem()
     s_item.npc_id = s_item.npc_id or tonumber(survivor_id) or survivor_id
     s_item.hub_id = s_item.hub_id or (si and si.hub_id)
 
     local is_paused, reason_short, reason_detail = false, nil, nil
-    local si = self.settlement_list and self.settlement_list:GetSelectedItem()
     local camp = si and stalker_camp_builder and stalker_camp_builder.active_camps and stalker_camp_builder.active_camps[si.hub_id]
     if stalker_camp_builder and stalker_camp_builder.get_job_paused_status then
         is_paused, reason_short, reason_detail = stalker_camp_builder.get_job_paused_status(s_item, camp, si and si.hub_id)

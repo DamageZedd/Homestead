@@ -867,7 +867,8 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
 
             for iid, it in pairs(camp.stored_items) do
                 local se_obj = sim:object(iid)
-                if not se_obj then
+                -- only what is still in one of this camp's boxes, and still the same item
+                if not se_obj or not seen_boxes[se_obj.parent_id] or se_obj:section_name() ~= it.sec then
                     camp.stored_items[iid] = nil
                 else
                     local stop = callback(iid, it.sec, it.cond or 1.0, it.uses or 1, se_obj, it.box_id, nil)
@@ -5983,7 +5984,9 @@ function on_game_start()
         end)
     end)
 
-    safe_register_callback("on_before_level_changing", function()
+    -- on_level_changing, not on_before_level_changing: the area-transition prompt sends that
+    -- before a same-level teleport too, and nothing would clear the flags until the next load
+    safe_register_callback("on_level_changing", function()
         pcall(function()
             homestead_is_disconnecting = true
             stalker_camp_builder.homestead_is_disconnecting = true
@@ -6010,13 +6013,6 @@ function on_game_start()
                 end
             end
         end)
-    end)
-
-    safe_register_callback("on_level_changing", function()
-        homestead_is_disconnecting = true
-        stalker_camp_builder.homestead_is_disconnecting = true
-        homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
-        stalker_camp_builder.homestead_teardown_grace_until = (time_global and time_global() or 0) + 600000
     end)
 
     if hf_obj_manager and hf_obj_manager.get_data then
@@ -6744,9 +6740,8 @@ function stalker_camp_builder.get_available_scavengers()
                     surv.on_expedition = nil
                     local se_npc = alife_object(n_id)
                     local hub_obj = alife_object(hub_id)
-                    if se_npc and hub_obj and not se_npc.can_switch_online then
-                        se_npc.can_switch_online = true
-                        se_npc.can_switch_offline = false
+                    if se_npc and hub_obj and not se_npc:can_switch_online() then
+                        utils_obj.switch_online(n_id)
                         se_npc.position = hub_obj.position
                         se_npc.m_level_vertex_id = hub_obj.m_level_vertex_id
                         se_npc.m_game_vertex_id = hub_obj.m_game_vertex_id
@@ -7765,11 +7760,6 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
     local msg = string.format(game.translate_string("st_scavenger_expedition_departed"), best_surv.name or "Scavenger", best_camp.name or "Camp", disp_lvl, type_str, real_est)
     news_manager.send_tip(actor, msg, nil, "general_stalker", 10000)
 
-    local se_npc = alife_object(best_surv.npc_id)
-    if se_npc then
-        se_npc.can_switch_online = false
-        se_npc.can_switch_offline = true
-    end
     utils_obj.switch_offline(best_surv.npc_id)
     return true
 end
@@ -7847,11 +7837,6 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
     local msg = string.format(game.translate_string("st_scavenger_sweep_departed"), best_surv.name or "Scavenger", best_camp.name or "Camp", count, disp_lvl, real_est)
     news_manager.send_tip(actor, msg, nil, "general_stalker", 11000)
 
-    local se_npc = alife_object(best_surv.npc_id)
-    if se_npc then
-        se_npc.can_switch_online = false
-        se_npc.can_switch_offline = true
-    end
     utils_obj.switch_offline(best_surv.npc_id)
     return true
 end
@@ -8003,8 +7988,8 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
     end
 
     if se_npc and final_pos then
-        se_npc.can_switch_online  = true
-        se_npc.can_switch_offline = true
+        alife():set_switch_online(se_npc.id, true)
+        alife():set_switch_offline(se_npc.id, true)
         se_npc.position           = final_pos
         if final_lvid then se_npc.m_level_vertex_id = final_lvid end
         if spawn_gvid then se_npc.m_game_vertex_id  = spawn_gvid end

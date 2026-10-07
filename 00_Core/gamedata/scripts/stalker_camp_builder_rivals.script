@@ -1426,6 +1426,63 @@ end
 
 -- force_respawn_all_rival_camps -- debug: dismantle all and re-spawn
 
+-- get_rival_camp_theme_sections -- the placeable sections for a faction's camp, for its decor
+-- and its tier upgrades (at file scope, so upgrade_rival_camp_tier can call it too)
+local function get_rival_camp_theme_sections(faction)
+    local fac = faction or "stalker"
+    local walls = {"placeable_wall", "placeable_wall02"}
+    local barricades = {"placeable_wall_divider", "placeable_wooden_board", "placeable_metal_plate"}
+    local cover_prop = "placeable_barrel_metal"
+    local stove_sec = "placeable_stove1"
+    local seat_sec = "placeable_stool"
+    local table_sec = "placeable_table1"
+    local crate_sec = "placeable_box_wood"
+
+    if fac == "bandit" or fac == "renegade" or fac == "greh" then
+        walls = {"placeable_wall_metal", "placeable_wall02_metal", "placeable_wall"}
+        barricades = {"placeable_wooden_board", "placeable_metal_plate", "placeable_wall_divider"}
+        stove_sec = "placeable_stove1"
+        seat_sec = "placeable_stool"
+        table_sec = "placeable_table_2"
+    elseif fac == "army" or fac == "dolg" or fac == "killer" or fac == "monolith" or fac == "isg" then
+        walls = {"placeable_wall02_metal", "placeable_wall_metal", "placeable_wall_divider"}
+        barricades = {"placeable_wall_divider", "placeable_metal_plate", "placeable_barrel_metal"}
+        stove_sec = "placeable_stove2"
+        seat_sec = "placeable_chair"
+        table_sec = "placeable_metal_table1"
+        crate_sec = "placeable_prop_ammo_box"
+    else -- loner, csky, freedom, ecolog
+        walls = {"placeable_wall", "placeable_wall02", "placeable_wall_metal"}
+        barricades = {"placeable_wall_divider", "placeable_wooden_plank", "placeable_barrel_metal"}
+        stove_sec = "placeable_stove1"
+        seat_sec = "placeable_fchair"
+        table_sec = "placeable_table1"
+        crate_sec = "placeable_box_wood"
+    end
+
+    local function pick_existing(list, fallback)
+        for _, s in ipairs(list) do
+            if ini_sys:section_exist(s) then return s end
+        end
+        return ini_sys:section_exist(fallback) and fallback or nil
+    end
+
+    return {
+        wall_main = pick_existing(walls, "placeable_wall"),
+        wall_flank = pick_existing(barricades, "placeable_wall_divider"),
+        cover = pick_existing({cover_prop, "placeable_box_wood"}, "placeable_barrel_metal"),
+        stove = pick_existing({stove_sec, "placeable_stove1", "placeable_barrel_metal"}, "placeable_barrel_metal"),
+        bed = pick_existing({"placeable_bed_1", "placeable_bed_2"}, "placeable_bed_1"),
+        seat = pick_existing({seat_sec, "placeable_stool", "placeable_chair"}, "placeable_stool"),
+        table = pick_existing({table_sec, "placeable_table1", "placeable_table_2"}, "placeable_table1"),
+        crate = pick_existing({crate_sec, "placeable_box_wood"}, "placeable_box_wood"),
+        ammo = pick_existing({"placeable_prop_ammo_box", "placeable_box_wood"}, "placeable_box_wood"),
+        radio = pick_existing({"placeable_radio", "placeable_gas_lamp"}, "placeable_radio"),
+        lamp = pick_existing({"placeable_gas_lamp", "placeable_metal_torch", "placeable_lamp1"}, "placeable_gas_lamp"),
+        barrier_plate = pick_existing({"placeable_metal_plate", "placeable_wooden_board", "placeable_wooden_plank"}, "placeable_wooden_board"),
+    }
+end
+
 -- spawn_single_rival_camp -- attempt to establish 1 rival camp on target_level
 function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_faction)
     local ipairs_ = ipairs
@@ -1649,61 +1706,6 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                         if sb.cfg.show_rival_camp_map_spots ~= false then
                             level.map_add_object_spot_ser(se_chest.id, spot_type, label)
                         end
-
-local function get_rival_camp_theme_sections(faction)
-    local fac = faction or "stalker"
-    local walls = {"placeable_wall", "placeable_wall02"}
-    local barricades = {"placeable_wall_divider", "placeable_wooden_board", "placeable_metal_plate"}
-    local cover_prop = "placeable_barrel_metal"
-    local stove_sec = "placeable_stove1"
-    local seat_sec = "placeable_stool"
-    local table_sec = "placeable_table1"
-    local crate_sec = "placeable_box_wood"
-
-    if fac == "bandit" or fac == "renegade" or fac == "greh" then
-        walls = {"placeable_wall_metal", "placeable_wall02_metal", "placeable_wall"}
-        barricades = {"placeable_wooden_board", "placeable_metal_plate", "placeable_wall_divider"}
-        stove_sec = "placeable_stove1"
-        seat_sec = "placeable_stool"
-        table_sec = "placeable_table_2"
-    elseif fac == "army" or fac == "dolg" or fac == "killer" or fac == "monolith" or fac == "isg" then
-        walls = {"placeable_wall02_metal", "placeable_wall_metal", "placeable_wall_divider"}
-        barricades = {"placeable_wall_divider", "placeable_metal_plate", "placeable_barrel_metal"}
-        stove_sec = "placeable_stove2"
-        seat_sec = "placeable_chair"
-        table_sec = "placeable_metal_table1"
-        crate_sec = "placeable_prop_ammo_box"
-    else -- loner, csky, freedom, ecolog
-        walls = {"placeable_wall", "placeable_wall02", "placeable_wall_metal"}
-        barricades = {"placeable_wall_divider", "placeable_wooden_plank", "placeable_barrel_metal"}
-        stove_sec = "placeable_stove1"
-        seat_sec = "placeable_fchair"
-        table_sec = "placeable_table1"
-        crate_sec = "placeable_box_wood"
-    end
-
-    local function pick_existing(list, fallback)
-        for _, s in ipairs(list) do
-            if ini_sys:section_exist(s) then return s end
-        end
-        return ini_sys:section_exist(fallback) and fallback or nil
-    end
-
-    return {
-        wall_main = pick_existing(walls, "placeable_wall"),
-        wall_flank = pick_existing(barricades, "placeable_wall_divider"),
-        cover = pick_existing({cover_prop, "placeable_box_wood"}, "placeable_barrel_metal"),
-        stove = pick_existing({stove_sec, "placeable_stove1", "placeable_barrel_metal"}, "placeable_barrel_metal"),
-        bed = pick_existing({"placeable_bed_1", "placeable_bed_2"}, "placeable_bed_1"),
-        seat = pick_existing({seat_sec, "placeable_stool", "placeable_chair"}, "placeable_stool"),
-        table = pick_existing({table_sec, "placeable_table1", "placeable_table_2"}, "placeable_table1"),
-        crate = pick_existing({crate_sec, "placeable_box_wood"}, "placeable_box_wood"),
-        ammo = pick_existing({"placeable_prop_ammo_box", "placeable_box_wood"}, "placeable_box_wood"),
-        radio = pick_existing({"placeable_radio", "placeable_gas_lamp"}, "placeable_radio"),
-        lamp = pick_existing({"placeable_gas_lamp", "placeable_metal_torch", "placeable_lamp1"}, "placeable_gas_lamp"),
-        barrier_plate = pick_existing({"placeable_metal_plate", "placeable_wooden_board", "placeable_wooden_plank"}, "placeable_wooden_board"),
-    }
-end
 
 local function spawn_rival_camp_defenses_and_decor(camp_pos, lvid, gvid, target_level, occupant_faction)
     if not rival_decor_enabled() then return {}, mrandom() * math.pi * 2 end

@@ -102,9 +102,8 @@ function stalker_camp_builder.set_survivor_job(npc_id, job)
                     surv.on_expedition = nil
                     local se_npc = alife_object(matched_id)
                     local hub_obj = alife_object(hub_id)
-                    if se_npc and hub_obj and not se_npc.can_switch_online then
-                        se_npc.can_switch_online = true
-                        se_npc.can_switch_offline = false
+                    if se_npc and hub_obj and not se_npc:can_switch_online() then
+                        utils_obj.switch_online(matched_id)
                         se_npc.position = hub_obj.position
                         se_npc.m_level_vertex_id = hub_obj.m_level_vertex_id
                         se_npc.m_game_vertex_id = hub_obj.m_game_vertex_id
@@ -1575,6 +1574,7 @@ function stalker_camp_builder.process_medic_job(npc_id, box_id, camp, survivor)
     local target_sec = nil
     local req_vodka = 0
     local use_cloth = false
+    local req_bandage = false
 
     if m_order == "akvatab" then
         target_sec = (ini_sys and ini_sys:section_exist("akvatab") and "akvatab")
