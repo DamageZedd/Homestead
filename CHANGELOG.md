@@ -1,5 +1,18 @@
 # Homestead (Stalker Settlement Builder) - Changelog
 
+## v1.2.1 — Community Hotfix: Ghost Companions & Settler Idle Animations
+
+### 👻 "Ghost Companion" Desync Elimination (Community / OnariX):
+- **Full Companion Squad & ALife Purge on Banish (`purge_settler_companion_and_squad_state`)**: Fixed the critical bug where asking a free settler to become a companion and subsequently banishing them turned them into permanent "ghost companions" (lingering HUD health bars, slow foot-following behavior, and unmanageable squad state). Homestead now completely strips companion squad registration (`axr_companions.companion_squads`), unregisters ALife squad members, releases dedicated companion groups, clears saved persistent variables (`se_save_var`), and revokes companion/holding infoportions.
+- **Universal Offline Banish Support (`SettlementManagerPDA:OnBanishClicked`)**: Fixed the PDA remote banishment handler which previously skipped all ALife/companion cleanup whenever the target settler was offline or on another level.
+- **Save-Migration Self-Heal (`heal_ghost_companion_squads`)**: Added an automated sweep to `run_settler_self_heals` that scans on load and heals existing saves affected by ghost companion squads, instantly wiping orphaned HUD health bars and freeing stalkers to live independently.
+
+### 🎭 Broken Settler Idle Animation Fix (Community / DaWeeDick):
+- **Eliminated Broken `play_guitar` & Floor-Clipping `sit_ass`**: Removed broken `play_guitar` calls (which caused stalkers without guitars to strum empty air or contort into broken poses) and ground-clipping `sit_ass` states that caused settlers' lower bodies to sink into wooden platforms, building floors, and uneven terrain.
+- **Authentic Zone Idle Animation Pool**: Settlers resting or idle in camp now utilize a curated, rock-solid engine animation pool: relaxed standing (`wait_na`), alert guard (`guard`), environmental scanning (`caution`), smoking a cigarette (`smoke`), resting on one knee (`sit_knee`), ready stance (`threat_na`), and hands-behind-back (`ward`).
+- **`axr_beh` Scheme Animation Synchronization**: Resolved the root cause of violent animation flickering and twitching. In `setup_settler_beh_logic`, Homestead now dynamically updates `st.beh.wait_cond` and `st.beh.wait_animation` to match the assigned animation, permanently stopping `axr_beh:beh_wait()` from overwriting `state_mgr` back to `"guard"` every frame.
+- **Dynamic 20–35s Idle Animation Cycling**: Idle camp settlers now naturally switch stances every 20–35 seconds, making settlement life feel active and authentic without freezing NPCs in place indefinitely.
+
 ## v1.2.0 — Settlement Stability, Engine Hardening & Rival Outpost Polish
 
 ### 📦 Cross-Map / Offline Stash Persistence & Remote Job Execution:

@@ -2716,9 +2716,9 @@ local function handle_refugee_ai(npc, dist, hub_obj)
     end
     camp_npc_arrive(npc)
     local state = state_mgr.get_state(npc)
-    if state ~= "sit_ass" and state ~= "wait_na" then
+    if state ~= "sit_knee" and state ~= "wait_na" then
         if math.random(100) < 50 then
-            state_mgr.set_state(npc, "sit_ass")
+            state_mgr.set_state(npc, "sit_knee")
         else
             state_mgr.set_state(npc, "wait_na")
         end
@@ -3168,7 +3168,7 @@ function npc_on_update(npc)
     -- JOB DISPATCH
 
     if my_survivor.temp_target_lvid and time_global() < my_survivor.temp_target_time then
-        move_to_job_furniture(my_survivor.temp_target_lvid, 2, {"sit_ass", "wait_na"}, true, nil)
+        move_to_job_furniture(my_survivor.temp_target_lvid, 2, {"sit_knee", "wait_na"}, true, nil)
         return
     end
 
@@ -3195,7 +3195,7 @@ function npc_on_update(npc)
         end
         if my_survivor.assigned_pos then
             move_to_job_furniture(my_survivor.assigned_pos.lvid, 1.3,
-                {"sit_ass", "wait_na", "guard"}, true, nil)
+                {"sit_knee", "wait_na", "guard"}, true, nil)
             return
         end
         local target_lvid, is_fb, sid = get_job_target_lvid("scavenge", "stash")
@@ -3204,14 +3204,14 @@ function npc_on_update(npc)
             if alt then target_lvid, is_fb, sid = alt, false, alt_sid end
         end
         move_to_job_furniture(target_lvid, 1.3,
-            {"sit_ass", "ward", "wait_na", "guard"}, is_fb, sid)
+            {"sit_knee", "ward", "wait_na", "guard"}, is_fb, sid)
         return
     end
 
     if my_survivor.job == "hunter" then
         if my_survivor.assigned_pos then
             move_to_job_furniture(my_survivor.assigned_pos.lvid, 1.3,
-                {"sit_ass", "wait_na", "guard"}, true, nil)
+                {"sit_knee", "wait_na", "guard"}, true, nil)
             return
         end
         local target_lvid, is_fb, sid = get_job_target_lvid("hunter", "fridge")
@@ -3230,7 +3230,7 @@ function npc_on_update(npc)
             end
         end
         move_to_job_furniture(target_lvid, 1.3,
-            {"sit_ass", "ward", "wait_na", "guard"}, is_fb, sid)
+            {"sit_knee", "ward", "wait_na", "guard"}, is_fb, sid)
         return
     end
 
@@ -3295,18 +3295,45 @@ function npc_on_update(npc)
 
     if npc_dist < 4 then
         camp_npc_arrive(npc)
-        local state = state_mgr.get_state(npc)
-        if state ~= "sit_ass" and state ~= "play_guitar" and state ~= "sleep" then
-            local roll = mrandom(100)
-            if roll < 30 then
-                state_mgr.set_state(npc, "sit_ass")
-            elseif roll < 45 then
-                state_mgr.set_state(npc, "play_guitar")
+        local cur_state = state_mgr and state_mgr.get_state(npc)
+        local cache = camp_npc_furniture_cache[npc_id]
+        if not cache then
+            camp_npc_furniture_cache[npc_id] = {}
+            cache = camp_npc_furniture_cache[npc_id]
+        end
+        local safe_idle_states = {
+            ["wait_na"] = true,
+            ["guard"] = true,
+            ["caution"] = true,
+            ["smoke"] = true,
+            ["sit_knee"] = true,
+            ["threat_na"] = true,
+            ["ward"] = true,
+        }
+        local need_new_anim = (not safe_idle_states[cur_state]) or (now_tg > (cache.idle_anim_tg or 0))
+        if need_new_anim then
+            cache.idle_anim_tg = now_tg + mrandom(20000, 35000)
+            local idle_choices = { "wait_na", "guard", "caution", "smoke", "sit_knee", "threat_na", "ward" }
+            local chosen_idle = idle_choices[mrandom(#idle_choices)]
+            local look_pos = vector():set(
+                target_pos.x + (target_pos.x - hub_obj.position.x) * 2.0,
+                target_pos.y,
+                target_pos.z + (target_pos.z - hub_obj.position.z) * 2.0
+            )
+            if sb.setup_settler_beh_logic then
+                sb.setup_settler_beh_logic(npc, target_lvid, look_pos, chosen_idle)
             else
-                state_mgr.set_state(npc, "wait_na")
+                npc:set_dest_level_vertex_id(target_lvid)
+                npc:set_movement_type(move.stand)
+                npc:set_body_state(move.standing)
+                npc:set_mental_state(anim.free)
+                if state_mgr then
+                    state_mgr.set_state(npc, chosen_idle, nil, nil, { look_position = look_pos }, { fast_set = true })
+                end
             end
         end
     else
+        pcall(function() npc:disable_info_portion("npcx_beh_wait") end)
         camp_npc_move_to(npc, target_lvid)
     end
 end
@@ -3478,39 +3505,12 @@ end
 
 function can_banish(actor, npc)
     if not npc then return false end
-    return is_camp_survivor(actor, npc)
+    return stalker_camp_builder.can_banish and stalker_camp_builder.can_banish(actor, npc)
 end
 
 function banish_npc(actor, npc)
-    local sformat = string.format
-    if not npc then return end
-    local npc_id = npc:id()
-    for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
-        if camp.survivors[npc_id] then
-            local name = camp.survivors[npc_id].name or "settler"
-            set_camp_settler_relations(hub_id, npc_id, false)
-            camp.survivors[npc_id] = nil
-            stalker_camp_builder.settler_lookup[npc_id] = nil
-
-            if npc:has_info("npcx_is_companion") then
-                npc:disable_info_portion("npcx_is_companion")
-            end
-
-            local se = alife_object(npc_id)
-            if se then
-                local sq = get_object_squad(se)
-                local actor_sq = get_object_squad(db.actor)
-                if sq and actor_sq and sq.id == actor_sq.id then
-                    sq:unregister_member(npc_id)
-                end
-                if se.group_id ~= nil then se.group_id = 65535 end
-            end
-
-            utils_obj.switch_online(npc_id)
-
-            actor_menu.set_msg(1, string.format(game.translate_string("st_settler_banished"), name), 4)
-            return
-        end
+    if stalker_camp_builder.banish_npc then
+        return stalker_camp_builder.banish_npc(actor, npc)
     end
 end
 
@@ -4200,6 +4200,7 @@ local function run_settler_self_heals()
         "heal_orphaned_settler_squads",
         "heal_corrupted_scripted_targets",
         "heal_stuck_companion_settlers",
+        "heal_ghost_companion_squads",
     }
     for _, name in ipairs(helpers) do
         if stalker_camp_builder[name] then stalker_camp_builder[name]() end

@@ -285,6 +285,9 @@ function stalker_camp_builder.release_settler_home_squad(npc_id)
     -- If there are any other members remaining in the squad for any reason, do NOT release it!
     local ok_count, cnt = pcall(function() return squad:npc_count() end)
     if ok_count and cnt and cnt == 0 then
+        if axr_companions and axr_companions.companion_squads then
+            axr_companions.companion_squads[squad_id] = nil
+        end
         if SIMBOARD then SIMBOARD.squads[squad_id] = nil end
         local ok_release = pcall(function() sb.safe_alife_release(squad) end)
         if ok_release then
@@ -670,6 +673,12 @@ function stalker_camp_builder.setup_settler_beh_logic(npc, target_lvid, look_pos
         if state_lib and state_lib.states and not state_lib.states[safe_anim] then
             safe_anim = "guard"
         end
+        if st and type(st.beh) == "table" then
+            if xr_logic and xr_logic.parse_condlist then
+                st.beh.wait_cond = xr_logic.parse_condlist(npc, "beh", "wait_anim", safe_anim)
+            end
+            st.beh.wait_animation = safe_anim
+        end
         local cur_state = state_mgr.get_state(npc)
         if cur_state ~= safe_anim then
             state_mgr.set_state(npc, safe_anim, nil, nil, { look_position = look_pos }, { fast_set = true })
@@ -681,10 +690,20 @@ function stalker_camp_builder.restore_settler_logic(npc)
     if not npc then return end
     local npc_id = npc:id()
     local st = db.storage[npc_id]
-    if st then st.beh_homestead_active = nil end
+    if st then
+        st.beh_homestead_active = nil
+        if st.beh and type(st.beh) == "table" then
+            st.beh.rally_lvid = nil
+            st.beh.am_i_reached = nil
+            st.beh.wait_cond = nil
+            st.beh.wait_animation = nil
+        end
+    end
     pcall(function()
         npc:disable_info_portion("npcx_beh_wait")
         npc:disable_info_portion("npcx_beh_cannot_dismiss")
+        npc:disable_info_portion("homestead_settler_guard")
+        npc:disable_info_portion("homestead_settler_patrol")
         if xr_logic and xr_logic.restore_scheme_and_logic then
             xr_logic.restore_scheme_and_logic(npc)
         end
