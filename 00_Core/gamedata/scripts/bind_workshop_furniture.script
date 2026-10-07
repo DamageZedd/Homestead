@@ -8,18 +8,10 @@ end
 
 class "hf_workshop_wrapper" (bind_hf_base.hf_binder_wrapper)
 
+-- no use override and no engine use callback: Hideout Furniture's own use_callback opens the
+-- workshop from its radial menu, which calls it with no arguments
 function hf_workshop_wrapper:__init(obj)
     super(obj)
-    if self.object and self.object.set_callback then
-        self.object:set_callback(callback.use_object, self.use_callback, self)
-    end
-end
-
-function hf_workshop_wrapper:use_callback(obj, who)
-    if not obj then return end
-    if ui_furniture_workshop and ui_furniture_workshop.start_dialog then
-        ui_furniture_workshop.start_dialog(obj:id())
-    end
 end
 
 function hf_workshop_wrapper:net_destroy()
