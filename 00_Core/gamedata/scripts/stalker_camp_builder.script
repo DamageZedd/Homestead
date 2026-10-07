@@ -867,7 +867,8 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
 
             for iid, it in pairs(camp.stored_items) do
                 local se_obj = sim:object(iid)
-                if not se_obj then
+                -- only what is still in one of this camp's boxes, and still the same item
+                if not se_obj or not seen_boxes[se_obj.parent_id] or se_obj:section_name() ~= it.sec then
                     camp.stored_items[iid] = nil
                 else
                     local stop = callback(iid, it.sec, it.cond or 1.0, it.uses or 1, se_obj, it.box_id, nil)
