@@ -28,6 +28,7 @@
   - **Settlement Map Marker**: Tactical Base (Recommended) / PAW Stalker Pin / Classic Green Dot.
   - **Outpost Map Marker**: Faction Insignias (Recommended) / Tactical Status Outposts / PAW Pushpins / Classic Colored Dots.
 - **DXML Engine Safety**: Mapspot definitions are dynamically injected at runtime via `modxml_stalker_camp_builder.script`, ensuring zero missing-texture crashes even if PAW is not installed.
+- **2x Larger Map Markers**: Settlement and outpost markers were too small to read at a glance, so they are now twice the size on the PDA map (settlement hub 22→44px, outposts 20→40px, abandoned 18→36px, mutant nests 16×18→32×36px, faction crests 18→36px, PAW pins 20→40px, skull 12→24px) and 1.5x larger on the minimap. Because PAW's own spot definitions are third-party, Homestead now registers its own `homestead_paw_pin_*` / `homestead_paw_badge_*` spots that reuse PAW's textures at the larger size (only injected when PAW is installed). Old marker names are still cleaned up on existing saves, so markers resize automatically on the next sync.
 
 ### ⚡ Performance Optimization & Engine Hardening (ALAO & Codex Audit):
 - **Lua 5.1 Prototype Local Limit Resolution (`update_rival_camps`)**: Eliminated an engine prototype limit issue where `update_rival_camps` accumulated 236 locals (exceeding Lua 5.1's 200-local prototype ceiling). Modularized the lifecycle loop into `process_single_rival_camp` (dropping locals to 92) and hoisted `spawn_rival_camp_defenses_and_decor` to module scope (reducing `spawn_single_rival_camp` locals to 134).

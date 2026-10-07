@@ -3875,6 +3875,13 @@ local KNOWN_RIVAL_MAP_SPOTS = {
     "red_location", "green_location", "blue_location",
     "homestead_outpost_hostile", "homestead_outpost_friendly",
     "homestead_outpost_abandoned", "homestead_outpost_mutant",
+    -- v1.2.2: Homestead-owned 2x-size wrappers around PAW pin/badge textures
+    "homestead_paw_pin_skull", "homestead_paw_pin_abandoned",
+    "homestead_paw_pin_hostile", "homestead_paw_pin_friendly",
+    "homestead_paw_badge_bandit", "homestead_paw_badge_monolith", "homestead_paw_badge_killer",
+    "homestead_paw_badge_army", "homestead_paw_badge_stalker", "homestead_paw_badge_dolg",
+    "homestead_paw_badge_freedom", "homestead_paw_badge_csky", "homestead_paw_badge_ecolog",
+    "homestead_paw_badge_greh", "homestead_paw_badge_isg", "homestead_paw_badge_renegade",
     "paw_pin_redskull", "paw_pin_whtsimple32", "paw_pin_redpush32", "paw_pin_yelpush32", "paw_pin_redmodern32", "paw_pin_redround32",
     "paw_badge_hr_bandit", "paw_badge_hr_monolith", "paw_badge_hr_killer",
     "paw_badge_hr_army", "paw_badge_hr_stalker", "paw_badge_hr_dolg",
@@ -3889,7 +3896,7 @@ local KNOWN_RIVAL_MAP_SPOTS = {
 }
 
 local KNOWN_CAMP_MAP_SPOTS = {
-    "green_location", "homestead_camp_hub", "paw_pin_stalker32", "treasure_player",
+    "green_location", "homestead_camp_hub", "paw_pin_stalker32", "homestead_paw_pin_stalker", "treasure_player",
 }
 
 local function has_paw_pins()
@@ -3901,7 +3908,7 @@ function get_settlement_map_spot_type()
     local style = (stalker_camp_builder.cfg and stalker_camp_builder.cfg.settlement_map_spot_style) or 0
     if style == 1 then
         if has_paw_pins() then
-            return "paw_pin_stalker32"
+            return "homestead_paw_pin_stalker"
         end
         return "homestead_camp_hub"
     elseif style == 2 then
@@ -3927,17 +3934,17 @@ function get_outpost_map_spot_type(camp, is_hostile)
 
     if style == 2 and has_paw_pins() then
         if camp.status == "mutant_nest" then
-            return "paw_pin_redskull"
+            return "homestead_paw_pin_skull"
         elseif camp.status == "unoccupied" then
-            return "paw_pin_whtsimple32"
+            return "homestead_paw_pin_abandoned"
         else
-            return is_hostile and "paw_pin_redpush32" or "paw_pin_yelpush32"
+            return is_hostile and "homestead_paw_pin_hostile" or "homestead_paw_pin_friendly"
         end
     end
 
     if style == 1 then
         if camp.status == "mutant_nest" then
-            return has_paw_pins() and "paw_pin_redskull" or "homestead_outpost_mutant"
+            return has_paw_pins() and "homestead_paw_pin_skull" or "homestead_outpost_mutant"
         elseif camp.status == "unoccupied" then
             return "homestead_outpost_abandoned"
         else
@@ -3947,20 +3954,20 @@ function get_outpost_map_spot_type(camp, is_hostile)
 
     -- Default (Style 0): Faction Badges & Insignias
     if camp.status == "mutant_nest" then
-        return has_paw_pins() and "paw_pin_redskull" or "homestead_outpost_mutant"
+        return has_paw_pins() and "homestead_paw_pin_skull" or "homestead_outpost_mutant"
     elseif camp.status == "unoccupied" then
-        return has_paw_pins() and "paw_pin_whtsimple32" or "homestead_outpost_abandoned"
+        return has_paw_pins() and "homestead_paw_pin_abandoned" or "homestead_outpost_abandoned"
     end
 
     local fac = camp.faction
     if fac and has_paw_pins() then
-        local fac_paw_badge = "paw_badge_hr_" .. fac
+        local fac_paw_badge = "homestead_paw_badge_" .. fac
         if fac == "bandit" or fac == "monolith" or fac == "killer" or fac == "army"
            or fac == "stalker" or fac == "dolg" or fac == "freedom" or fac == "csky"
            or fac == "ecolog" or fac == "greh" or fac == "isg" or fac == "renegade" then
             return fac_paw_badge
         elseif fac == "zombied" then
-            return "paw_pin_redskull"
+            return "homestead_paw_pin_skull"
         end
     end
 
