@@ -110,6 +110,8 @@ This mod requires the following base systems to be installed:
 ## Credits
 
 - **Damage_Zedd** — Homestead, author and maintenance
+- **[devinhorowitz](https://github.com/devinhorowitz)** — contributor: rival tier upgrades, same-level teleportation fixes, UI declarations, and extensive bug fixes across v1.2.0.
+- **Queen Jadwiga** — community contributor: settlement lifecycle improvements, workshop dismantle handling, authentic map markers, natural walk-in settler recruitment, dialogue polish, and rival camp spawning diagnostics.
 - **danzy** — community contributor: camp simulation fixes (storage lookup, hospitality buff, hunger/morale), major performance passes (time-sliced updates, NPC/think throttles, rescan intervals), and rival camp improvements (spawn stutter fix, off-map spawns). Merged in v1.1.8 with modifications — see the changelog.
 
 ---
