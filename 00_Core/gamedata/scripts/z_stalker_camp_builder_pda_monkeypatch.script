@@ -141,9 +141,9 @@ function on_game_start()
                             SM_PSYSUCKER    = "psysucker",
                         }
                         local text
-                        if string.find(section, "rotan") then
+                        if string.find(section, "rotan", 1, true) then
                             text = "rat"
-                        elseif string.find(section, "psy_dog") then
+                        elseif string.find(section, "psy_dog", 1, true) then
                             text = "psydog"
                         else
                             local what = ini_sys:r_string_ex(section, "kind") or ini_sys:r_string_ex(section, "species") or nil

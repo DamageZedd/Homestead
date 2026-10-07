@@ -232,6 +232,7 @@ end
 -- get_recruitment_roll -- cached per-NPC recruitment chance roll
 -- ============================================================================
 function stalker_camp_builder.get_recruitment_roll(npc)
+  local actor = db.actor
     local sb = stalker_camp_builder
     if not npc then return false end
     local npc_id = npc:id()
@@ -257,9 +258,9 @@ function stalker_camp_builder.get_recruitment_roll(npc)
         return true
     end
 
-    local rank_pts = (db.actor and db.actor.character_rank) and db.actor:character_rank() or 0
+    local rank_pts = (actor and actor.character_rank) and db.actor:character_rank() or 0
     local base_chance = current_base_chance + (rank_pts / 12000) * 35
-    local goodwill = (db.actor and npc and npc.general_goodwill) and (npc:general_goodwill(db.actor) or 0) or 0
+    local goodwill = (actor and npc and npc.general_goodwill) and (npc:general_goodwill(actor) or 0) or 0
     local goodwill_chance = (goodwill / 1000) * 30
     local chance = base_chance + goodwill_chance
 

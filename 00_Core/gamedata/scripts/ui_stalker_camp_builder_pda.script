@@ -3,19 +3,6 @@ local hs_theme = ui_stalker_camp_builder_theme
 
 local sformat = string.format
 
-local function make_gauge_bar(current, max_val, length, fill_char, empty_char)
-    local len = length or 8
-    local f_char = fill_char or "|"
-    local e_char = empty_char or "."
-    local pct = 0
-    if max_val and max_val > 0 then
-        pct = math.min(100, math.max(0, math.floor((current / max_val) * 100)))
-    end
-    local filled = math.floor((pct / 100) * len)
-    local empty = len - filled
-    return string.format("[%s%s] %d%%", string.rep(f_char, filled), string.rep(e_char, empty), pct)
-end
-
 -- PDA AUTOMATED KEYWORD COLORIZER & GAUGES (iTheon Tactical Engine)
 local function make_gauge(pct, total_blocks, fill_char, empty_char)
     local mmax = math.max

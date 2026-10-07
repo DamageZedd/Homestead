@@ -64,25 +64,6 @@ function patch_alife_storage_manager()
 end
 patch_alife_storage_manager()
 
-local function is_squad_alive(squad)
-    if not squad then return false end
-    if squad.npc_count then
-        local ok, count = pcall(function() return squad:npc_count() end)
-        if ok and count then
-            return count > 0
-        end
-    end
-    if squad.squad_members then
-        local ok_mem, members = pcall(function() return squad:squad_members() end)
-        if ok_mem and members then
-            for _ in members do
-                return true
-            end
-        end
-    end
-    return false
-end
-
 stalker_camp_builder.settler_lookup = stalker_camp_builder.settler_lookup or {}
 
 -- Local references for fast local access inside this file
@@ -469,16 +450,6 @@ local function unpack_table_vectors(tbl)
     return result
 end
 
--- Safe call wrapper -- wraps engine API calls in pcall to prevent uncaught
-local function safe_call(fn, ...)
-    if not fn then return false, nil end
-    local ok, result = pcall(fn, ...)
-    if not ok then
-        return false, nil
-    end
-    return true, result
-end
-
 function safe_alife_object(id)
     if not id then return nil end
     local ok, obj = pcall(alife_object, id)
@@ -510,7 +481,16 @@ local function safe_distance(obj1, obj2)
     local pos1 = safe_position(obj1)
     local pos2 = safe_position(obj2)
     if not pos1 or not pos2 then return math.huge end
-    local ok, dist = pcall(function() return pos1:distance_to(pos2) end)
+    local ok, dist = pcall(pos1.distance_to, pos1, pos2)
+    if ok and type(dist) == "number" then return dist end
+    return math.huge
+end
+
+local function safe_distance_sqr(obj1, obj2)
+    local pos1 = safe_position(obj1)
+    local pos2 = safe_position(obj2)
+    if not pos1 or not pos2 then return math.huge end
+    local ok, dist = pcall(pos1.distance_to_sqr, pos1, pos2)
     if ok and type(dist) == "number" then return dist end
     return math.huge
 end
@@ -982,22 +962,6 @@ function camp_send_tip(actor, text, snd_type, category, duration, hub_id)
     add_camp_log_entry(text, "info")
     if add_camp_radio_log then
         add_camp_radio_log(hub_id, category or "work", text)
-    end
-end
-
-local function camp_send_alert(actor, text, snd_type, duration, hub_id)
-    _suppress_news_intercept = true
-    stalker_camp_builder._suppress_news_intercept = true
-    pcall(news_manager.send_tip, actor, text, snd_type, "red_danger", duration)
-    _suppress_news_intercept = false
-    stalker_camp_builder._suppress_news_intercept = false
-    add_camp_log_entry(text, "danger")
-    if hub_id and add_camp_radio_log then
-        add_camp_radio_log(hub_id, "combat", text)
-    elseif add_camp_radio_log then
-        for hid, _ in pairs(stalker_camp_builder.active_camps or {}) do
-            add_camp_radio_log(hid, "combat", text)
-        end
     end
 end
 
@@ -2090,28 +2054,12 @@ local meat_cooking_map = {
     ["mutant_part_chimera_meat"]   = "meat_chimera",
 }
 
-local function get_cooked_version(sec)
-    return stalker_camp_builder.get_cooked_version(sec)
-end
-
-local function find_and_consume_item(hub_id, camp, section_check_func, priority_box_id)
-    return stalker_camp_builder.find_and_consume_item(hub_id, camp, section_check_func, priority_box_id)
-end
-
 function process_cook_job(npc_id, hub_id, camp, survivor, box_id)
     return stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, box_id)
 end
 
 function process_medic_job(npc_id, box_id, camp, survivor)
     return stalker_camp_builder.process_medic_job(npc_id, box_id, camp, survivor)
-end
-
-local function get_turret_ammo_count(turret_id)
-    return stalker_camp_builder.get_turret_ammo_count(turret_id)
-end
-
-local function feed_turret(turret_id, ammo_sec, count)
-    return stalker_camp_builder.feed_turret(turret_id, ammo_sec, count)
 end
 
 function process_turret_maintenance(npc_id, box_id, camp)
@@ -2261,7 +2209,9 @@ local function process_uninstall_prep()
         local ok, msg = pcall(string.format, fmt, released)
         camp_send_tip(actor, ok and msg or fmt, nil, "general_stalker", 8000)
     end
-    printf("[Homestead] Uninstall prep: purged %d rival decorations/structures.", released)
+    if cfg.debug_logging then
+        printf("[Homestead] Uninstall prep: purged %d rival decorations/structures.", released)
+    end
     return released
 end
 
@@ -2501,6 +2451,7 @@ local settler_next_tick = {}
 -- npc_on_update helpers
 
 local function run_rival_npc_patrol(npc, npc_id, rival_info)
+    local mrandom = math.random
     if not rival_info or not rival_info.position then return end
     if level and level.name and rival_info.level and level.name() ~= rival_info.level then
         return
@@ -2550,7 +2501,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
     local y_diff = npc_pos.y - chest_pos.y
     if dist_to_chest < 1.0 and y_diff > 0.25 then
         local camp_rot = rival_info.rotation or 0
-        local nudge_ang = camp_rot + (math.random(1, 4) * (math.pi * 0.5))
+        local nudge_ang = camp_rot + (mrandom(1, 4) * (math.pi * 0.5))
         local nudge_x = chest_pos.x + 3.2 * math.cos(nudge_ang)
         local nudge_z = chest_pos.z + 3.2 * math.sin(nudge_ang)
         local nudge_lvid = level.vertex_id(vector():set(nudge_x, chest_pos.y, nudge_z))
@@ -2597,7 +2548,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
     if at_target or (npc:path_completed() and tg > p_data.wait_until) then
         if tg > p_data.wait_until then
-            p_data.wait_until = tg + math.random(7000, 15000)
+            p_data.wait_until = tg + mrandom(7000, 15000)
             p_data.last_move_tg = tg
 
             -- Tactical guard/patrol stations around camp barricades and hearth
@@ -2619,7 +2570,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
             local shuffled_indices = { 1, 2, 3, 4, 5, 6 }
             for i = #shuffled_indices, 2, -1 do
-                local j = math.random(i)
+                local j = mrandom(i)
                 shuffled_indices[i], shuffled_indices[j] = shuffled_indices[j], shuffled_indices[i]
             end
 
@@ -2644,8 +2595,8 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
             if not found_lvid then
                 while attempts < 12 do
                     attempts = attempts + 1
-                    local angle = math.random() * math.pi * 2
-                    local r = math.random() * 3.0 + 2.5
+                    local angle = mrandom() * math.pi * 2
+                    local r = mrandom() * 3.0 + 2.5
                     test_p:set(
                         chest_pos.x + r * math.cos(angle),
                         chest_pos.y,
@@ -2678,7 +2629,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
             }
             if not valid_states[cur_state] then
                 local idles = { "guard", "threat_na", "wait_na", "caution", "smoke", "sit_knee" }
-                local chosen_idle = idles[math.random(#idles)]
+                local chosen_idle = idles[mrandom(#idles)]
                 local look_pos = vector():set(
                     npc_pos.x + (npc_pos.x - chest_pos.x) * 2.0,
                     npc_pos.y,
@@ -2749,13 +2700,10 @@ local function enforce_settler_leash(npc, npc_id, my_survivor, my_hub_id, hub_ob
     return "ok"
 end
 
+local pairs_ = pairs
+
 -- npc_on_update -- settler per-tick AI orchestrator
 function npc_on_update(npc)
-    local pairs_ = pairs
-    local mcos = math.cos
-    local msin = math.sin
-    local mrandom = math.random
-
     if not npc then return end
     local npc_id = npc:id()
 
@@ -4403,7 +4351,7 @@ local function separation_sweep(camp, hub_id)
         local id_num = tonumber(npc_id) or npc_id
         if not survivor.on_expedition and not survivor_is_companion(survivor, id_num) then
             local se_npc = alife_object(id_num)
-            if se_npc and se_npc.position:distance_to(hub_pos) < 1.3 then
+            if se_npc and se_npc.position:distance_to_sqr(hub_pos) < 1.69 then
                 local f_lvid, f_pos = stalker_camp_builder.get_furniture_front_vertex_and_pos(hub_pos, 1.5)
                 if f_lvid and f_pos then
                     se_npc.position = f_pos
@@ -8074,6 +8022,7 @@ local function find_expedition_survivor(camp, exp)
 end
 
 local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
+    local sim_alao = alife()
     if surv then surv.on_expedition = nil end
 
     local se_npc = alife_object(exp.npc_id)
@@ -8095,9 +8044,9 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
 
     local camp_lvl = camp and camp.level
     if (not camp_lvl or camp_lvl == "" or camp_lvl == "unknown")
-        and hub_obj and game_graph and alife() then
+        and hub_obj and game_graph and sim_alao then
         local gv = game_graph():vertex(hub_obj.m_game_vertex_id)
-        if gv then camp_lvl = alife():level_name(gv:level_id()) end
+        if gv then camp_lvl = sim_alao:level_name(gv:level_id()) end
     end
     local current_lvl = level and level.name and level.name()
     local is_same_level = (camp_lvl and current_lvl and camp_lvl == current_lvl)
@@ -8122,8 +8071,8 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
     end
 
     if se_npc and final_pos then
-        alife():set_switch_online(se_npc.id, true)
-        alife():set_switch_offline(se_npc.id, true)
+        sim_alao:set_switch_online(se_npc.id, true)
+        sim_alao:set_switch_offline(se_npc.id, true)
         se_npc.position           = final_pos
         if final_lvid then se_npc.m_level_vertex_id = final_lvid end
         if spawn_gvid then se_npc.m_game_vertex_id  = spawn_gvid end
@@ -8155,7 +8104,7 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
             if utils_obj and utils_obj.switch_online then
                 pcall(utils_obj.switch_online, npc_id)
             else
-                local sim = alife()
+                local sim = sim_alao
                 if sim and npc_id and npc_id < 65535 then
                     pcall(sim.set_switch_online, sim, npc_id, true)
                     pcall(sim.set_switch_offline, sim, npc_id, false)

@@ -2560,7 +2560,9 @@ function stalker_camp_builder.update_camp_jobs()
                                 end
                                 if not survivor._dispatch_err_logged then
                                     survivor._dispatch_err_logged = true
-                                    printf("[Homestead] job dispatch error (job=%s, npc=%s): %s", tostring(job), tostring(npc_id), tostring(dispatch_err))
+                                    if sb.cfg and sb.cfg.debug_logging then
+                                        printf("[Homestead] job dispatch error (job=%s, npc=%s): %s", tostring(job), tostring(npc_id), tostring(dispatch_err))
+                                    end
                                 end
                                 break
                             end

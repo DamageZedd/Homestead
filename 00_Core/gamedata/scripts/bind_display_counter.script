@@ -1,4 +1,3 @@
-local CHANNEL_MIN = 1
 local CHANNEL_MAX = 11
 local CHANNEL_OFF = 0
 local CHANNEL_PREVIEW_TIME = 3.0
@@ -29,13 +28,6 @@ local function ensure_defaults(obj_id)
         d.channel = CHANNEL_OFF
     end
     return d
-end
-
-local function channel_to_text(channel)
-    if channel == CHANNEL_OFF then
-        return "off"
-    end
-    return tostring(channel)
 end
 
 local function anim_name_for_channel(channel)
