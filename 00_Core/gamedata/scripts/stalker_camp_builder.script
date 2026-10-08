@@ -2762,28 +2762,31 @@ function npc_on_update(npc)
         if not found and sb.rival_camps then
             local squad = get_object_squad(npc)
             local squad_id = squad and squad.id
-            for key, rcamp in pairs_(sb.rival_camps) do
-                if type(rcamp) == "table" and rcamp.squad_id then
-                    local is_in_squad = (squad_id and rcamp.squad_id == squad_id)
-                    local is_near_camp = false
-                    if not is_in_squad and rcamp.position then
-                        local dist = safe_distance(npc, rcamp.position)
-                        if dist and dist < 35 then
-                            is_near_camp = true
+            if squad_id then
+                for key, rcamp in pairs_(sb.rival_camps) do
+                    if type(rcamp) == "table" then
+                        local is_in_squad = (rcamp.squad_id == squad_id)
+                        if not is_in_squad and rcamp.extra_squad_ids then
+                            for _, ex_id in ipairs(rcamp.extra_squad_ids) do
+                                if ex_id == squad_id then
+                                    is_in_squad = true
+                                    break
+                                end
+                            end
                         end
-                    end
-                    if is_in_squad or is_near_camp then
-                        sb.settler_lookup[npc_id] = {
-                            hub_id = nil,
-                            camp = nil,
-                            survivor = nil,
-                            is_rival = true,
-                            rival_camp = rcamp,
-                        }
-                        lookup = sb.settler_lookup[npc_id]
-                        found = true
-                        if sb.non_settler_cache then sb.non_settler_cache[npc_id] = nil end
-                        break
+                        if is_in_squad then
+                            sb.settler_lookup[npc_id] = {
+                                hub_id = nil,
+                                camp = nil,
+                                survivor = nil,
+                                is_rival = true,
+                                rival_camp = rcamp,
+                            }
+                            lookup = sb.settler_lookup[npc_id]
+                            found = true
+                            if sb.non_settler_cache then sb.non_settler_cache[npc_id] = nil end
+                            break
+                        end
                     end
                 end
             end
@@ -5703,6 +5706,67 @@ function server_entity_on_unregister(se_obj, type_name)
     if m_data and m_data.stalker_camp_builder_banished_companions and m_data.stalker_camp_builder_banished_companions[obj_id] then
         m_data.stalker_camp_builder_banished_companions[obj_id] = nil
     end
+
+    if stalker_camp_builder.rival_camps then
+        for key, rcamp in pairs(stalker_camp_builder.rival_camps) do
+            if type(rcamp) == "table" then
+                if rcamp.chest_id == obj_id then
+                    if stalker_camp_builder.remove_all_rival_map_spots then
+                        pcall(stalker_camp_builder.remove_all_rival_map_spots, obj_id)
+                    end
+                    if stalker_camp_builder.release_camp_decorations then
+                        pcall(stalker_camp_builder.release_camp_decorations, rcamp)
+                    end
+                    if stalker_camp_builder.release_rival_hold then
+                        if rcamp.squad_id then
+                            local sq = alife_object(rcamp.squad_id)
+                            if sq then pcall(stalker_camp_builder.release_rival_hold, stalker_camp_builder, sq) end
+                        end
+                        if rcamp.extra_squad_ids then
+                            for _, ex_id in ipairs(rcamp.extra_squad_ids) do
+                                local ex_sq = alife_object(ex_id)
+                                if ex_sq then pcall(stalker_camp_builder.release_rival_hold, stalker_camp_builder, ex_sq) end
+                            end
+                        end
+                    end
+                    if m_data and m_data.player_created_stashes then
+                        m_data.player_created_stashes[obj_id] = nil
+                    end
+                    stalker_camp_builder.rival_camps[key] = nil
+                    break
+                else
+                    if rcamp.squad_id == obj_id then
+                        rcamp.squad_id = nil
+                        if rcamp.extra_squad_ids and #rcamp.extra_squad_ids > 0 then
+                            rcamp.squad_id = table.remove(rcamp.extra_squad_ids, 1)
+                        end
+                    elseif rcamp.extra_squad_ids then
+                        for i = #rcamp.extra_squad_ids, 1, -1 do
+                            if rcamp.extra_squad_ids[i] == obj_id then
+                                table.remove(rcamp.extra_squad_ids, i)
+                                break
+                            end
+                        end
+                    end
+                    if rcamp.decorations then
+                        for i = #rcamp.decorations, 1, -1 do
+                            if rcamp.decorations[i] == obj_id then
+                                table.remove(rcamp.decorations, i)
+                                break
+                            end
+                        end
+                    end
+                    if rcamp.decor_sections then
+                        rcamp.decor_sections[obj_id] = nil
+                    end
+                end
+            end
+        end
+    end
+
+    if m_data and m_data.player_created_stashes and m_data.player_created_stashes[obj_id] then
+        m_data.player_created_stashes[obj_id] = nil
+    end
 end
 
 function npc_on_death_callback(npc, who)
@@ -6123,15 +6187,26 @@ function on_game_start()
             local squad = get_object_squad(obj)
             if squad then
                 for key, rcamp in pairs_(stalker_camp_builder.rival_camps) do
-                    if type_(rcamp) == "table" and rcamp.squad_id == squad.id then
-                        stalker_camp_builder.settler_lookup[id] = {
-                            hub_id = nil,
-                            camp = nil,
-                            survivor = nil,
-                            is_rival = true,
-                            rival_camp = rcamp,
-                        }
-                        break
+                    if type_(rcamp) == "table" then
+                        local is_in_squad = (rcamp.squad_id == squad.id)
+                        if not is_in_squad and rcamp.extra_squad_ids then
+                            for _, ex_id in ipairs(rcamp.extra_squad_ids) do
+                                if ex_id == squad.id then
+                                    is_in_squad = true
+                                    break
+                                end
+                            end
+                        end
+                        if is_in_squad then
+                            stalker_camp_builder.settler_lookup[id] = {
+                                hub_id = nil,
+                                camp = nil,
+                                survivor = nil,
+                                is_rival = true,
+                                rival_camp = rcamp,
+                            }
+                            break
+                        end
                     end
                 end
             end
