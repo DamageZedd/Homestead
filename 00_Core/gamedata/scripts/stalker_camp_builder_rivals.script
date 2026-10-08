@@ -861,6 +861,10 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
                     if camp.status == "mutant_nest" then
                         -- a mutant pack doesn't fortify or resupply; when its time is up it moves on
+                    elseif camp.faction == "zombied" then
+                        -- nor do zombified stalkers; they hold until someone clears them out
+                        camp.setup_sec = current_sec
+                        did_hold = true
                     elseif camp.tier == 1 then
                         if roll <= 70 and sb.cfg.rival_camp_progression ~= false then
                             sb.upgrade_rival_camp_tier(camp, 2)
@@ -1005,7 +1009,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         end
                     end
 
-                    if sb.cfg.rival_camp_progression ~= false and camp.status ~= "mutant_nest" then
+                    if sb.cfg.rival_camp_progression ~= false and camp.status ~= "mutant_nest" and camp.faction ~= "zombied" then
                         camp.tier = camp.tier or 1
                         camp.setup_sec = camp.setup_sec or current_sec
                         local age_hours = (current_sec - camp.setup_sec) / 3600
@@ -1020,7 +1024,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         end
                     end
 
-                    if sb.cfg.rival_camp_convoys ~= false and (camp.tier or 1) >= 2 and camp.status ~= "mutant_nest" then
+                    if sb.cfg.rival_camp_convoys ~= false and (camp.tier or 1) >= 2 and camp.status ~= "mutant_nest"
+                        and camp.faction ~= "zombied" then
                         local convoy_interval = (sb.cfg.rival_camp_convoy_interval_hours or 6) * 3600
                         camp.last_convoy_time = camp.last_convoy_time or current_sec
                         if (current_sec - camp.last_convoy_time) >= convoy_interval then
