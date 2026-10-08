@@ -2359,6 +2359,9 @@ function stalker_camp_builder.dismantle_camp(hub_id)
     local zone_id = camp.zone_id
 
     -- Clear settlement registry
+    if sb.release_camp_trader then
+        sb.release_camp_trader(camp)
+    end
     sb.active_camps[hub_id] = nil
     sb.invalidate_scan_camp_structures_cache(hub_id)
 

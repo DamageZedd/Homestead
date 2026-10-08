@@ -3477,9 +3477,22 @@ function hf_on_furniture_place(obj_id)
     end
 end
 
+-- a camp's caravan trader leaves with the camp: update_camp_jobs only sends away traders of camps
+-- that still exist
+function stalker_camp_builder.release_camp_trader(camp)
+    local trader = camp.active_trader_id and alife_object(camp.active_trader_id)
+    -- only while it is the live stalker that came as the caravan (is_camp_trader's test)
+    if trader and IsStalker(trader) and trader:alive()
+        and (camp.trader_section_of ~= camp.active_trader_id or trader:section_name() == camp.trader_section) then
+        -- the trader is in no squad, and alife_release removes stalkers only through their squad
+        safe_release_manager.release(trader)
+    end
+end
+
 function hf_on_before_furniture_release(obj_id)
     local pairs_ = pairs
     if stalker_camp_builder.active_camps[obj_id] then
+        stalker_camp_builder.release_camp_trader(stalker_camp_builder.active_camps[obj_id])
         level.map_remove_object_spot(obj_id, "ui_pda2_actor_sleep_location")
         invalidate_scan_camp_structures_cache(obj_id)
         stalker_camp_builder.active_camps[obj_id] = nil
