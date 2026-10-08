@@ -1840,9 +1840,16 @@ function stalker_camp_builder.process_woodcutter_job(npc_id, hub_id, camp, survi
         end
     end
 
-    local count = mrandom(4, 8)  -- DANZY EDIT (balance): was 15-20
+    local min_w = sb.cfg.yield_wood_min or (sb.defaults and sb.defaults.yield_wood_min) or 4
+    local max_w = sb.cfg.yield_wood_max or (sb.defaults and sb.defaults.yield_wood_max) or 8
+    if min_w > max_w then min_w, max_w = max_w, min_w end
+    min_w = math.max(1, min_w)
+    max_w = math.max(min_w, max_w)
+    local count = mrandom(min_w, max_w)
     if survivor and survivor.has_axe then
-        count = mrandom(8, 12)  -- DANZY EDIT (balance): was 30-40
+        local axe_min = math.floor(min_w * 2)
+        local axe_max = math.max(axe_min, math.floor(max_w * 1.5 + 0.5))
+        count = mrandom(axe_min, axe_max)
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
     for i = 1, count * mult do
@@ -1910,12 +1917,27 @@ function stalker_camp_builder.process_scrapper_job(npc_id, hub_id, camp, survivo
     local npc = level.object_by_id(npc_id)
     local name = (npc and npc:character_name()) or (survivor and survivor.name) or "Scrapper"
 
-    -- DANZY EDIT (balance): was 10-15 scrap / 5-10 fasteners (20-30 / 10-20 with tools)
-    local scrap_count = mrandom(3, 6)
-    local fastener_count = mrandom(1, 3)
+    local min_s = sb.cfg.yield_scrap_min or (sb.defaults and sb.defaults.yield_scrap_min) or 3
+    local max_s = sb.cfg.yield_scrap_max or (sb.defaults and sb.defaults.yield_scrap_max) or 6
+    if min_s > max_s then min_s, max_s = max_s, min_s end
+    min_s = math.max(1, min_s)
+    max_s = math.max(min_s, max_s)
+
+    local min_f = sb.cfg.yield_fasteners_min or (sb.defaults and sb.defaults.yield_fasteners_min) or 1
+    local max_f = sb.cfg.yield_fasteners_max or (sb.defaults and sb.defaults.yield_fasteners_max) or 3
+    if min_f > max_f then min_f, max_f = max_f, min_f end
+    min_f = math.max(1, min_f)
+    max_f = math.max(min_f, max_f)
+
+    local scrap_count = mrandom(min_s, max_s)
+    local fastener_count = mrandom(min_f, max_f)
     if survivor and survivor.has_tools then
-        scrap_count = mrandom(6, 10)
-        fastener_count = mrandom(2, 5)
+        local tool_s_min = math.floor(min_s * 2)
+        local tool_s_max = math.max(tool_s_min, math.floor(max_s * 5 / 3 + 0.5))
+        local tool_f_min = math.floor(min_f * 2)
+        local tool_f_max = math.max(tool_f_min, math.floor(max_f * 5 / 3 + 0.5))
+        scrap_count = mrandom(tool_s_min, tool_s_max)
+        fastener_count = mrandom(tool_f_min, tool_f_max)
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
     for i = 1, scrap_count * mult do

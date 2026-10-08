@@ -1788,6 +1788,42 @@
     <string id="ui_mcm_stalker_camp_builder_hunter_max_meat_desc">
         <text>ћаксимальное количество сырого м€са мутантов, добываемое за одну охоту. ѕо умолчанию: 2.</text>
     </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_wood_min">
+        <text>ћин. добыча древесины дровосеком</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_wood_min_desc">
+        <text>ћинимальное количество деталей древесины, заготавливаемое дровосеком за цикл. ѕо умолчанию: 4.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_wood_max">
+        <text>ћакс. добыча древесины дровосеком</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_wood_max_desc">
+        <text>ћаксимальное количество деталей древесины, заготавливаемое дровосеком за цикл. ѕо умолчанию: 8.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_scrap_min">
+        <text>ћин. добыча металлолома утилизатором</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_scrap_min_desc">
+        <text>ћинимальное количество металлолома, добываемое утилизатором за цикл. ѕо умолчанию: 3.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_scrap_max">
+        <text>ћакс. добыча металлолома утилизатором</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_scrap_max_desc">
+        <text>ћаксимальное количество металлолома, добываемое утилизатором за цикл. ѕо умолчанию: 6.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_fasteners_min">
+        <text>ћин. добыча крепежа утилизатором</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_fasteners_min_desc">
+        <text>ћинимальное количество крепежных деталей, добываемое утилизатором за цикл. ѕо умолчанию: 1.</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_fasteners_max">
+        <text>ћакс. добыча крепежа утилизатором</text>
+    </string>
+    <string id="ui_mcm_stalker_camp_builder_yield_fasteners_max_desc">
+        <text>ћаксимальное количество крепежных деталей, добываемое утилизатором за цикл. ѕо умолчанию: 3.</text>
+    </string>
 
     <!-- MCM Rivals Progression & Convoy Descriptions -->
     <string id="ui_mcm_stalker_camp_builder_rival_camp_tier2_hours_desc">
