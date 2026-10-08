@@ -2084,6 +2084,12 @@
     <string id="st_turret_reloaded_count">
         <text>Заряжено патронов: %d.</text>
     </string>
+    <string id="st_turret_channel">
+        <text>Канал</text>
+    </string>
+    <string id="st_channel_off">
+        <text>выкл</text>
+    </string>
     <string id="st_turret_recovered_rounds">
         <text>Извлечено патронов: %d.</text>
     </string>

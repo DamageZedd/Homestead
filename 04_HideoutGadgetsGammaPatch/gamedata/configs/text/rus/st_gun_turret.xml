@@ -26,12 +26,6 @@
 	<string id="st_channel">
 		<text>Установить канал</text>
 	</string>
-	<string id="st_turret_channel">
-		<text>Канал</text>
-	</string>
-	<string id="st_channel_off">
-		<text>выкл</text>
-	</string>
 	<string id="st_display_counter">
 		<text>Газоразрядный индикатор</text>
 	</string>
