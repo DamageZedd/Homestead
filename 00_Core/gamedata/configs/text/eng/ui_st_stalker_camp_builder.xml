@@ -646,6 +646,9 @@
     <string id="st_pda_settlement_job_scavenge">
         <text>Scavenger</text>
     </string>
+    <string id="st_pda_settlement_job_hunter">
+        <text>Hunter</text>
+    </string>
     <string id="st_pda_settlement_job_craft">
         <text>Crafter</text>
     </string>
@@ -1118,7 +1121,7 @@
         <text>Rival Camp Furniture</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_furniture_desc">
-        <text>When ON, rival camps spawn decorations around their chest (lamps, radios, barricades, tier upgrades). Turn OFF to strip rival camps down to just the chest and squad — existing furniture is cleared on the next update tick.</text>
+        <text>When ON, rival camps spawn decorations around their chest (lamps, radios, barricades, tier upgrades). Turn OFF to strip rival camps down to just the chest and squad - existing furniture is cleared on the next update tick.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min">
         <text>Electrician Interval (min)</text>
@@ -1143,9 +1146,6 @@
     </string>
     <string id="st_camp_medic_heal_ask">
         <text>Patch me up, Doc. Treat my wounds and purge radiation.</text>
-    </string>
-    <string id="st_camp_medic_heal_done">
-        <text>Hold still for a moment... All done! You're back in fighting shape.</text>
     </string>
     <string id="st_camp_medic_trade_ask">
         <text>Show me what medical supplies and pharmaceuticals you have.</text>
