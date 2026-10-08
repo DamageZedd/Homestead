@@ -2159,7 +2159,11 @@ function stalker_camp_builder.banish_npc(actor, npc)
             camp.survivors[tostring(npc_id)] = nil
 
             local on_npc = level.object_by_id(npc_id) or (type(npc) == "userdata" and npc)
-            sb.purge_settler_companion_and_squad_state(npc_id, on_npc, true)
+            -- Only a companion goes on the banished list, as in a dismantle: the ghost-companion sweep
+            -- takes anyone on it out of a companion squad, even a stalker the player later hires with
+            -- the vanilla dialog.
+            local is_comp = (survivor.job == "companion" or survivor.is_companion) and true or false
+            sb.purge_settler_companion_and_squad_state(npc_id, on_npc, is_comp)
             if sb.reassign_freed_settler_to_smart then
                 sb.reassign_freed_settler_to_smart(npc_id)
             end
