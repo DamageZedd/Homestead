@@ -956,6 +956,10 @@ function SettlementManagerPDA:Reset(tab_name)
     local keep_hub = selected_value(self.settlement_list, "hub_id")
     local keep_survivor = selected_value(self.survivor_list, "survivor_id")
     local keep_rival = selected_value(self.rival_list, "smart")
+    -- RemoveAll (CUIScrollView::Clear) scrolls a list back to the top: keep each list's place
+    local camps_scroll = self.settlement_list:GetCurrentScrollPos()
+    local rivals_scroll = self.rival_list:GetCurrentScrollPos()
+    self.roster_scroll = self.survivor_list:GetCurrentScrollPos()
     self.settlement_list:RemoveAll()
     self.survivor_list:RemoveAll()
     self.rival_list:RemoveAll()
@@ -1065,6 +1069,7 @@ function SettlementManagerPDA:Reset(tab_name)
 
     if count > 0 then
         self.settlement_list:SetSelectedIndex(row_of(self.settlement_list, "hub_id", keep_hub))
+        self.settlement_list:SetScrollPos(camps_scroll)
         self:OnSettlementSelected(keep_survivor)
     else
         if tab_name == "overview" then
@@ -1073,6 +1078,7 @@ function SettlementManagerPDA:Reset(tab_name)
     end
     if rival_count > 0 then
         self.rival_list:SetSelectedIndex(row_of(self.rival_list, "smart", keep_rival))
+        self.rival_list:SetScrollPos(rivals_scroll)
         self:OnRivalSelected()
     end
     self:SetTab(tab_name)
@@ -1421,6 +1427,9 @@ function SettlementManagerPDA:OnSettlementSelected(keep_survivor)
     self:RenderOverviewStats(hub_id, camp, hub_obj)
 
     keep_survivor = keep_survivor or selected_value(self.survivor_list, "survivor_id")
+    -- the same camp's roster keeps its scroll place (Reset saved it before clearing the list)
+    local roster_scroll = self.roster_scroll or self.survivor_list:GetCurrentScrollPos()
+    self.roster_scroll = nil
     self.survivor_list:RemoveAll()
     self.survivor_name_txt:SetText("")
     self.survivor_job_txt:SetText("")
@@ -1465,8 +1474,12 @@ function SettlementManagerPDA:OnSettlementSelected(keep_survivor)
 
     if scount > 0 then
         self.survivor_list:SetSelectedIndex(row_of(self.survivor_list, "survivor_id", keep_survivor))
+        if self.roster_hub == hub_id then
+            self.survivor_list:SetScrollPos(roster_scroll)
+        end
         self:OnSurvivorSelected()
     end
+    self.roster_hub = hub_id
 end
 
 function SettlementManagerPDA:RefreshOverviewLive()
