@@ -5910,18 +5910,13 @@ function npc_on_death_callback(npc, who)
                             survivor = survivor,
                             is_rival = false,
                         }
-                        CreateTimeEvent("homestead_respawn_name", tostring(new_id), 1.0, function()
-                            local new_npc = level.object_by_id(new_id)
-                            if new_npc then
-                                pcall(function() new_npc:set_character_name(name) end)
-                                local dominant_faction = stalker_camp_builder.get_camp_dominant_faction and stalker_camp_builder.get_camp_dominant_faction(camp)
-                                if dominant_faction then
-                                    pcall(function() new_npc:set_character_community(dominant_faction) end)
-                                end
-                                return true
-                            end
-                            return false
-                        end)
+                        -- the server object keeps the name and passes it to the NPC online; the
+                        -- community needs the NPC online, so game_object_on_net_spawn applies it
+                        if survivor.name then
+                            pcall(function() new_se:set_character_name(survivor.name) end)
+                        end
+                        survivor.pending_community = stalker_camp_builder.get_camp_dominant_faction
+                            and stalker_camp_builder.get_camp_dominant_faction(camp) or nil
                         camp_send_tip(db.actor, string.format(game.translate_string("st_event_settler_recovered"), name), nil, "general_stalker", 10000)
                     end
                     return true
@@ -6324,6 +6319,12 @@ function on_game_start()
 
                 local survivor = camp.survivors[id]
                 local job = survivor.job or "idle"
+                -- a settler re-created at the hub takes back its community (restore_missing_settler,
+                -- the invincible respawn); the method takes the squad and group too
+                if survivor.pending_community then
+                    pcall(function() obj:set_character_community(survivor.pending_community, 0, 0) end)
+                    survivor.pending_community = nil
+                end
                 break
             end
         end
@@ -7104,17 +7105,13 @@ function stalker_camp_builder.restore_missing_settler(hub_id, npc_id, survivor)
             survivor = survivor,
         }
 
-        local s_name = survivor.name
-        local s_comm = survivor.comm or survivor.community
-        CreateTimeEvent("homestead_restore_name_" .. new_id, "restore_name_" .. new_id, 0.5, function()
-            local new_npc = level.object_by_id(new_id)
-            if new_npc then
-                if s_name then pcall(function() new_npc:set_character_name(s_name) end) end
-                if s_comm then pcall(function() new_npc:set_character_community(s_comm) end) end
-                return true
-            end
-            return false
-        end)
+        -- set_character_name belongs to the server object, which keeps the name in the save and
+        -- passes it to the NPC online. The community needs the NPC online, whenever that is:
+        -- game_object_on_net_spawn applies it
+        if survivor.name then
+            pcall(function() new_se:set_character_name(survivor.name) end)
+        end
+        survivor.pending_community = survivor.comm or survivor.community
         return new_id
     end
     return nil
