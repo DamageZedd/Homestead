@@ -1309,6 +1309,9 @@
     <string id="st_camp_medic_heal_done">
         <text>There you go. All patched up. Take it easy out there.</text>
     </string>
+    <string id="st_manage_camp_close">
+        <text>Never mind.</text>
+    </string>
     <string id="st_manage_camp_close_reply">
         <text>Take care out there, stalker.</text>
     </string>
