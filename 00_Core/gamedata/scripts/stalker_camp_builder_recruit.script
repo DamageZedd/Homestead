@@ -3217,7 +3217,7 @@ function stalker_camp_builder.medic_cure_rad(actor, npc)
     end
     a:give_money(-cost)
     a.radiation = 0.0
-    local snd = sound_object([[interface\inv_drink]])
+    local snd = sound_object([[interface\inv_drink_flask]])
     if snd then snd:play(a, 0, sound_object.s2d) end
     level.add_pp_effector("fade_in.ppe", 2027, false)
     actor_menu.set_msg(1, game.translate_string("st_camp_medic_heal_done") or "Radiation purged completely.", 5)

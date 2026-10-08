@@ -5157,7 +5157,7 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
                 end
             end
             if has_alarm then
-                local snd = sound_object([[device\subway_siren]])
+                local snd = sound_object([[ambient\siren1]])
                 if snd then snd:play_at_pos(db.actor, alarm_pos) end
             end
         end
@@ -5356,7 +5356,7 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
             end
         end
         if has_alarm then
-            local snd = sound_object([[device\subway_siren]])
+            local snd = sound_object([[ambient\siren1]])
             if snd then
                 snd:play_at_pos(db.actor, alarm_pos)
             end
@@ -8839,7 +8839,7 @@ function stalker_camp_builder.apply_hospitality_buff(hours)
     sb.hospitality_buff_end_sec = math.max(sb.hospitality_buff_end_sec or 0, current_sec + ((hours or 4) * 3600))
     if was_active then return end  -- already fed/rested: just extend it quietly
 
-    local snd = sound_object([[interface\inv_drink]])
+    local snd = sound_object([[interface\inv_drink_flask]])
     if snd then snd:play(actor, 0, sound_object.s2d) end
     news_manager.send_tip(actor, game.translate_string("st_buff_hospitality_applied"), nil, "general_stalker", 7000)
 end
