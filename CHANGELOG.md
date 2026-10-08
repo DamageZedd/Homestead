@@ -23,6 +23,12 @@
 - **Player-Created Stash Protection (PR #34)**: Excluded player-created backpacks (`treasure_player`, `inv_backpack`, `itm_actor_backpack`) and custom markers from scavenger target lists and automated level sweeps. Scavengers will no longer loot or dismantle the player's personal stash stashes.
 - **Caravan Trader Restocking & Despawn Validation (PR #44)**: Stored `trader_stock_pending` in session-level tables to ensure caravans summoned remotely restock reliably upon player arrival even after saving/loading. Hardened trader despawn logic to verify the entity is a living trader before releasing, preventing accidental release of recycled ALife IDs.
 - **Overlapping Caravan Prevention (PR #45)**: Excluded random caravan events while a camp trader is actively stationed at the settlement, preventing duplicate merchant spawns and stranded NPCs.
+- **Expedition Stash Reservation & Duplicate Loot Prevention (Issue #80)**: Fixed an exploit and logic bug where multiple scavenger expeditions could be sent to the same stashes, double-looting them and generating duplicated rewards:
+  - Added `get_expedition_for_stash` helper checking both primary stash IDs and all constituent stashes in regional sweeps (`all_stashes`).
+  - Marked stashes across an active expedition now show "Scavenger in Transit" and offer a working "Recall" option that properly recalls the expedition even when right-clicking non-primary stashes.
+  - `get_level_marked_stashes` now excludes any stashes currently claimed by active expeditions, preventing subsequent regional sweeps on the same map from overlapping or double-dispatching.
+  - `dispatch_scavenger_to_stash` and `dispatch_scavenger_regional_sweep` reject dispatches to claimed stashes and filter out already-claimed targets from regional sweep lists.
+  - `loot_and_clear_stash` prevents cross-expedition duplicate payouts by checking if a stash was already looted by another active expedition before generating items.
 
 ### 👥 Settler Management, Recruitment & Companion Integrations (Community / devinhorowitz):
 - **Task Escort & Story Companion Recruitment Protection (PR #48)**: Prevented task companions, hostages, rescue targets (`npcx_beh_cannot_dismiss`, `companion_cannot_dismiss`), and story NPCs from appearing in camp recruitment dialogs, eliminating broken quest states and orphaned task squads.

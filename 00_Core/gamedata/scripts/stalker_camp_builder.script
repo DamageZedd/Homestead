@@ -6926,6 +6926,27 @@ end
 -- REMOTE SCAVENGER STASH EXPEDITION SYSTEM (v1.2.0)
 stalker_camp_builder.active_stash_expeditions = stalker_camp_builder.active_stash_expeditions or {}
 
+function stalker_camp_builder.get_expedition_for_stash(target_stash_id)
+    local sb = stalker_camp_builder
+    if not (sb and sb.active_stash_expeditions and target_stash_id) then return nil end
+    local tid_num = tonumber(target_stash_id)
+    local direct = sb.active_stash_expeditions[target_stash_id] or (tid_num and sb.active_stash_expeditions[tid_num])
+    if direct then
+        return direct, (sb.active_stash_expeditions[target_stash_id] and target_stash_id) or tid_num
+    end
+
+    for primary_id, exp in pairs(sb.active_stash_expeditions) do
+        if exp and exp.all_stashes then
+            for _, sid in ipairs(exp.all_stashes) do
+                if sid == target_stash_id or (tid_num and tonumber(sid) == tid_num) then
+                    return exp, primary_id
+                end
+            end
+        end
+    end
+    return nil
+end
+
 -- PDA MAP SPOT CONTEXT MENU: SPECIFIC SCAVENGER DISPATCH & REGIONAL SWEEP
 local current_spot_scavengers = {}
 
@@ -7020,9 +7041,13 @@ end
 function stalker_camp_builder.recall_scavenger_expedition(stash_id)
     local sb = stalker_camp_builder
     local exp = sb.active_stash_expeditions[stash_id]
+    local primary_id = stash_id
+    if not exp and sb.get_expedition_for_stash then
+        exp, primary_id = sb.get_expedition_for_stash(stash_id)
+    end
     if not exp then return false end
 
-    sb.active_stash_expeditions[stash_id] = nil
+    sb.active_stash_expeditions[primary_id or stash_id] = nil
     local camp = sb.active_camps[exp.hub_id]
     -- the stashes looted so far are already emptied and unmarked: bring their items home
     if camp then
@@ -7294,12 +7319,14 @@ function stalker_camp_builder.get_level_marked_stashes(target_level)
     local function evaluate_stash_candidate(id, se)
         if has_marked_stash_spot(id) then
             if not sb.is_settlement_structure_or_hub(id) and not sb.is_quest_or_task_stash(id) then
-                if se and gg and se.m_game_vertex_id then
-                    local gv = gg:vertex(se.m_game_vertex_id)
-                    if gv then
-                        local se_lvl = sim:level_name(gv:level_id())
-                        if se_lvl == target_level then
-                            stashes[#stashes+1] = id
+                if not (sb.get_expedition_for_stash and sb.get_expedition_for_stash(id)) then
+                    if se and gg and se.m_game_vertex_id then
+                        local gv = gg:vertex(se.m_game_vertex_id)
+                        if gv then
+                            local se_lvl = sim:level_name(gv:level_id())
+                            if se_lvl == target_level then
+                                stashes[#stashes+1] = id
+                            end
                         end
                     end
                 end
@@ -7635,6 +7662,16 @@ local function loot_and_clear_stash(s_id, exp)
     if exp.looted_stashes[s_id] then return end
     exp.looted_stashes[s_id] = true
     if is_player_stash(s_id) then return end
+
+    local sb = stalker_camp_builder
+    if sb and sb.active_stash_expeditions then
+        for other_id, other_exp in pairs(sb.active_stash_expeditions) do
+            if other_exp ~= exp and other_exp.looted_stashes and other_exp.looted_stashes[s_id] then
+                return
+            end
+        end
+    end
+
     exp.haul = exp.haul or {}
 
     local is_yellow = false
@@ -7904,7 +7941,11 @@ function map_spot_menu_add_property(property_ui, id, level_name)
     local sb = stalker_camp_builder
     if sb.is_stash_spot(id) then
         sb.current_spot_scavengers = {}
-        local exp = sb.active_stash_expeditions[id]
+        local exp, primary_id = sb.get_expedition_for_stash and sb.get_expedition_for_stash(id)
+        if not exp then
+            exp = sb.active_stash_expeditions[id]
+            primary_id = id
+        end
         if exp then
             local current_sec = game.get_game_time():diffSec(game.CTime())
             local elapsed = current_sec - exp.start_sec
@@ -7917,7 +7958,7 @@ function map_spot_menu_add_property(property_ui, id, level_name)
 
             local recall_str = sformat("Recall Scavenger (%s)", exp.survivor_name)
             property_ui:AddItem(recall_str)
-            sb.current_spot_scavengers[recall_str] = { action = "recall", stash_id = id, npc_id = exp.npc_id, hub_id = exp.hub_id }
+            sb.current_spot_scavengers[recall_str] = { action = "recall", stash_id = primary_id or id, npc_id = exp.npc_id, hub_id = exp.hub_id }
             return
         end
 
@@ -7998,7 +8039,7 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
     local actor = db.actor
     if not actor then return false end
 
-    if sb.active_stash_expeditions[stash_id] then
+    if (sb.get_expedition_for_stash and sb.get_expedition_for_stash(stash_id)) or sb.active_stash_expeditions[stash_id] then
         news_manager.send_tip(actor, game.translate_string("st_scavenger_already_dispatched"), nil, "general_stalker", 6000)
         return false
     end
@@ -8103,6 +8144,19 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
     local sb = stalker_camp_builder
     local actor = db.actor
     if not actor or not all_stashes or #all_stashes == 0 then return false end
+
+    local available_stashes = {}
+    for _, sid in ipairs(all_stashes) do
+        if not (sb.get_expedition_for_stash and sb.get_expedition_for_stash(sid)) then
+            available_stashes[#available_stashes + 1] = sid
+        end
+    end
+
+    if #available_stashes == 0 then
+        news_manager.send_tip(actor, game.translate_string("st_scavenger_already_dispatched"), nil, "general_stalker", 6000)
+        return false
+    end
+    all_stashes = available_stashes
 
     local primary_stash_id = all_stashes[1]
     if sb.active_stash_expeditions[primary_stash_id] then
