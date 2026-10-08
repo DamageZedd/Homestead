@@ -824,7 +824,8 @@ function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor
                 if not is_gear and (sec:find("wpn_") or sec:find("helm_") or sec:find("armor_") or sec:find("outfit")) then
                     is_gear = true
                 end
-                if is_gear and cond < 0.95 then
+                -- an offline item's condition can't be written (server items export none)
+                if is_gear and cond < 0.95 and cl_item then
                     repair_item_id = item_id
                     repair_item_cond = cond
                     item_name = ui_item.get_sec_name(sec)
@@ -1015,8 +1016,9 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
     end
     if hub_id then wb_only[hub_id] = true end
     if sb.camp_iterate_inventory then
-        sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, box_id)
-            check_item(sec, wb_only[box_id] and cond or 1.0)  -- DANZY EDIT: damaged gear only counts inside a workbench
+        sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, box_id, cl_item)
+            -- only online gear counts: process_gear_repair can't repair the rest
+            check_item(sec, (wb_only[box_id] and cl_item) and cond or 1.0)  -- DANZY EDIT: damaged gear only counts inside a workbench
             if has_damaged and has_fee then return true end
         end)
     end
