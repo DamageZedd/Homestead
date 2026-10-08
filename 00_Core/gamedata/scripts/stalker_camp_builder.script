@@ -2702,7 +2702,10 @@ end
 
 local function handle_refugee_ai(npc, dist, hub_obj)
     if dist > 4 then
-        camp_npc_move_to(npc, hub_obj.m_level_vertex_id)
+        -- the hub's vertex is under the workbench, and a refugee runs no scheme, so the sit
+        -- below doesn't stop the walk: walk to the spot in front of the hub refugees spawn at
+        local front_lvid = get_furniture_front_vertex_and_pos(hub_obj.position, 2.0)
+        camp_npc_move_to(npc, front_lvid or hub_obj.m_level_vertex_id)
         return
     end
     camp_npc_arrive(npc)
