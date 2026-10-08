@@ -69,6 +69,9 @@ function stalker_camp_builder.set_survivor_job(npc_id, job)
             if matched_id then
                 local surv = camp.survivors[matched_id]
                 local was_companion = (surv.job == "companion") or surv.is_companion or (sb.is_companion and sb.is_companion(id_num or matched_id))
+                -- the current job again (its PDA button or dialog) keeps the cycle's progress;
+                -- companions and scavengers on an expedition still need the handling below
+                if surv.job == job and not was_companion and not surv.on_expedition then return end
 
                 surv.job = job
                 surv.job_start_time = game.get_game_time():diffSec(game.CTime())
@@ -699,6 +702,10 @@ function stalker_camp_builder.process_ammo_crafting(npc_id, box_id, camp, surviv
     return false
 end
 
+-- What a technician takes as payment; the paused check and the job must agree
+local REPAIR_FEES = { vodka = true, conserva = true, tushonka = true }
+local function is_repair_fee(sec) return REPAIR_FEES[sec] == true end
+
 -- process_gear_repair -- repair one or more damaged items in exchange for food
 function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor, fallback_box_id)
     local ipairs_ = ipairs
@@ -785,7 +792,7 @@ function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor
 
         sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, cid, cl_item)
             if not sec then return end
-            if not fee_item_id and (sec == "vodka" or sec == "conserva" or sec == "tushonka") then
+            if not fee_item_id and is_repair_fee(sec) then
                 fee_item_id = item_id
             elseif not repair_item_id and wb_set[cid] then
                 local is_gear = false
@@ -966,11 +973,8 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
     local has_fee = false
 
     local function check_item(sec, cond)
-        if not has_fee and sec then
-            local s = sec:lower()
-            if s:find("vodka") or s:find("conserva") or s:find("tushonka") or s:find("kolbasa") or s:find("bread") or s:find("ration") then
-                has_fee = true
-            end
+        if not has_fee and is_repair_fee(sec) then
+            has_fee = true
         end
         if not has_damaged and sec and cond and cond < 0.95 then
             if sec:find("wpn_") or sec:find("helm_") or sec:find("armor_") or sec:find("outfit") then
@@ -1128,7 +1132,11 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
             return true, "No Workbench", "Settlement requires an assembled Workbench"
         end
 
-        local has_damaged, has_fee = sb.camp_has_repairable_gear and sb.camp_has_repairable_gear(hub_id, camp)
+        -- both results ("x and f()" keeps only the first, which left has_fee nil)
+        local has_damaged, has_fee = false, false
+        if sb.camp_has_repairable_gear then
+            has_damaged, has_fee = sb.camp_has_repairable_gear(hub_id, camp)
+        end
         if not has_damaged then
             return true, "No Damaged Gear", "No damaged weapons or armor (<95%) to repair"
         end
@@ -1160,7 +1168,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         elseif m_order == "kalium" then
             req_vodka = 3
         elseif m_order == "medkit" then
-            req_vodka = 2
+            req_vodka = 4
         elseif m_order == "bandage" then
             req_vodka = 1
         end
@@ -1198,6 +1206,10 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         else
             if total_ethanol < req_vodka then
                 return true, string.format("Need %dx Vodka", req_vodka), string.format("Requires %dx Vodka in settlement storage to synthesize this medicine", req_vodka)
+            end
+            -- process_medic_job's medkit takes a bandage too
+            if m_order == "medkit" and not (sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(s) return s == "bandage" end)) then
+                return true, "Need Bandage", "Requires a Bandage in settlement storage to make a Medkit"
             end
         end
 
@@ -1395,6 +1407,16 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
     local sim = alife()
     if not sim then return end
 
+    -- meat first: catch-up cycles skip the paused check, and fuel, water or vodka taken for a
+    -- meal that can't be cooked would be lost
+    local function is_raw_meat(sec) return raw_meats[sec] == true end
+    if not (sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_raw_meat, fridge_id)) then
+        if fridge_id then
+            news_manager.send_tip(actor, game.translate_string("st_job_cook_no_meat"), nil, "red_danger", 10000)
+        end
+        return false
+    end
+
     local cooking_tier = 1
     local consumed_fuel = nil
     local consumed_water = nil
@@ -1469,18 +1491,8 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
         end
     end
 
-    local consumed_meat = sb.find_and_consume_item(hub_id, camp, function(sec) return raw_meats[sec] == true end, fridge_id)
+    local consumed_meat = sb.find_and_consume_item(hub_id, camp, is_raw_meat, fridge_id)
     if not consumed_meat then
-        if fridge_id then
-            news_manager.send_tip(actor, game.translate_string("st_job_cook_no_meat"), nil, "red_danger", 10000)
-        end
-        if consumed_fuel and stove_id then
-            local stove_se = alife_object(stove_id)
-            local pos = stove_se and stove_se.position or vector()
-            local lvid = stove_se and stove_se.m_level_vertex_id or 0
-            local gvi = stove_se and stove_se.m_game_vertex_id or 0
-            sim:create(consumed_fuel, pos, lvid, gvi, stove_id)
-        end
         return false
     end
 
