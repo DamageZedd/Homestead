@@ -4964,13 +4964,37 @@ function process_camp_morale()
                 if surv_count >= 2 then
                     for npc_id, survivor in pairs_(camp.survivors) do
                         if math.random(100) <= 3 then
+                            local sb = stalker_camp_builder
+                            local id_num = tonumber(npc_id) or npc_id
+                            local se_npc = alife_object(id_num)
+                            if not (se_npc and IsStalker(nil, se_npc:clsid())
+                                    and (not survivor.section or se_npc:section_name() == survivor.section)) then
+                                -- killed and released while offline (the list is pruned at load), the id maybe
+                                -- taken since: only drop the entry. set_switch_online on an id with no server
+                                -- object is an engine crash.
+                                camp.survivors[npc_id] = nil
+                                sb.settler_lookup[npc_id] = nil
+                                break
+                            end
                             local name = survivor.name or "Survivor"
                             local camp_name = camp.name or "camp"
+                            -- leave the way a banished settler does: end an expedition while the camp
+                            -- exists, purge the settler state and give them a sim squad
+                            if sb.recall_scavenger_expedition_by_npc then
+                                sb.recall_scavenger_expedition_by_npc(id_num)
+                            end
                             set_camp_settler_relations(hub_id, npc_id, false)
                             camp.survivors[npc_id] = nil
                             stalker_camp_builder.settler_lookup[npc_id] = nil  -- keep O(1) lookup in sync
                             stalker_camp_builder.camp_npc_released[npc_id] = nil
-                            utils_obj.switch_online(npc_id)
+                            if sb.purge_settler_companion_and_squad_state then
+                                -- only a companion goes on the banished list, as in a dismantle
+                                local is_comp = (survivor.job == "companion" or survivor.is_companion) and true or false
+                                sb.purge_settler_companion_and_squad_state(id_num, level.object_by_id(id_num), is_comp)
+                            end
+                            if sb.reassign_freed_settler_to_smart then
+                                sb.reassign_freed_settler_to_smart(id_num)
+                            end
                             if db.actor then
                                 news_manager.send_tip(db.actor, string.format(game.translate_string("st_survivor_abandoned"), name, camp_name), nil, "red_danger", 12000)
                             end
