@@ -93,70 +93,70 @@
         <camp_name x="0" y="2" width="350" height="20">
             <text font="letterica18" r="238" g="196" b="112" align="c" vert_align="c" complex_mode="1"/>
         </camp_name>
-        <camp_spec_badge x="0" y="22" width="350" height="16">
-            <text font="letterica16" r="100" g="200" b="255" align="c" vert_align="c" complex_mode="1"/>
+        <camp_spec_badge x="0" y="22" width="350" height="28">
+            <text font="letterica16" r="100" g="200" b="255" align="c" vert_align="t" complex_mode="1"/>
         </camp_spec_badge>
-        <raid_banner_bg x="0" y="44" width="350" height="24" stretch="1">
+        <raid_banner_bg x="0" y="55" width="350" height="24" stretch="1">
             <texture>ui_homestead_banner_secure</texture>
         </raid_banner_bg>
-        <raid_banner_lbl x="0" y="48" width="350" height="18">
+        <raid_banner_lbl x="0" y="58" width="350" height="18">
             <text font="letterica16" r="144" g="238" b="144" align="c" vert_align="c" complex_mode="1">st_pda_raid_alert_secure</text>
         </raid_banner_lbl>
 
-        <!-- Module A: Personnel & Habitation (y=74 to y=140, h=66) -->
-        <pop_card_bg x="0" y="74" width="350" height="66" stretch="1">
+        <!-- Module A: Personnel & Habitation (y=82 to y=148, h=66) -->
+        <pop_card_bg x="0" y="82" width="350" height="66" stretch="1">
             <texture>ui_homestead_module_bg</texture>
         </pop_card_bg>
-        <pop_header_bg x="0" y="74" width="350" height="20" stretch="1">
+        <pop_header_bg x="0" y="82" width="350" height="20" stretch="1">
             <texture>ui_homestead_module_header</texture>
         </pop_header_bg>
-        <pop_card_lbl x="10" y="76" width="330" height="16">
+        <pop_card_lbl x="10" y="84" width="330" height="16">
             <text font="letterica16" r="220" g="240" b="255" align="l" vert_align="c" complex_mode="1">st_pda_settlement_pop_lbl</text>
         </pop_card_lbl>
-        <camp_pop x="10" y="98" width="330" height="18">
+        <camp_pop x="10" y="104" width="330" height="18">
             <text font="letterica16" r="238" g="196" b="112" align="l" complex_mode="1"></text>
         </camp_pop>
-        <camp_pop_gauge x="10" y="118" width="330" height="18">
+        <camp_pop_gauge x="10" y="124" width="330" height="18">
             <text font="letterica16" r="170" g="170" b="170" align="l" complex_mode="1"></text>
         </camp_pop_gauge>
 
-        <!-- Module B: Defense & Perimeter Security (y=146 to y=228, h=82) -->
-        <def_card_bg x="0" y="146" width="350" height="82" stretch="1">
+        <!-- Module B: Defense & Perimeter Security (y=152 to y=234, h=82) -->
+        <def_card_bg x="0" y="152" width="350" height="82" stretch="1">
             <texture>ui_homestead_module_bg</texture>
         </def_card_bg>
-        <def_header_bg x="0" y="146" width="350" height="20" stretch="1">
+        <def_header_bg x="0" y="152" width="350" height="20" stretch="1">
             <texture>ui_homestead_module_header</texture>
         </def_header_bg>
-        <def_card_lbl x="10" y="148" width="330" height="16">
+        <def_card_lbl x="10" y="154" width="330" height="16">
             <text font="letterica16" r="220" g="240" b="255" align="l" vert_align="c" complex_mode="1">st_pda_settlement_def_lbl</text>
         </def_card_lbl>
-        <camp_def x="10" y="170" width="330" height="18">
+        <camp_def x="10" y="174" width="330" height="18">
             <text font="letterica16" r="100" g="200" b="255" align="l" complex_mode="1"></text>
         </camp_def>
-        <camp_def_breakdown x="10" y="188" width="330" height="18">
+        <camp_def_breakdown x="10" y="192" width="330" height="18">
             <text font="letterica16" r="180" g="180" b="180" align="l" complex_mode="1"></text>
         </camp_def_breakdown>
-        <camp_threat_lvl x="10" y="206" width="330" height="18">
+        <camp_threat_lvl x="10" y="210" width="330" height="18">
             <text font="letterica16" r="238" g="196" b="112" align="l" complex_mode="1"></text>
         </camp_threat_lvl>
 
-        <!-- Module C: Logistics, Life Support & Morale (y=234 to y=316, h=82) -->
-        <logistics_card_bg x="0" y="234" width="350" height="82" stretch="1">
+        <!-- Module C: Logistics, Life Support & Morale (y=238 to y=320, h=82) -->
+        <logistics_card_bg x="0" y="238" width="350" height="82" stretch="1">
             <texture>ui_homestead_module_bg</texture>
         </logistics_card_bg>
-        <logistics_header_bg x="0" y="234" width="350" height="20" stretch="1">
+        <logistics_header_bg x="0" y="238" width="350" height="20" stretch="1">
             <texture>ui_homestead_module_header</texture>
         </logistics_header_bg>
-        <logistics_card_lbl x="10" y="236" width="330" height="16">
+        <logistics_card_lbl x="10" y="240" width="330" height="16">
             <text font="letterica16" r="220" g="240" b="255" align="l" vert_align="c" complex_mode="1">st_pda_settlement_supplies_lbl</text>
         </logistics_card_lbl>
-        <camp_water x="10" y="258" width="330" height="18">
+        <camp_water x="10" y="260" width="330" height="18">
             <text font="letterica16" r="100" g="200" b="255" align="l" complex_mode="1"></text>
         </camp_water>
-        <camp_supplies x="10" y="276" width="330" height="18">
+        <camp_supplies x="10" y="278" width="330" height="18">
             <text font="letterica16" r="220" g="220" b="220" align="l" complex_mode="1"></text>
         </camp_supplies>
-        <camp_morale x="10" y="294" width="330" height="18">
+        <camp_morale x="10" y="296" width="330" height="18">
             <text font="letterica16" r="144" g="238" b="144" align="l" complex_mode="1"></text>
         </camp_morale>
 
@@ -260,7 +260,7 @@
             <texture>ui_homestead_module_bg</texture>
         </dossier_portrait_bg>
         <dossier_portrait x="6" y="10" width="44" height="44" stretch="1">
-            <texture>ui\\ui_noise</texture>
+            <texture>ui\ui_noise</texture>
         </dossier_portrait>
         <survivor_name x="56" y="6" width="102" height="18">
             <text font="letterica18" r="238" g="196" b="112" align="l" complex_mode="1"/>

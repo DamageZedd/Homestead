@@ -71,16 +71,16 @@ function colorize_pda_text(text)
         local comm_str = game.translate_string(comm)
         if comm_str and comm_str ~= comm and comm_str ~= "" then
             text = text:gsub(escape_pda_pattern(comm_str), function()
-                return string.format("%%c[%s]%s%%c[220,220,220]", clr, comm_str)
+                return string.format("%%c[%s]%s%%c[255,220,220,220]", clr, comm_str)
             end)
         end
     end
 
     -- Highlights for keywords
-    text = text:gsub("Ambushed", function() return "%c[255,100,100]Ambushed%c[220,220,220]" end)
-    text = text:gsub("Defeated", function() return "%c[144,238,144]Defeated%c[220,220,220]" end)
-    text = text:gsub("Recovered", function() return "%c[100,200,255]Recovered%c[220,220,220]" end)
-    text = text:gsub("Deposited", function() return "%c[238,196,112]Deposited%c[220,220,220]" end)
+    text = text:gsub("Ambushed", function() return "%c[255,255,100,100]Ambushed%c[255,220,220,220]" end)
+    text = text:gsub("Defeated", function() return "%c[255,144,238,144]Defeated%c[255,220,220,220]" end)
+    text = text:gsub("Recovered", function() return "%c[255,100,200,255]Recovered%c[255,220,220,220]" end)
+    text = text:gsub("Deposited", function() return "%c[255,238,196,112]Deposited%c[255,220,220,220]" end)
 
     return text
 end
@@ -387,8 +387,8 @@ function SettlementManagerPDA:InitControls()
     xml:ParseFile("ui_stalker_camp_builder_pda.xml")
     self.xml = xml
 
-    xml:InitStatic("background", self)
-    xml:InitStatic("vertical_line", self)
+    xml:InitFrame("background", self)
+    xml:InitFrameLine("vertical_line", self)
 
     self.left_container = xml:InitStatic("left_container", self)
     self.btn_tab_overview = xml:Init3tButton("left_container:btn_tab_overview", self.left_container)
@@ -409,7 +409,7 @@ function SettlementManagerPDA:InitControls()
     self:AddCallback("btn_tab_radio", ui_events.BUTTON_CLICKED, function() self:SetTab("radio") end, self)
     self:AddCallback("btn_tab_guide", ui_events.BUTTON_CLICKED, function() self:SetTab("guide") end, self)
 
-    self.list_header_bg = xml:InitStatic("list_header_bg", self)
+    self.list_header_bg = xml:InitFrame("list_header_bg", self)
     self.settlement_header = xml:InitTextWnd("settlement_header", self)
 
     self.settlement_list = xml:InitListBox("settlement_list", self)
@@ -426,6 +426,16 @@ function SettlementManagerPDA:InitControls()
     self.rival_camp_spec = xml:InitTextWnd("rival_content:rival_camp_spec", self.rival_content)
     self.rival_banner_bg = xml:InitStatic("rival_content:rival_banner_bg", self.rival_content)
     self.rival_banner_lbl = xml:InitTextWnd("rival_content:rival_banner_lbl", self.rival_content)
+
+    -- the rival panel's section headings and their rules: in the XML, never created before
+    for _, name in ipairs({"rival_faction_lbl", "rival_loc_gar_lbl", "rival_intel_lbl"}) do
+        xml:InitTextWnd("rival_content:" .. name, self.rival_content)
+    end
+    self.rival_faction_bg = xml:InitStatic("rival_content:rival_faction_bg", self.rival_content)
+    self.rival_loc_gar_bg = xml:InitStatic("rival_content:rival_loc_gar_bg", self.rival_content)
+    for _, name in ipairs({"rival_faction_header_bg", "rival_loc_gar_header_bg", "rival_intel_header_bg"}) do
+        xml:InitStatic("rival_content:" .. name, self.rival_content)
+    end
     self.rival_camp_status = xml:InitTextWnd("rival_content:rival_camp_status", self.rival_content)
     self.rival_camp_faction = xml:InitTextWnd("rival_content:rival_camp_faction", self.rival_content)
     self.rival_camp_location = xml:InitTextWnd("rival_content:rival_camp_location", self.rival_content)
@@ -702,6 +712,8 @@ function SettlementManagerPDA:InitControls()
     -- Tab 4 panel (How to Play / Guide)
     self.guide_panel = xml:InitStatic("guide_panel", self)
     self.guide_scroll = xml:InitScrollView("guide_panel:guide_scroll", self.guide_panel)
+    xml:InitStatic("guide_panel:guide_header_bg", self.guide_panel)
+    xml:InitTextWnd("guide_panel:guide_header_lbl", self.guide_panel)
 
     -- Build the guide as structured sections: header bar + body + separator.
     -- Each section is a separate translation key for cleaner layout and easier
@@ -770,7 +782,7 @@ function SettlementManagerPDA:InitControls()
         -- Separator line between sections (skip after last)
         if i < #guide_sections then
             local sep_cont = xml:InitStatic("guide_separator_container", nil)
-            xml:InitStatic("guide_separator_line", sep_cont)
+            xml:InitFrameLine("guide_separator_line", sep_cont)
             self.guide_scroll:AddWindow(sep_cont, true)
         end
     end
@@ -984,6 +996,14 @@ function SettlementManagerPDA:UpdateTopStatusBar()
 end
 function SettlementManagerPDA:Update()
     CUIScriptWnd.Update(self)
+    -- the survivor detail changed size: re-add it so its scroll view measures it again
+    -- (CUIScrollView recalculates only on AddWindow, RemoveWindow and Clear)
+    if self.job_resized and self.job_scroll and self.job_content then
+        self.job_resized = nil
+        self.job_content:SetAutoDelete(false)
+        self.job_scroll:RemoveWindow(self.job_content)
+        self.job_scroll:AddWindow(self.job_content, true)
+    end
     local pda_menu = ActorMenu.get_pda_menu()
     if pda_menu and pda_menu:GetTabControl() and not pda_menu:GetTabControl():IsShown() then
         pda_menu:GetTabControl():Show(true)
@@ -1422,8 +1442,20 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
         name = level_name .. " Settlement"
     end
 
-    -- Update raid banner background texture
+    -- 1. Tactical Header Banner
+    self.camp_name:SetText(name)
+
+    local spec = camp.specialization or "none"
+    local spec_str = game.translate_string("st_pda_spec_" .. spec)
+    -- region and specialization on lines of their own: on one line they overflowed 350 wide
+    -- and the wrap climbed into the camp name. The defense line goes under however many
+    -- lines they take.
+    self.camp_spec_badge:SetText(sformat("[ REGION: %s ]\\n[ SPEC: %s ]", level_name:upper(), spec_str:upper()))
+    self.camp_spec_badge:AdjustHeightToText()
+
+    local banner_y = 22 + math.max(30, self.camp_spec_badge:GetHeight()) + 2
     if self.raid_banner_bg then
+        self.raid_banner_bg:SetWndPos(vector2():set(0, banner_y))
         if camp.under_attack or camp.raid_active then
             self.raid_banner_bg:InitTexture("ui_homestead_banner_threat")
         else
@@ -1431,19 +1463,9 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
         end
     end
 
-    -- 1. Tactical Header Banner
-    self.camp_name:SetText(name)
-
-    local spec = camp.specialization or "none"
-    local spec_str = game.translate_string("st_pda_spec_" .. spec)
-    self.camp_spec_badge:SetText(sformat("[ REGION: %s ]   |   [ SPEC: %s ]", level_name:upper(), spec_str:upper()))
-
-    if self.btn_specialization and self.btn_specialization.TextControl and self.btn_specialization:TextControl() then
-        self.btn_specialization:TextControl():SetText(sformat("Spec: %s", spec_str))
-    end
-
     -- Perimeter Security Status Banner
     if self.raid_banner_lbl then
+        self.raid_banner_lbl:SetWndPos(vector2():set(0, banner_y + 3))
         if camp.under_attack or camp.raid_active then
             self.raid_banner_lbl:SetText("[! THREAT ALERT: SETTLEMENT UNDER ACTIVE HOSTILE ASSAULT !]")
             self.raid_banner_lbl:SetTextColor(GetARGB(255, 255, 100, 100))
@@ -1451,6 +1473,10 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
             self.raid_banner_lbl:SetText("[ DEFENSE STATUS: SECURE // PERIMETER INTACT ]")
             self.raid_banner_lbl:SetTextColor(GetARGB(255, 144, 238, 144))
         end
+    end
+
+    if self.btn_specialization and self.btn_specialization.TextControl and self.btn_specialization:TextControl() then
+        self.btn_specialization:TextControl():SetText(sformat("Spec: %s", (tostring(spec_str):gsub("%s*%b()", ""))))
     end
 
     -- 2. Module A: Personnel & Habitation
@@ -1957,7 +1983,14 @@ function SettlementManagerPDA:OnSurvivorSelected()
     -- 6. Field Station & Tactical Orders Module
     local pos_y = btn_start_y + 196
     local has_dir = (job == "medic" or job == "woodcutter" or job == "craft")
-    local mod4_h = has_dir and 144 or 118
+    -- the status above the buttons can run to several lines (a paused job says why in a
+    -- sentence): the buttons and everything under them go below its last line
+    local st_extra = 0
+    if self.survivor_pos_txt then
+        self.survivor_pos_txt:AdjustHeightToText()
+        st_extra = mmax(0, self.survivor_pos_txt:GetHeight() - 16)
+    end
+    local mod4_h = (has_dir and 144 or 118) + st_extra
     if self.pos_header_bg then self.pos_header_bg:SetWndPos(vector2():set(0, pos_y)) end
     if self.pos_header_lbl then self.pos_header_lbl:SetWndPos(vector2():set(8, pos_y + 2)) end
     if self.pos_bg then
@@ -1966,17 +1999,17 @@ function SettlementManagerPDA:OnSurvivorSelected()
     end
     if self.survivor_pos_txt then self.survivor_pos_txt:SetWndPos(vector2():set(4, pos_y + 22)) end
     if self.btn_position_here then
-        self.btn_position_here:SetWndPos(vector2():set(6, pos_y + 42))
+        self.btn_position_here:SetWndPos(vector2():set(6, pos_y + 42 + st_extra))
         self.btn_position_here:SetWndSize(vector2():set(152, 24))
     end
     if self.btn_position_recall then
-        self.btn_position_recall:SetWndPos(vector2():set(6, pos_y + 68))
+        self.btn_position_recall:SetWndPos(vector2():set(6, pos_y + 68 + st_extra))
         self.btn_position_recall:SetWndSize(vector2():set(152, 24))
     end
     if self.btn_job_directive then
         if has_dir then
             self.btn_job_directive:Show(true)
-            self.btn_job_directive:SetWndPos(vector2():set(6, pos_y + 94))
+            self.btn_job_directive:SetWndPos(vector2():set(6, pos_y + 94 + st_extra))
             self.btn_job_directive:SetWndSize(vector2():set(152, 24))
             if job == "medic" then
                 local m_order = s_item.medic_order or "auto"
@@ -2005,7 +2038,7 @@ function SettlementManagerPDA:OnSurvivorSelected()
         end
     end
     if self.btn_rename_survivor then
-        local rename_y = has_dir and (pos_y + 120) or (pos_y + 94)
+        local rename_y = (has_dir and (pos_y + 120) or (pos_y + 94)) + st_extra
         self.btn_rename_survivor:SetWndPos(vector2():set(6, rename_y))
         self.btn_rename_survivor:SetWndSize(vector2():set(152, 24))
     end
@@ -2030,6 +2063,11 @@ function SettlementManagerPDA:OnSurvivorSelected()
     if self.job_content then
         self.job_content:SetWndSize(vector2():set(164, total_h))
     end
+    -- what the layout made room for; RefreshJobProgress rewrites both texts later
+    -- (RefitSurvivorDetail)
+    self.lay_jh = jh
+    self.lay_st = self.survivor_pos_txt and mmax(16, self.survivor_pos_txt:GetHeight()) or 16
+    self.job_resized = true
 
     -- Populate transfer list with all other active camps
     self.transfer_list:RemoveAll()
@@ -2583,6 +2621,65 @@ function SettlementManagerPDA:OnManualRefresh()
     actor_menu.set_msg(1, "JOB PROGRESS UPDATED", 2)
 end
 
+-- v1.1.7: the right detail panel is measured dynamically on survivor selection;
+-- when the telemetry text or custom-location note grows/shrinks during live
+-- refresh, its child widgets (and its CUIScrollView content rect) must follow.
+-- Runs purely off the heights the last layout saved in self.lay_jh and self.lay_st;
+-- moves by the difference. Positions only: the texts stay as the refresh wrote them.
+function SettlementManagerPDA:RefitSurvivorDetail()
+    if not (self.lay_jh and self.lay_st and self.job_content and self.survivor_job_txt) then
+        return
+    end
+    local under = {
+        self.job_header_bg, self.job_header_lbl,
+        self.btn_job_idle, self.btn_job_guard, self.btn_job_scavenge, self.btn_job_hunter,
+        self.btn_job_craft, self.btn_job_repair, self.btn_job_cook, self.btn_job_medic,
+        self.btn_job_electrician, self.btn_job_woodcutter, self.btn_job_brewer, self.btn_job_scrapper,
+        self.pos_header_bg, self.pos_header_lbl, self.pos_bg, self.survivor_pos_txt,
+        self.btn_position_here, self.btn_position_recall, self.btn_job_directive, self.btn_rename_survivor,
+        self.transfer_header_bg, self.transfer_lbl, self.transfer_bg, self.transfer_list,
+        self.btn_transfer, self.btn_banish,
+    }
+    local function shift(dy, below)
+        for _, w in pairs(under) do
+            if w then
+                local p = w:GetWndPos()
+                if p.y > below then
+                    w:SetWndPos(vector2():set(p.x, p.y + dy))
+                end
+            end
+        end
+    end
+    local function grow(w, dy)
+        if w then
+            w:SetWndSize(vector2():set(w:GetWidth(), w:GetHeight() + dy))
+        end
+    end
+    local total = 0
+    self.survivor_job_txt:AdjustHeightToText()
+    local jh = math.max(34, self.survivor_job_txt:GetHeight())
+    if jh ~= self.lay_jh then
+        local dy = jh - self.lay_jh
+        shift(dy, self.survivor_job_txt:GetWndPos().y)
+        grow(self.telemetry_bg, dy)
+        self.lay_jh, total = jh, total + dy
+    end
+    if self.survivor_pos_txt then
+        self.survivor_pos_txt:AdjustHeightToText()
+        local sh = math.max(16, self.survivor_pos_txt:GetHeight())
+        if sh ~= self.lay_st then
+            local dy = sh - self.lay_st
+            shift(dy, self.survivor_pos_txt:GetWndPos().y)
+            grow(self.pos_bg, dy)
+            self.lay_st, total = sh, total + dy
+        end
+    end
+    if total ~= 0 then
+        grow(self.job_content, total)
+        self.job_resized = true
+    end
+end
+
 function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
     local mmax = math.max
     local mfloor = math.floor
@@ -2623,15 +2720,15 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
 
                     local display = ""
                     if is_paused then
-                        display = sformat("Assigned Job: %s %%c[255,255,100,100][PAUSED - %s]%%c[220,220,220]", job_label, reason_short or "Blocked")
+                        display = sformat("%s %%c[255,255,100,100][PAUSED - %s]%%c[255,220,220,220]", job_label, reason_short or "Blocked")
                         if self.survivor_pos_txt and reason_detail then
                             self.survivor_pos_txt:SetText(sformat("Status: %s", reason_detail))
                         end
                     elseif job == "idle" then
-                        display = sformat("Assigned Job: %s", job_label)
+                        display = sformat("%s", job_label)
                         if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Resting at Settlement Base") end
                     elseif job == "guard" then
-                        display = sformat("Assigned Job: %s (+Defense)", job_label)
+                        display = sformat("%s (+Defense)", job_label)
                         if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Guarding Camp Perimeter") end
                     elseif job == "scavenge" then
                         local exp = stalker_camp_builder.get_scavenger_expedition_for_survivor and stalker_camp_builder.get_scavenger_expedition_for_survivor(survivor, survivor_id)
@@ -2653,14 +2750,14 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                             local target_lvl = game.translate_string(exp.target_level or "unknown")
 
                             if exp.is_sweep and exp.all_stashes and #exp.all_stashes > 1 then
-                                display = sformat("Assigned Job: %s: Regional Sweep (%d Stashes in %s) - %d%% (%s remaining)", job_label, #exp.all_stashes, target_lvl, sc_pct, time_str)
+                                display = sformat("%s: Regional Sweep (%d Stashes in %s) - %d%% (%s remaining)", job_label, #exp.all_stashes, target_lvl, sc_pct, time_str)
                                 if self.survivor_pos_txt then self.survivor_pos_txt:SetText(sformat("Status: Sweeping %d Stashes in %s", #exp.all_stashes, target_lvl)) end
                             else
-                                display = sformat("Assigned Job: %s: Expedition to %s (%d%% - %s remaining)", job_label, target_lvl, sc_pct, time_str)
+                                display = sformat("%s: Expedition to %s (%d%% - %s remaining)", job_label, target_lvl, sc_pct, time_str)
                                 if self.survivor_pos_txt then self.survivor_pos_txt:SetText(sformat("Status: En Route to Stash in %s", target_lvl)) end
                             end
                         else
-                            display = sformat("Assigned Job: %s (Waiting for Orders)", job_label)
+                            display = sformat("%s (Waiting for Orders)", job_label)
                             if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Waiting at Camp for Orders") end
                         end
                     elseif job == "hunter" then
@@ -2671,13 +2768,13 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                             local mins = math.floor(time_remaining / 60)
                             local secs = math.floor(time_remaining % 60)
                             local time_str = mins > 0 and sformat("%dm %02ds", mins, secs) or sformat("%ds", secs)
-                            display = sformat("Assigned Job: %s: Tracking Mutants (%d%% - %s remaining)", job_label, pct, time_str)
+                            display = sformat("%s: Tracking Mutants (%d%% - %s remaining)", job_label, pct, time_str)
                             if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Tracking & Field Dressing Mutants") end
                         elseif pct >= 100 then
-                            display = sformat("Assigned Job: %s (%d%% - Harvest Ready)", job_label, pct)
+                            display = sformat("%s (%d%% - Harvest Ready)", job_label, pct)
                             if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Returning with Harvested Meat") end
                         else
-                            display = sformat("Assigned Job: %s (%d%%)", job_label, pct)
+                            display = sformat("%s (%d%%)", job_label, pct)
                             if self.survivor_pos_txt then self.survivor_pos_txt:SetText("Status: Hunting Out in the Zone") end
                         end
                     else
@@ -2714,9 +2811,9 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                             }
                             local ord = order_labels[survivor.medic_order or "auto"] or "Auto"
                             if survivor.shortfall_reason then
-                                display = sformat("Assigned Job: %s: [%s] (Waiting: %s)", job_label, ord, survivor.shortfall_reason)
+                                display = sformat("%s: [%s] (Waiting: %s)", job_label, ord, survivor.shortfall_reason)
                             else
-                                display = sformat("Assigned Job: %s: [%s] (%d%%%s)", job_label, ord, pct, time_str)
+                                display = sformat("%s: [%s] (%d%%%s)", job_label, ord, pct, time_str)
                             end
                         elseif job == "woodcutter" then
                             local mode_labels = {
@@ -2725,15 +2822,15 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                                 charcoal = "Charcoal Focus",
                             }
                             local wm = mode_labels[survivor.woodcutter_mode or "auto"] or "Timber"
-                            display = sformat("Assigned Job: %s: [%s]%s (%d%%%s)", job_label, wm, boost_str, pct, time_str)
+                            display = sformat("%s: [%s]%s (%d%%%s)", job_label, wm, boost_str, pct, time_str)
                         elseif job == "brewer" then
-                            display = sformat("Assigned Job: %s: Distilling Vodka%s (%d%%%s)", job_label, boost_str, pct, time_str)
+                            display = sformat("%s: Distilling Vodka%s (%d%%%s)", job_label, boost_str, pct, time_str)
                         elseif job == "scrapper" then
-                            display = sformat("Assigned Job: %s: Salvaging Scrap%s (%d%%%s)", job_label, boost_str, pct, time_str)
+                            display = sformat("%s: Salvaging Scrap%s (%d%%%s)", job_label, boost_str, pct, time_str)
                         elseif job == "electrician" then
-                            display = sformat("Assigned Job: %s: Grid & Batteries (%d%%%s)", job_label, pct, time_str)
+                            display = sformat("%s: Grid & Batteries (%d%%%s)", job_label, pct, time_str)
                         else
-                            display = sformat("Assigned Job: %s%s (%d%%%s)", job_label, boost_str, pct, time_str)
+                            display = sformat("%s%s (%d%%%s)", job_label, boost_str, pct, time_str)
                         end
                     end
                     self.survivor_job_txt:SetText(colorize_pda_text(display))
@@ -2741,6 +2838,7 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
             end
         end
     end
+    self:RefitSurvivorDetail()
 end
 
 class "UIRenameCamp" (CUIScriptWnd)
