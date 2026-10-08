@@ -2730,6 +2730,8 @@ local function enforce_settler_leash(npc, npc_id, my_survivor, my_hub_id, hub_ob
     end
 
     if dist > leash then
+        -- in a fight the engine's combat actions move the settler; a walk would override them
+        if npc:best_enemy() ~= nil then return "in_combat" end
         camp_npc_move_to(npc, hub_obj.m_level_vertex_id)
         return "soft_leashed"
     end
