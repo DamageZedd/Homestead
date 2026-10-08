@@ -284,9 +284,6 @@ function stalker_camp_builder.release_settler_home_squad(npc_id)
     local se_npc = alife_object(npc_id)
     if se_npc and se_npc.group_id == squad_id then
         pcall(function() squad:unregister_member(npc_id) end)
-        if se_npc.group_id == squad_id then
-            se_npc.group_id = 65535
-        end
     end
 
     -- ONLY release the squad if it is now confirmed completely empty (npc_count == 0).
