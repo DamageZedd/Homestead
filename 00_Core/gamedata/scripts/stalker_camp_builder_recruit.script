@@ -1092,6 +1092,10 @@ end
 
 function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
     local sb = stalker_camp_builder
+    -- a scavenger away on an expedition is recalled first and brings home what it has looted
+    if sb.recall_scavenger_expedition_by_npc then
+        sb.recall_scavenger_expedition_by_npc(npc_id)
+    end
     local target_camp = sb.active_camps[target_hub_id]
     if not target_camp then return false, "no_camp" end
 
@@ -1290,6 +1294,9 @@ function stalker_camp_builder.set_survivor_position(npc_id, lvid, pos)
         if (dx*dx + dy*dy + dz*dz) > (b_dist * b_dist) then
             return false, "too_far"
         end
+    end
+    if sb.recall_scavenger_expedition_by_npc then
+        sb.recall_scavenger_expedition_by_npc(npc_id)
     end
     target_camp.survivors[npc_id].assigned_pos = {
         lvid = lvid,
@@ -2062,6 +2069,9 @@ function stalker_camp_builder.banish_npc(actor, npc)
     if not npc then return end
     local npc_id = type(npc) == "number" and npc or (npc.id and (type(npc.id) == "function" and npc:id() or npc.id))
     if not npc_id then return end
+    if sb.recall_scavenger_expedition_by_npc then
+        sb.recall_scavenger_expedition_by_npc(npc_id)
+    end
 
     for hub_id, camp in pairs(sb.active_camps) do
         local survivor = camp.survivors and (camp.survivors[npc_id] or camp.survivors[tostring(npc_id)])

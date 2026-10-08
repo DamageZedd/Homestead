@@ -6800,8 +6800,9 @@ end
 
 function stalker_camp_builder.recall_scavenger_expedition_by_npc(npc_id)
     local sb = stalker_camp_builder
+    local id_num = tonumber(npc_id)
     for stash_id, exp in pairs(sb.active_stash_expeditions or {}) do
-        if exp.npc_id == npc_id then
+        if exp.npc_id == npc_id or (id_num and tonumber(exp.npc_id) == id_num) then
             return sb.recall_scavenger_expedition(stash_id)
         end
     end
@@ -6839,6 +6840,12 @@ function stalker_camp_builder.recall_scavenger_expedition(stash_id)
 
     sb.active_stash_expeditions[stash_id] = nil
     local camp = sb.active_camps[exp.hub_id]
+    -- the stashes looted so far are already emptied and unmarked: bring their items home
+    if camp then
+        for _, itm in ipairs(exp.haul or {}) do
+            pcall(sb.deposit_item_to_camp, exp.hub_id, camp, itm.sec, itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+        end
+    end
     if camp and camp.survivors and camp.survivors[exp.npc_id] then
         camp.survivors[exp.npc_id].on_expedition = nil
         local hub_obj = alife_object(exp.hub_id)
@@ -6848,7 +6855,10 @@ function stalker_camp_builder.recall_scavenger_expedition(stash_id)
             se_npc.m_level_vertex_id = hub_obj.m_level_vertex_id
             se_npc.m_game_vertex_id = hub_obj.m_game_vertex_id
         end
-        utils_obj.switch_online(exp.npc_id)
+        -- set_switch_online on an id with no server object is an engine crash
+        if se_npc then
+            utils_obj.switch_online(exp.npc_id)
+        end
     end
 
     local actor = db.actor
