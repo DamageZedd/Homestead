@@ -1853,11 +1853,12 @@ function stalker_camp_builder.process_woodcutter_job(npc_id, hub_id, camp, survi
             local count = mrandom(3, 5)
             if survivor and survivor.has_axe then count = count + 2 end
             local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
-            for i = 1, count * mult do
+            local total_charcoal = math.min(count * mult, 20)
+            for i = 1, total_charcoal do
                 sb.deposit_item_to_camp(hub_id, camp, "charcoal")
             end
             if survivor then survivor.shortfall_reason = nil end
-            sb.camp_send_tip(actor, string.format(game.translate_string("st_job_woodcutter_charcoal"), name, consumed_count, count * mult), nil, "general_stalker", 10000)
+            sb.camp_send_tip(actor, string.format(game.translate_string("st_job_woodcutter_charcoal"), name, consumed_count, total_charcoal), nil, "general_stalker", 10000)
             return true
         else
             if mode == "charcoal" then
@@ -1880,11 +1881,12 @@ function stalker_camp_builder.process_woodcutter_job(npc_id, hub_id, camp, survi
         count = mrandom(axe_min, axe_max)
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
-    for i = 1, count * mult do
+    local total_wood = math.min(count * mult, 30)
+    for i = 1, total_wood do
         sb.deposit_item_to_camp(hub_id, camp, "prt_i_wood")
     end
     if survivor then survivor.shortfall_reason = nil end
-    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_woodcutter_harvested"), name, count * mult), nil, "general_stalker", 10000)
+    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_woodcutter_harvested"), name, total_wood), nil, "general_stalker", 10000)
     return true
 end
 
@@ -1928,11 +1930,12 @@ function stalker_camp_builder.process_brewer_job(npc_id, hub_id, camp, survivor,
         count = 4
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
-    for i = 1, count * mult do
+    local total_vodka = math.min(count * mult, 12)
+    for i = 1, total_vodka do
         sb.deposit_item_to_camp(hub_id, camp, "vodka")
     end
     if survivor then survivor.shortfall_reason = nil end
-    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_brewer_distilled"), name, count * mult), nil, "general_stalker", 10000)
+    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_brewer_distilled"), name, total_vodka), nil, "general_stalker", 10000)
     return true
 end
 
@@ -1968,13 +1971,15 @@ function stalker_camp_builder.process_scrapper_job(npc_id, hub_id, camp, survivo
         fastener_count = mrandom(tool_f_min, tool_f_max)
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))
-    for i = 1, scrap_count * mult do
+    local total_scrap = math.min(scrap_count * mult, 30)
+    local total_fasteners = math.min(fastener_count * mult, 20)
+    for i = 1, total_scrap do
         sb.deposit_item_to_camp(hub_id, camp, "prt_i_scrap")
     end
-    for i = 1, fastener_count * mult do
+    for i = 1, total_fasteners do
         sb.deposit_item_to_camp(hub_id, camp, "prt_i_fasteners")
     end
-    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_scrapper_salvaged"), name, scrap_count * mult, fastener_count * mult), nil, "general_stalker", 10000)
+    sb.camp_send_tip(actor, string.format(game.translate_string("st_job_scrapper_salvaged"), name, total_scrap, total_fasteners), nil, "general_stalker", 10000)
     return true
 end
 
@@ -2480,7 +2485,7 @@ function stalker_camp_builder.update_camp_jobs()
 
                         if effective_elapsed >= effective_interval then
                             local cycles_accum = math.floor(effective_elapsed / effective_interval)
-                            local max_catchup = 5 -- Cap per update tick to distribute CPU budget
+                            local max_catchup = 2 -- Cap per update tick to distribute CPU budget and prevent item spawn hitches
                             local cycles_to_run = math.min(max_catchup, math.max(1, cycles_accum))
                             local cycles_completed = 0
                             local last_did_work = false
