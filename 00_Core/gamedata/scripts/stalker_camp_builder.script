@@ -3897,8 +3897,18 @@ local KNOWN_CAMP_MAP_SPOTS = {
     "green_location", "homestead_camp_hub", "paw_pin_stalker32", "homestead_paw_pin_stalker", "treasure_player",
 }
 
+-- the test modxml_stalker_camp_builder uses to inject the homestead_paw_* spots: Catspaw's
+-- shared utils_catspaw_mapspots ships in mods without PAW, and without PAW's
+-- map_spots_paw_pins.xml those spot types are never defined
+local paw_pins_present = nil
 local function has_paw_pins()
-    return (_G.utils_catspaw_mapspots ~= nil or _G.catsy_paw_mcm ~= nil)
+    if paw_pins_present == nil then
+        local ok, found = pcall(function()
+            return getFS():exist("$game_config$", "ui\\map_spots_paw_pins.xml")
+        end)
+        paw_pins_present = (ok and found) and true or false
+    end
+    return paw_pins_present
 end
 stalker_camp_builder.has_paw_pins = has_paw_pins
 
