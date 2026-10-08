@@ -61,20 +61,32 @@
         <texture id="ui_inGame2_pda_taskboard_custom_category_script"                         x="200"  y="400" width="100" height="100" />
         <texture id="ui_inGame2_pda_taskboard_custom_category_recover_mutant_data_location"   x="300"  y="400" width="100" height="100" />
         <texture id="ui_inGame2_pda_taskboard_custom_category_rest"                           x="400"  y="400" width="100" height="100" />
-	
-		<!-- DANZY EDIT: Homestead PDA panels use the iTheon taskboard panel graphic -->
-		<texture id="ui_homestead_card_bg" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_module_bg" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_module_header" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_dialog_bg" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_banner_secure" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_banner_neutral" x="268" y="209" width="60" height="16" />
-		<texture id="ui_homestead_banner_threat" x="268" y="259" width="60" height="16" />
 	</file>
 
 	<!-- Homestead Tactical UI Custom Textures -->
+	<file name="ui\homestead_pda\ui_card_bg">
+		<texture id="ui_homestead_card_bg" x="0" y="0" width="162" height="84" />
+	</file>
 	<file name="ui\homestead_pda\ui_card_selected">
 		<texture id="ui_homestead_card_selected" x="0" y="0" width="162" height="84" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_secure">
+		<texture id="ui_homestead_banner_secure" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_threat">
+		<texture id="ui_homestead_banner_threat" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_module_header">
+		<texture id="ui_homestead_module_header" x="0" y="0" width="350" height="20" />
+	</file>
+	<file name="ui\homestead_pda\ui_module_bg">
+		<texture id="ui_homestead_module_bg" x="0" y="0" width="350" height="84" />
+	</file>
+	<file name="ui\homestead_pda\ui_banner_neutral">
+		<texture id="ui_homestead_banner_neutral" x="0" y="0" width="350" height="24" />
+	</file>
+	<file name="ui\homestead_pda\ui_dialog_bg">
+		<texture id="ui_homestead_dialog_bg" x="0" y="0" width="320" height="140" />
 	</file>
 	<file name="ui\homestead_pda\btn_primary_e">
 		<texture id="ui_homestead_btn_primary_e" x="0" y="0" width="256" height="64" />

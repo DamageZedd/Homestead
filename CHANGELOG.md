@@ -90,6 +90,15 @@
   - Fixed Russian radio text `st_pda_radio_no_logs` ("no radio traffic recorded" instead of radioactivity).
   - Deduplicated `st_camp_medic_heal_done` string IDs and replaced broken 3-byte UTF-8 em dashes with standard hyphens in English MCM text.
 
+### 📦 Standard Anomaly Installs, Asset Packaging & Mod Compatibility Hardening (Community / devinhorowitz - Issue #82):
+- **G.A.M.M.A. Flag Isolation**: Removed `00_Core/gamedata/scripts/stalker_camp_builder_gamma_flag.script` which erroneously forced `_G.is_gamma = true` across all installs including Standard S.T.A.L.K.E.R. Anomaly. The flag now strictly ships only within the optional `02_GAMMA` component (with `grok_stashes_on_corpses` continuing to serve as dynamic engine fallback).
+- **Hideout Gadgets Sound Paths Standardization**: Standardized alarm siren/switch sounds in `bind_alarm_system.script` and `bind_alarm_system_pda.script` to `alarm_system_sounds\` (shipped by both base Hideout Gadgets 0.7.2 and Homestead's `04_HideoutGadgetsGammaPatch`), eliminating silent alarms and inverted sound folder logic on Standard Anomaly installs.
+- **Turret and Display Counter Sounds**: Re-routed turret motor and out-of-ammo sounds in `bind_pistol_turret.script`, as well as display counter switch sounds in `bind_display_counter.script`, from G.A.M.M.A.-patch-specific `gun_turret_sounds\` to `alarm_system_sounds\`, ensuring turrets and counters play authentic audio on Standard Anomaly without missing-sound errors.
+- **Vanilla Theme Texture Descriptions**: Re-mapped `ui_homestead_card_bg`, `ui_homestead_module_bg`, `ui_homestead_module_header`, `ui_homestead_dialog_bg`, `ui_homestead_banner_secure`, `ui_homestead_banner_neutral`, and `ui_homestead_banner_threat` in `01_Theme_Vanilla` to Homestead's own `ui\homestead_pda\` textures rather than iTheon's PDA Taskboard (`ui\taskboard_icons`), resolving missing texture box rendering and log errors for users without the Taskboard addon.
+- **Mutant-Nest Map Spot Fallback**: Added dynamic detection in `modxml_stalker_camp_builder.script` for Catspaw skull textures (`ui_catsy_milpda.xml`, `ui_catsy_paw_texd.xml`). On Standard Anomaly installs lacking Catspaw addons, mutant nests cleanly fall back to base-game tactical hazard markers (`ui_pda2_base` / `ui_mmap_base` with hazard orange tint `r="255" g="100" b="0"`), eliminating missing texture spots.
+- **Seamless Mod App Creator (MAC) Integration**: Moved `ui_app_settlement.xml` (defining button texture states `app_settlement_e/h/t/d`) into `00_Core` and removed the redundant `03_ModAppCreator` optional component from the FOMOD installer. Homestead now automatically detects MAC and registers the app icon seamlessly whenever MAC is present in the player's modlist, avoiding blank tiles when selecting "No Mod App Creator Integration".
+- **Orphaned 01_PDATab Removal**: Deleted the orphaned and uninstalled `01_PDATab` directory, eliminating confusing duplicate code and ensuring all theme maintenance targets the active FOMOD theme packages.
+
 ## v1.2.2.1 — Settler Recruitment Idle Animation Hotfix
 
 ### 🐛 Critical Bugfix:

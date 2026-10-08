@@ -177,13 +177,9 @@ function alarm_system_pda_wrapper:__init(obj)
     self.alarm_detected = false
     self.rp = ray_pick()
 
-    -- v1.1.7: match bind_alarm_system's sound-path selection (GAMMA pack vs
-    -- base Gadgets' gadgets_gamma_sounds) so the switch sound isn't missing
-    -- on Standard Anomaly installs.
-    local snd_base = ([[alarm_system_sounds\]])
-    if stalker_camp_builder_gamma_flag == nil and grok_stashes_on_corpses == nil then
-        snd_base = [[gadgets_gamma_sounds\]]
-    end
+    -- Sound path selection: both base Hideout Gadgets 0.7.2 and Homestead's
+    -- G.A.M.M.A. compatibility pack (04_HideoutGadgetsGammaPatch) ship alarm_system_sounds\*.
+    local snd_base = [[alarm_system_sounds\]]
     self.snd_switch = sound_object(snd_base .. [[alarm_system_switch]])
 end
 

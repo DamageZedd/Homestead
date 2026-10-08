@@ -186,16 +186,11 @@ end
 --------------------------------------------------------------------------------
 class "alarm_system_wrapper" (bind_hf_base.hf_binder_wrapper)
 
--- v1.1.7: sound path selection. Homestead's binder overrides the base Hideout
--- Gadgets binder, but the alarm_system_sounds\* files ship only with the
--- G.A.M.M.A. compatibility pack (04_). On Standard Anomaly the required base
--- Gadgets mod provides gadgets_gamma_sounds\* instead, so pick per install --
--- previously alarms were silent (missing-sound errors) on Standard installs.
+-- Sound path selection: both base Hideout Gadgets 0.7.2 and Homestead's
+-- G.A.M.M.A. compatibility pack (04_HideoutGadgetsGammaPatch) ship alarm_system_sounds\*.
+-- Standard Anomaly installs rely on base Hideout Gadgets' alarm_system_sounds.
 local function alarm_sound_base()
-    if stalker_camp_builder_gamma_flag ~= nil or grok_stashes_on_corpses ~= nil then
-        return [[alarm_system_sounds\]]
-    end
-    return [[gadgets_gamma_sounds\]]
+    return [[alarm_system_sounds\]]
 end
 
 function alarm_system_wrapper:__init(obj)

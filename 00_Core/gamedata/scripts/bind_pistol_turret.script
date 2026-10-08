@@ -860,9 +860,9 @@ function pistol_turret_wrapper:__init(obj)
     -- LOS throttle
     self.los_cd = 0
 
-    -- Sounds / fx
-    self.snd_move = sound_object([[gun_turret_sounds\turret_motor]])
-    self.snd_out_of_ammo = sound_object([[gun_turret_sounds\turret_out_of_ammo]])
+    -- Sounds / fx (alarm_system_sounds is shipped by base Gadgets 0.7.2 and 04 patch)
+    self.snd_move = sound_object([[alarm_system_sounds\turret_motor]])
+    self.snd_out_of_ammo = sound_object([[alarm_system_sounds\turret_out_of_ammo]])
     self.snd_ammo = sound_object([[interface\items\inv_items_ammo_2]])
     self.fx_muzzle = particles_object([[weapons\generic_weapon00]])
     self.snd_shoot = sound_object(SND_SHOT_PATH)

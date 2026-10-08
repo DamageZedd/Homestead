@@ -77,26 +77,6 @@ Without these base mods active, you will experience missing section crashes when
 
 		<installStep name="Third-Party Compatibility Patches">
 			<optionalFileGroups order="Explicit">
-				<group name="Mod App Creator Integration" type="SelectExactlyOne">
-					<plugins order="Explicit">
-						<plugin name="Mod App Creator Compatibility Patch">
-							<description>Select this if you are using the Mod App Creator (MAC) framework. Integrates the Settlements tab directly into the unified MAC launcher grid, complete with a custom app icon, and disables the overlapping PDA sidebar button.</description>
-							<files>
-								<folder source="03_ModAppCreator/gamedata" destination="gamedata" priority="3" />
-							</files>
-							<typeDescriptor>
-								<type name="Optional" />
-							</typeDescriptor>
-						</plugin>
-						<plugin name="No Mod App Creator Integration">
-							<description>Select this if you do not use Mod App Creator. The Settlements tab will be integrated using the standard top tab bar.</description>
-							<files />
-							<typeDescriptor>
-								<type name="Recommended" />
-							</typeDescriptor>
-						</plugin>
-					</plugins>
-				</group>
 				<group name="G.A.M.M.A. Compatibility Options" type="SelectExactlyOne">
 					<plugins order="Explicit">
 						<plugin name="Standard S.T.A.L.K.E.R. Anomaly">

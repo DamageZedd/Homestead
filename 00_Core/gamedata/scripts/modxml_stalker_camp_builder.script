@@ -486,6 +486,22 @@ local homestead_mapspots = [[
     <texture r="180" g="180" b="180">ui_mmap_base</texture>
 </homestead_outpost_abandoned_mini_spot>
 
+]]
+
+local function has_catspaw_skull()
+    local fs_ok, fs_found = pcall(function()
+        local fs = getFS()
+        if not fs then return false end
+        return (fs:exist("$game_config$", "ui\\textures_descr\\ui_catsy_milpda.xml") ~= nil)
+            or (fs:exist("$game_config$", "ui\\textures_descr\\ui_catsy_paw_texd.xml") ~= nil)
+    end)
+    return fs_ok and (fs_found == true)
+end
+
+local function get_homestead_mapspots()
+    local mutant_spot_xml
+    if has_catspaw_skull() then
+        mutant_spot_xml = [[
 <homestead_outpost_mutant>
     <level_map spot="homestead_outpost_mutant_spot"/>
     <mini_map spot="homestead_outpost_mutant_mini_spot"/>
@@ -497,6 +513,23 @@ local homestead_mapspots = [[
     <texture>ui_mapspot_skull_small</texture>
 </homestead_outpost_mutant_mini_spot>
 ]]
+    else
+        -- Standard installs without Catspaw's skull textures fall back to a base-game hazard marker
+        mutant_spot_xml = [[
+<homestead_outpost_mutant>
+    <level_map spot="homestead_outpost_mutant_spot"/>
+    <mini_map spot="homestead_outpost_mutant_mini_spot"/>
+</homestead_outpost_mutant>
+<homestead_outpost_mutant_spot width="36" height="36" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.4" location_level="5">
+    <texture r="255" g="100" b="0">ui_pda2_base</texture>
+</homestead_outpost_mutant_spot>
+<homestead_outpost_mutant_mini_spot width="15" height="15" alignment="c" stretch="1" scale="1" scale_min="1.0" scale_max="1.4" location_level="5">
+    <texture r="255" g="100" b="0">ui_mmap_base</texture>
+</homestead_outpost_mutant_mini_spot>
+]]
+    end
+    return homestead_mapspots .. mutant_spot_xml
+end
 
 -- v1.2.2: Homestead-owned 2x-size wrappers around PAW's pin/badge textures. PAW's own
 -- spot definitions (18-20px) live in a third-party mod and are never edited; instead
@@ -556,7 +589,7 @@ function on_xml_read()
         if (xml_file_name == [[ui\map_spots.xml]]) or (xml_file_name == [[ui\map_spots_16.xml]]) or (xml_file_name == [[ui\map_spots_21.xml]]) or
            (xml_file_name == [[ui/map_spots.xml]]) or (xml_file_name == [[ui/map_spots_16.xml]]) or (xml_file_name == [[ui/map_spots_21.xml]]) or
            sfind(xml_file_name, "ui[\\/]map_spots.*%.xml") then
-            xml_obj:insertFromXMLString(homestead_mapspots)
+            xml_obj:insertFromXMLString(get_homestead_mapspots())
             local paw_present = true
             local fs_ok, fs_found = pcall(function()
                 return getFS():exist("$game_config$", "ui\\map_spots_paw_pins.xml")
