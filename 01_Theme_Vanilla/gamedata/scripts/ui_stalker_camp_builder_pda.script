@@ -1411,9 +1411,11 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     end
     self.camp_supplies:SetText(sformat("Provisions: %s   |   %s", food_status, storage_str))
 
-    local morale_val = mmin(100, 50 + (stats.pianos * 25) + (stats.radios * 15))
+    -- the camp's morale as get_camp_stats scores it (camp.happiness): settlers leave below 20,
+    -- and the map marker warns below 40
+    local morale_val = math.floor(stats.happiness or 50)
     local morale_gauge = make_gauge(morale_val, 10)
-    local morale_desc = morale_val >= 75 and "High Comfort" or (morale_val >= 50 and "Standard" or "Poor Conditions")
+    local morale_desc = morale_val >= 75 and "High Comfort" or (morale_val >= 40 and "Standard" or "Poor Conditions")
     self.camp_morale:SetText(sformat("Settlement Morale: %d%%   [%s]   Comfort: %s", morale_val, morale_gauge, morale_desc))
 
     if self.overview_content then

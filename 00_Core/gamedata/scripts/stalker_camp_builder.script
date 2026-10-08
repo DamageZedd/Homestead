@@ -9300,10 +9300,9 @@ function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)
         local ok_stats, camp_stats = pcall(get_camp_stats, c)
         if ok_stats and type(camp_stats) == "table" and camp_stats.defense then
             def = camp_stats.defense
-        end
-        local ok_morale, camp_morale = pcall(get_camp_morale, c)
-        if ok_morale and type(camp_morale) == "number" then
-            mor = camp_morale
+            -- the morale the Overview, the map marker and abandonment use (get_camp_morale is
+            -- the separate score behind the hospitality buff)
+            mor = camp_stats.happiness or mor
         end
 
         table.insert(g_logs, 1, {
