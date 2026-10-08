@@ -589,7 +589,7 @@
     </guide_section_body_text>
 
     <guide_separator_container x="0" y="0" width="544" height="12" stretch="1"/>
-    <guide_separator_line x="10" y="5" width="524" height="2" stretch="1">
+    <guide_separator_line x="10" y="5" width="524" height="2">
         <texture>ui_inGame2_pda_line_horizontal</texture>
     </guide_separator_line>
 
