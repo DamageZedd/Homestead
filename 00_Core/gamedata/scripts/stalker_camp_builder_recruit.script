@@ -1670,9 +1670,10 @@ function stalker_camp_builder.record_banished_companion(npc_id)
         if not m_data.stalker_camp_builder_banished_companions then
             m_data.stalker_camp_builder_banished_companions = {}
         end
+        -- the name tells this settler from a later object that reuses the id: with the object
+        -- already gone there is nothing to record
         local se_obj = alife() and alife():object(npc_id)
-        local name = se_obj and se_obj:name()
-        m_data.stalker_camp_builder_banished_companions[npc_id] = name or true
+        m_data.stalker_camp_builder_banished_companions[npc_id] = se_obj and se_obj:name() or nil
     end
 end
 
@@ -1985,9 +1986,10 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                             local is_ghost_member = false
                             local banished_rec = banished_set[mid]
                             local is_banished_match = false
-                            if banished_rec == true then
-                                is_banished_match = true
-                            elseif type(banished_rec) == "string" and se_m and se_m:name() == banished_rec then
+                            -- an entry saved without a name (true) can't tell this NPC from a later object with
+                            -- the same id; a banished settler still in a Homestead companion squad is caught by
+                            -- Positive Check 3, after Protection B
+                            if type(banished_rec) == "string" and se_m and se_m:name() == banished_rec then
                                 is_banished_match = true
                             end
 
