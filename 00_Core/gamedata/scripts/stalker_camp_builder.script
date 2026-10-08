@@ -5113,27 +5113,30 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
             camp_send_tip(db.actor, game.translate_string("st_event_refugees_arrived"), nil, "general_stalker", 12000)
         end
     elseif chosen_event == "migration" then
-        local angle = mrandom() * 2 * math.pi
-        local r_dist = mrandom(70, 90)
-        local spawn_pos = vector():set(
-            hub_obj.position.x + r_dist * math.cos(angle),
-            hub_obj.position.y,
-            hub_obj.position.z + r_dist * math.sin(angle)
-        )
-        local spawn_lvi = level.vertex_id(spawn_pos)
-        if spawn_lvi and spawn_lvi < 4294967295 and spawn_lvi ~= -1 then
-            spawn_pos = level.vertex_position(spawn_lvi)
-        else
-            spawn_lvi = hub_obj.m_level_vertex_id
+        -- a point with a level vertex under it: a squad created near the player comes online on its
+        -- creation vertex, so the hub's vertex would bring the pack up inside the camp
+        local spawn_pos, spawn_lvi
+        for _ = 1, 8 do
+            local angle = mrandom() * 2 * math.pi
+            local r_dist = mrandom(70, 90)
+            local lvid = level.vertex_id(vector():set(
+                hub_obj.position.x + r_dist * math.cos(angle),
+                hub_obj.position.y,
+                hub_obj.position.z + r_dist * math.sin(angle)
+            ))
+            if lvid and lvid < 4294967295 and lvid ~= -1 then
+                spawn_pos, spawn_lvi = level.vertex_position(lvid), lvid
+                break
+            end
         end
         local spawn_gvi = db.actor:game_vertex_id()
-        if level.cross_table and level.cross_table() then
+        if spawn_lvi and level.cross_table and level.cross_table() then
             spawn_gvi = level.cross_table():vertex(spawn_lvi):game_vertex_id()
         end
 
         local mutant_sections = {"simulation_dog", "simulation_boar", "simulation_tushkano"}
         local sec = mutant_sections[mrandom(#mutant_sections)]
-        local squad = create_squad_at_pos(sec, spawn_pos, spawn_lvi, spawn_gvi, true)
+        local squad = spawn_lvi and create_squad_at_pos(sec, spawn_pos, spawn_lvi, spawn_gvi, true)
         if squad then
             -- a squad can head only for a squad, a smart terrain or the player, and the hub is
             -- furniture: the pack comes at the player, who is at the camp when this fires
