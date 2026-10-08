@@ -845,6 +845,12 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                         local ok_u, u = pcall(function() return se_item:get_remaining_uses() end)
                         if ok_u and u then uses = u end
                     end
+                    -- server objects export no uses: keep the count on record, or the item reads
+                    -- as 1 use and consume_one_use releases all of it
+                    local seen = camp and camp.stored_items and camp.stored_items[child_id]
+                    if seen and seen.sec == sec and seen.uses then
+                        uses = seen.uses
+                    end
 
                     if camp and camp.stored_items then
                         camp.stored_items[child_id] = { sec = sec, cond = cond, uses = uses, box_id = cid }
