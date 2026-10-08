@@ -2801,9 +2801,26 @@ function stalker_camp_builder.trigger_allied_reinforcement(defending_camp)
             if (dx*dx + dy*dy + dz*dz) <= 30625 then
                 local ally_squad = sim:object(other_camp.squad_id)
                 if ally_squad and is_valid_camp_squad(other_camp, ally_squad) then
+                    local tg = time_global()
+                    local reinforce_until = tg + 120000 -- 2 minutes reinforcement mission duration
+                    sb.rival_npc_patrol = sb.rival_npc_patrol or {}
                     for k in sb.safe_squad_members(ally_squad) do
-                        if k.id and level.object_by_id(k.id) then
-                            sb.camp_npc_move_to(k.id, def_pos, defending_camp.level_vertex_id)
+                        if k.id then
+                            local p_data = sb.rival_npc_patrol[k.id]
+                            if not p_data then
+                                p_data = { target_lvid = nil, wait_until = 0, last_move_tg = tg }
+                                sb.rival_npc_patrol[k.id] = p_data
+                            end
+                            p_data.reinforce_until = reinforce_until
+                            p_data.reinforce_pos = def_pos
+                            p_data.reinforce_lvid = defending_camp.level_vertex_id
+                            p_data.reinforce_camp = defending_camp
+                            p_data.target_lvid = defending_camp.level_vertex_id
+                            p_data.wait_until = 0
+                            p_data.last_move_tg = tg
+                            if level.object_by_id(k.id) then
+                                sb.camp_npc_move_to(k.id, defending_camp.level_vertex_id, def_pos)
+                            end
                         end
                     end
                     break

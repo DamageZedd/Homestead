@@ -32,6 +32,7 @@
 - **Restored Settler Stationing Dialogue Commands (PR #161)**: Reconnected missing dialogue phrases in `manage_camp_dialog`, allowing players to command any settler to hold their current position as a permanent station or resume standard workstation duties directly through conversation.
 
 ### 🏕️ Outposts, Convoys, Dynamic Events & Raids (Community / devinhorowitz):
+- **Allied Reinforcement Retention & Defense Stations (Fixes #102)**: Fixed a bug where allied reinforcements dispatched to an outpost in distress were instantly recalled back home within a second due to their home camp's 16m leash; allied squad members now rush in danger readiness to the defending camp, hold tactical defensive positions around the outpost for the 2-minute defense duration or until the threat is resolved, and cleanly return to their home camp once the mission concludes.
 - **Zone-Wide Settlement Clearance for Outposts (PR #138)**: Enforced minimum distance checks against player settlements across all Zone levels when generating dynamic outposts, preventing rival camps from spawning on top of remote player bases.
 - **Immediate Outpost Abandonment on Garrison Elimination (PR #91)**: Marked outposts as abandoned immediately when their last garrison squad unregisters in `server_entity_on_unregister`, eliminating delayed or ghost occupied states.
 - **Outpost Fortification Tier Retention on Skirmish (PR #154)**: Preserved upgraded outpost tiers and existing barricade structures when an outpost changes faction ownership following a skirmish takeover.

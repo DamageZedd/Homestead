@@ -2555,20 +2555,42 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
     local npc_pos = npc:position()
     if not npc_pos then return end
-    local dist_to_chest = npc_pos:distance_to(chest_pos)
     local npc_lvid = npc:level_vertex_id()
     if not is_level_vertex(npc_lvid) then
         return
     end
 
+    local is_reinforcing = false
+    if p_data.reinforce_until then
+        local def_camp = p_data.reinforce_camp
+        if tg >= p_data.reinforce_until
+            or not def_camp
+            or def_camp.status == "unoccupied"
+            or def_camp.status == "mutant_nest"
+            or def_camp.faction ~= rival_info.faction then
+            p_data.reinforce_until = nil
+            p_data.reinforce_pos = nil
+            p_data.reinforce_lvid = nil
+            p_data.reinforce_camp = nil
+            p_data.target_lvid = nil
+            p_data.wait_until = 0
+        else
+            is_reinforcing = true
+        end
+    end
+
+    local active_center_pos = is_reinforcing and p_data.reinforce_pos or chest_pos
+    local active_center_lvid = is_reinforcing and p_data.reinforce_lvid or rival_info.level_vertex_id
+    local dist_to_center = npc_pos:distance_to(active_center_pos)
+
     -- DISLODGE FIX: If NPC is stuck right on top of the blue box or perched on its collision mesh
-    local y_diff = npc_pos.y - chest_pos.y
-    if dist_to_chest < 1.0 and y_diff > 0.25 then
-        local camp_rot = rival_info.rotation or 0
+    local y_diff = npc_pos.y - active_center_pos.y
+    if dist_to_center < 1.0 and y_diff > 0.25 then
+        local camp_rot = is_reinforcing and (p_data.reinforce_camp and p_data.reinforce_camp.rotation or 0) or (rival_info.rotation or 0)
         local nudge_ang = camp_rot + (mrandom(1, 4) * (math.pi * 0.5))
-        local nudge_x = chest_pos.x + 3.2 * math.cos(nudge_ang)
-        local nudge_z = chest_pos.z + 3.2 * math.sin(nudge_ang)
-        local nudge_lvid = level.vertex_id(vector():set(nudge_x, chest_pos.y, nudge_z))
+        local nudge_x = active_center_pos.x + 3.2 * math.cos(nudge_ang)
+        local nudge_z = active_center_pos.z + 3.2 * math.sin(nudge_ang)
+        local nudge_lvid = level.vertex_id(vector():set(nudge_x, active_center_pos.y, nudge_z))
         if is_level_vertex(nudge_lvid) and npc:accessible(nudge_lvid) then
             local nudge_vpos = level.vertex_position(nudge_lvid)
             if nudge_vpos and npc.set_npc_position then
@@ -2583,31 +2605,36 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
         end
     end
 
-    -- Leash: If too far from camp (e.g. wandered > 16m), return to camp perimeter
-    if dist_to_chest > 16 then
-        local safe_lvid = (rival_info.level_vertex_id and is_level_vertex(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
+    -- Leash: If too far from active camp (e.g. wandered > 16m), return to perimeter
+    if dist_to_center > 16 then
+        local safe_lvid = (active_center_lvid and is_level_vertex(active_center_lvid) and npc:accessible(active_center_lvid)) and active_center_lvid or npc_lvid
         p_data.target_lvid = safe_lvid
         p_data.wait_until = 0
     end
 
     local at_target = false
-    if p_data.target_lvid then
-        if not (is_level_vertex(p_data.target_lvid) and npc:accessible(p_data.target_lvid)) then
-            p_data.target_lvid = npc_lvid
-            at_target = true
-        else
-            local t_pos = level.vertex_position(p_data.target_lvid)
-            if t_pos and npc_pos:distance_to_sqr(t_pos) < 2.25 then
-                at_target = true
-            end
-        end
+    if dist_to_center > 16 then
+        -- En route to camp perimeter: keep moving towards perimeter, do not pause or idle
+        at_target = false
     else
-        at_target = true
-    end
+        if p_data.target_lvid then
+            if not (is_level_vertex(p_data.target_lvid) and npc:accessible(p_data.target_lvid)) then
+                p_data.target_lvid = npc_lvid
+                at_target = true
+            else
+                local t_pos = level.vertex_position(p_data.target_lvid)
+                if t_pos and npc_pos:distance_to_sqr(t_pos) < 2.25 then
+                    at_target = true
+                end
+            end
+        else
+            at_target = true
+        end
 
-    -- Timeout safety: if an NPC has been trying to walk to target for > 12 seconds, arrive
-    if p_data.last_move_tg and (tg - p_data.last_move_tg) > 12000 then
-        at_target = true
+        -- Timeout safety: if an NPC has been trying to walk to target for > 12 seconds, arrive
+        if p_data.last_move_tg and (tg - p_data.last_move_tg) > 12000 then
+            at_target = true
+        end
     end
 
     if at_target or (npc:path_completed() and tg > p_data.wait_until) then
@@ -2616,7 +2643,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
             p_data.last_move_tg = tg
 
             -- Tactical guard/patrol stations around camp barricades and hearth
-            local camp_rot = rival_info.rotation or 0
+            local camp_rot = is_reinforcing and (p_data.reinforce_camp and p_data.reinforce_camp.rotation or 0) or (rival_info.rotation or 0)
             local cos_r = math.cos(camp_rot)
             local sin_r = math.sin(camp_rot)
             local patrol_offsets = {
@@ -2640,9 +2667,9 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
             for _, idx in ipairs(shuffled_indices) do
                 local off = patrol_offsets[idx]
-                local wx = chest_pos.x + off.lx * cos_r - off.lz * sin_r
-                local wz = chest_pos.z + off.lx * sin_r + off.lz * cos_r
-                test_p:set(wx, chest_pos.y, wz)
+                local wx = active_center_pos.x + off.lx * cos_r - off.lz * sin_r
+                local wz = active_center_pos.z + off.lx * sin_r + off.lz * cos_r
+                test_p:set(wx, active_center_pos.y, wz)
                 local test_lvid = level.vertex_id(test_p)
                 if test_lvid and test_lvid < 4294967295 and test_lvid ~= -1 and npc:accessible(test_lvid) then
                     if utils_obj and utils_obj.send_to_nearest_accessible_vertex then
@@ -2662,9 +2689,9 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                     local angle = mrandom() * math.pi * 2
                     local r = mrandom() * 3.0 + 2.5
                     test_p:set(
-                        chest_pos.x + r * math.cos(angle),
-                        chest_pos.y,
-                        chest_pos.z + r * math.sin(angle))
+                        active_center_pos.x + r * math.cos(angle),
+                        active_center_pos.y,
+                        active_center_pos.z + r * math.sin(angle))
                     local test_lvid = level.vertex_id(test_p)
                     if test_lvid and test_lvid < 4294967295 and test_lvid ~= -1 and npc:accessible(test_lvid) then
                         if utils_obj and utils_obj.send_to_nearest_accessible_vertex then
@@ -2678,7 +2705,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                 end
             end
 
-            local safe_fallback = (rival_info.level_vertex_id and is_level_vertex(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
+            local safe_fallback = (active_center_lvid and is_level_vertex(active_center_lvid) and npc:accessible(active_center_lvid)) and active_center_lvid or npc_lvid
             p_data.target_lvid = found_lvid or safe_fallback
         else
             -- At target: play alert, guard, and patrol idle animations looking outwards
@@ -2695,9 +2722,9 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                 local idles = { "guard", "threat_na", "wait_na", "caution", "smoking_stand", "sit_knee" }
                 local chosen_idle = idles[mrandom(#idles)]
                 local look_pos = vector():set(
-                    npc_pos.x + (npc_pos.x - chest_pos.x) * 2.0,
+                    npc_pos.x + (npc_pos.x - active_center_pos.x) * 2.0,
                     npc_pos.y,
-                    npc_pos.z + (npc_pos.z - chest_pos.z) * 2.0
+                    npc_pos.z + (npc_pos.z - active_center_pos.z) * 2.0
                 )
                 state_mgr.set_state(npc, chosen_idle, nil, nil, { look_position = look_pos }, { fast_set = true })
             end
@@ -2707,6 +2734,15 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
     if p_data.target_lvid and p_data.target_lvid ~= npc_lvid then
         camp_npc_move_to(npc, p_data.target_lvid)
+        if is_reinforcing and dist_to_center > 16 then
+            pcall(function()
+                npc:set_movement_type(move.run)
+                npc:set_mental_state(anim.danger)
+                if state_mgr then
+                    state_mgr.set_state(npc, "rush", nil, nil, nil, { fast_set = true })
+                end
+            end)
+        end
     end
 end
 
