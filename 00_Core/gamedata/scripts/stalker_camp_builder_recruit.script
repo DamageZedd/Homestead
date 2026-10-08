@@ -1608,8 +1608,15 @@ function stalker_camp_builder.heal_stuck_companion_settlers()
                     local se_npc = sim:object(id_num)
                     if se_npc then
                         local squad = get_object_squad(se_npc)
-                        local in_comp_squads = squad and axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id]
-                        if not in_comp_squads then
+                        -- axr_companions.load_state leaves false for each squad until its first update
+                        local in_comp_squads = squad and axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id] ~= nil
+                        if not in_comp_squads and not se_load_var(id_num, se_npc:name(), "companion") then
+                            -- dismissed with the companion dialog's "Leave" (remove_from_actor_squad clears
+                            -- the var): back to the camp job rather than back into the party
+                            survivor.job = survivor.paused_job or "idle"
+                            survivor.paused_job = nil
+                            survivor.is_companion = nil
+                        elseif not in_comp_squads then
                             local online_npc = level.object_by_id(id_num)
                             if sb.convert_settler_to_companion_squad then
                                 squad = sb.convert_settler_to_companion_squad(id_num, online_npc)
