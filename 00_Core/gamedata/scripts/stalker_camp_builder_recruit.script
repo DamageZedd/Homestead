@@ -426,9 +426,6 @@ function stalker_camp_builder.release_npc_from_squad_and_smart(npc_id)
     local squad = get_object_squad(se_obj)
     if squad then
         squad:unregister_member(npc_id)
-        if se_obj.group_id ~= nil then
-            se_obj.group_id = 65535  -- 0xFFFF = "no squad" sentinel in X-Ray
-        end
         local npc_count_ok, npc_count_val = pcall(function() return squad:npc_count() end)
         if npc_count_ok and npc_count_val > 0 then
             squad:refresh()
@@ -547,10 +544,6 @@ function stalker_camp_builder.teleport_settler_to_camp_level(npc_id, hub_id, for
         pcall(function() online_obj:disable_info_portion("npcx_is_companion") end)
     end
     pcall(function() sim:disable_info(npc_id, "npcx_is_companion") end)
-
-    if se_npc.group_id == 0 then
-        se_npc.group_id = 65535
-    end
 
     local target_pos, target_lvid, target_gvid = sb.get_settler_job_target(npc_id, hub_id)
     if not target_pos then
@@ -683,10 +676,6 @@ function stalker_camp_builder.heal_settler_squad_membership(npc_id, camp_level, 
 
     local ok = pcall(function() actor_squad:unregister_member(npc_id) end)
     if not ok then return false end
-
-    if se_npc.group_id ~= nil then
-        se_npc.group_id = 65535  -- 0xFFFF = "no squad" sentinel
-    end
 
     -- Resolve camp_level if not provided
     if not camp_level then
@@ -1080,10 +1069,6 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
     if actor_squad_after then
         local ok = pcall(function() actor_squad_after:unregister_member(npc_id) end)
         if ok then
-            local se_after = alife_object(npc_id)
-            if se_after and se_after.group_id ~= nil then
-                se_after.group_id = 65535  -- 0xFFFF = "no squad" sentinel
-            end
             -- printf(sformat("[Homestead] recruit_npc_to_camp: unregistered npc %d from actor squad %d (smart-terrain anchor now provides GC protection)", npc_id, actor_squad_after.id))
         end
     end
@@ -1772,10 +1757,8 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
         pcall(function() sb.release_settler_home_squad(npc_id) end)
     end
 
-    -- 3. Reset ALife group ID sentinel
-    if se_npc and se_npc.group_id ~= nil then
-        se_npc.group_id = 65535
-    end
+    -- 3. No group_id reset: unregister_member clears it in the engine, and the property is
+    --    read-only to scripts (an assignment only hides the engine's value from later reads)
 
     -- 4. Clean up axr_companions subsystem
     if axr_companions then
@@ -2036,7 +2019,6 @@ function stalker_camp_builder.heal_ghost_companion_squads()
             pcall(function() squad:unregister_member(mid) end)
             local se_m = sim:object(mid)
             if se_m then
-                se_m.group_id = 65535
                 pcall(function()
                     se_save_var(mid, se_m:name(), "companion", nil)
                     se_save_var(mid, se_m:name(), "companion_cannot_dismiss", nil)
