@@ -384,20 +384,21 @@ function SettlementManagerPDA:InitControls()
     self.rival_banner_bg = xml:InitStatic("rival_content:rival_banner_bg", self.rival_content)
     self.rival_banner_lbl = xml:InitTextWnd("rival_content:rival_banner_lbl", self.rival_content)
 
-    -- the rival panel's section headings and their rules: in the XML, never created before
-    for _, name in ipairs({"rival_faction_lbl", "rival_loc_gar_lbl", "rival_intel_lbl"}) do
-        xml:InitTextWnd("rival_content:" .. name, self.rival_content)
-    end
+    -- the rival panel's module backgrounds, then their header bars, then the section headings:
+    -- a window draws its children in the order they are attached
     self.rival_faction_bg = xml:InitStatic("rival_content:rival_faction_bg", self.rival_content)
     self.rival_loc_gar_bg = xml:InitStatic("rival_content:rival_loc_gar_bg", self.rival_content)
+    self.rival_intel_bg = xml:InitStatic("rival_content:rival_intel_bg", self.rival_content)
     for _, name in ipairs({"rival_faction_header_bg", "rival_loc_gar_header_bg", "rival_intel_header_bg"}) do
         xml:InitStatic("rival_content:" .. name, self.rival_content)
+    end
+    for _, name in ipairs({"rival_faction_lbl", "rival_loc_gar_lbl", "rival_intel_lbl"}) do
+        xml:InitTextWnd("rival_content:" .. name, self.rival_content)
     end
     self.rival_camp_status = xml:InitTextWnd("rival_content:rival_camp_status", self.rival_content)
     self.rival_camp_faction = xml:InitTextWnd("rival_content:rival_camp_faction", self.rival_content)
     self.rival_camp_location = xml:InitTextWnd("rival_content:rival_camp_location", self.rival_content)
     self.rival_camp_garrison = xml:InitTextWnd("rival_content:rival_camp_garrison", self.rival_content)
-    self.rival_intel_bg = xml:InitStatic("rival_content:rival_intel_bg", self.rival_content)
     self.rival_camp_intel = xml:InitTextWnd("rival_content:rival_camp_intel", self.rival_content)
 
     self.btn_rival_locate = xml:Init3tButton("rival_content:btn_rival_locate", self.rival_content)
