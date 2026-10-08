@@ -2091,7 +2091,7 @@ Experience: +%d XP (Total: %d XP - Tier %d)</text>
         <text>%s has been dismissed from the settlement.</text>
     </string>
     <string id="st_camp_rest_bonus_msg">
-        <text>You rested well at your camp. Satiety, power, and thirst fully restored.</text>
+        <text>You rested well at your camp. Satiety and power fully restored.</text>
     </string>
     <string id="st_radio_autosort_deposited">
         <text>Auto-Sort: Player deposited %d supplies into settlement storage</text>
