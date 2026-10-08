@@ -5693,6 +5693,11 @@ function server_entity_on_unregister(se_obj, type_name)
             stalker_camp_builder.settler_lookup[obj_id] = nil
         end
     end
+
+    local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
+    if m_data and m_data.stalker_camp_builder_banished_companions and m_data.stalker_camp_builder_banished_companions[obj_id] then
+        m_data.stalker_camp_builder_banished_companions[obj_id] = nil
+    end
 end
 
 function npc_on_death_callback(npc, who)

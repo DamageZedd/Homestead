@@ -1670,7 +1670,9 @@ function stalker_camp_builder.record_banished_companion(npc_id)
         if not m_data.stalker_camp_builder_banished_companions then
             m_data.stalker_camp_builder_banished_companions = {}
         end
-        m_data.stalker_camp_builder_banished_companions[npc_id] = true
+        local se_obj = alife() and alife():object(npc_id)
+        local name = se_obj and se_obj:name()
+        m_data.stalker_camp_builder_banished_companions[npc_id] = name or true
     end
 end
 
@@ -1681,12 +1683,12 @@ end
 -- Prevents "ghost companion" squads from endlessly following the player by foot
 -- with orphaned HUD health bars after banishment.
 -- ============================================================================
-function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on_npc)
+function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on_npc, is_banish)
     local sb = stalker_camp_builder
     local sim = alife()
     if not (npc_id and sim) then return end
 
-    if sb.record_banished_companion then
+    if is_banish ~= false and sb.record_banished_companion then
         sb.record_banished_companion(npc_id)
     end
 
@@ -1876,12 +1878,18 @@ function stalker_camp_builder.heal_ghost_companion_squads()
             axr_companions.companion_squads[squad_id] = nil
         elseif squad.id ~= actor_squad_id then
             local is_protected = false
-            local is_ghost_homestead_squad = false
             local ghost_member_ids = {}
 
             -- Safety Filter 1: Story squad
-            local sq_story_id = squad.m_story_id or squad.story_id
-            if sq_story_id and sq_story_id ~= 65535 then
+            local is_story_sq = false
+            if get_object_story_id and get_object_story_id(squad.id) then
+                is_story_sq = true
+            elseif squad.story_id and squad.story_id ~= 65535 and squad.story_id ~= 4294967295 and squad.story_id ~= "" then
+                is_story_sq = true
+            elseif squad.m_story_id and squad.m_story_id ~= 65535 and squad.m_story_id ~= 4294967295 and squad.m_story_id ~= -1 then
+                is_story_sq = true
+            end
+            if is_story_sq then
                 is_protected = true
             end
 
@@ -1890,10 +1898,10 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                 is_protected = true
             end
 
-            -- Safety Filter 3: Referenced by active quest
+            -- Safety Filter 3: Referenced by active quest target
             if not is_protected then
                 for _, tsk in pairs(active_tasks) do
-                    if tsk.squad_id == squad.id then
+                    if tsk.current_target == squad.id then
                         is_protected = true
                         break
                     end
@@ -1911,13 +1919,13 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                             local se_m = sim:object(mid)
 
                             -- Protection A: Story NPC
-                            if se_m and se_m.m_story_id and se_m.m_story_id ~= 65535 then
-                                is_protected = true
-                                break
+                            local is_story_m = false
+                            if get_object_story_id and get_object_story_id(mid) then
+                                is_story_m = true
+                            elseif se_m and se_m.m_story_id and se_m.m_story_id ~= 65535 and se_m.m_story_id ~= 4294967295 and se_m.m_story_id ~= -1 then
+                                is_story_m = true
                             end
-
-                            -- Protection B: Vanilla non-task companion
-                            if axr_companions.non_task_companions and axr_companions.non_task_companions[mid] then
+                            if is_story_m then
                                 is_protected = true
                                 break
                             end
@@ -1938,7 +1946,7 @@ function stalker_camp_builder.heal_ghost_companion_squads()
 
                             -- Protection D: Active task reference on member
                             for _, tsk in pairs(active_tasks) do
-                                if tsk.task_giver_id == mid or tsk.target_id == mid then
+                                if tsk.task_giver_id == mid or tsk.current_target == mid then
                                     is_protected = true
                                     break
                                 end
@@ -1963,20 +1971,36 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                                 break
                             end
 
-                            -- Positive Check 1: Explicitly banished/dismissed Homestead settler
-                            if banished_set[mid] then
-                                is_ghost_homestead_squad = true
-                                ghost_member_ids[#ghost_member_ids + 1] = mid
+                            -- Positive Check 1: Explicitly banished/dismissed Homestead settler (with name verification)
+                            local is_ghost_member = false
+                            local banished_rec = banished_set[mid]
+                            local is_banished_match = false
+                            if banished_rec == true then
+                                is_banished_match = true
+                            elseif type(banished_rec) == "string" and se_m and se_m:name() == banished_rec then
+                                is_banished_match = true
+                            end
+
+                            if is_banished_match then
+                                is_ghost_member = true
                             -- Positive Check 2: Settler in camp whose job was switched away from companion
                             elseif in_camp and not is_active_camp_comp then
-                                is_ghost_homestead_squad = true
+                                is_ghost_member = true
+                            end
+
+                            if is_ghost_member then
                                 ghost_member_ids[#ghost_member_ids + 1] = mid
-                            -- Positive Check 3: Legacy orphaned companion squad created by Homestead
-                            -- (Homestead dedicated companion squads are section "online_offline_group",
-                            -- single member, targeted to actor, not in camp, and not protected by any task/story)
-                            elseif squad:section_name() == "online_offline_group" and (squad.scripted_target == "actor") and not in_camp then
-                                is_ghost_homestead_squad = true
-                                ghost_member_ids[#ghost_member_ids + 1] = mid
+                            else
+                                -- Protection B: Vanilla non-task companion (only when NOT positive ghost)
+                                if axr_companions.non_task_companions and axr_companions.non_task_companions[mid] then
+                                    is_protected = true
+                                    break
+                                end
+
+                                -- Positive Check 3: Dedicated Homestead companion squad created by Homestead
+                                if squad:section_name() == "online_offline_group" and (squad.scripted_target == "actor") and not in_camp then
+                                    ghost_member_ids[#ghost_member_ids + 1] = mid
+                                end
                             end
                         end
                     end
@@ -1984,7 +2008,7 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                     -- If squad has 0 members, it is an empty stale squad
                     if count == 0 then
                         stale_squads[#stale_squads + 1] = { squad = squad, members = {} }
-                    elseif not is_protected and is_ghost_homestead_squad then
+                    elseif not is_protected and #ghost_member_ids > 0 then
                         stale_squads[#stale_squads + 1] = { squad = squad, members = ghost_member_ids }
                     end
                 end
@@ -1995,43 +2019,55 @@ function stalker_camp_builder.heal_ghost_companion_squads()
     for _, item in ipairs(stale_squads) do
         local squad = item.squad
         local sid = squad.id
-        axr_companions.companion_squads[sid] = nil
-        squad.scripted_target = nil
-        squad.current_action = nil
-        squad.assigned_smart_id = nil
-        squad.get_script_target = nil
+        local ghost_ids = item.members
 
-        local ok_mem, members = pcall(function() return squad:squad_members() end)
-        if ok_mem and members then
-            local mem_ids = {}
-            for k in members do if k.id then mem_ids[#mem_ids + 1] = k.id end end
-            for _, mid in ipairs(mem_ids) do
-                pcall(function() squad:unregister_member(mid) end)
-                local se_m = sim:object(mid)
-                if se_m then
-                    se_m.group_id = 65535
-                    pcall(function()
-                        se_save_var(mid, se_m:name(), "companion", nil)
-                        se_save_var(mid, se_m:name(), "companion_cannot_dismiss", nil)
-                        se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
-                    end)
-                end
-                pcall(function() sim:disable_info(mid, "npcx_is_companion") end)
-                local on_m = level.object_by_id(mid)
-                if on_m then
-                    pcall(function() on_m:disable_info_portion("npcx_is_companion") end)
-                end
-                if stalker_generic and stalker_generic.remove_level_spot then
-                    pcall(function() stalker_generic.remove_level_spot(mid) end)
-                end
-                if banished_set and banished_set[mid] then
-                    banished_set[mid] = nil
-                end
+        -- Process only identified ghost members
+        for _, mid in ipairs(ghost_ids) do
+            pcall(function() squad:unregister_member(mid) end)
+            local se_m = sim:object(mid)
+            if se_m then
+                se_m.group_id = 65535
+                pcall(function()
+                    se_save_var(mid, se_m:name(), "companion", nil)
+                    se_save_var(mid, se_m:name(), "companion_cannot_dismiss", nil)
+                    se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
+                end)
+            end
+            pcall(function() sim:disable_info(mid, "npcx_is_companion") end)
+            pcall(function() sim:disable_info(mid, "npcx_beh_wait") end)
+            pcall(function() sim:disable_info(mid, "npcx_beh_cannot_dismiss") end)
+            pcall(function() sim:disable_info(mid, "homestead_settler_guard") end)
+            pcall(function() sim:disable_info(mid, "homestead_settler_patrol") end)
+
+            local on_m = level.object_by_id(mid)
+            if on_m then
+                pcall(function()
+                    on_m:disable_info_portion("npcx_is_companion")
+                    on_m:disable_info_portion("npcx_beh_wait")
+                    on_m:disable_info_portion("npcx_beh_cannot_dismiss")
+                    on_m:disable_info_portion("homestead_settler_guard")
+                    on_m:disable_info_portion("homestead_settler_patrol")
+                end)
+            end
+            if axr_companions.non_task_companions then
+                axr_companions.non_task_companions[mid] = nil
+            end
+            if stalker_generic and stalker_generic.remove_level_spot then
+                pcall(function() stalker_generic.remove_level_spot(mid) end)
+            end
+            if banished_set and banished_set[mid] then
+                banished_set[mid] = nil
             end
         end
 
+        -- If squad has no remaining members (or was an empty squad), release it completely
         local ok_cnt, cnt = pcall(function() return squad:npc_count() end)
-        if ok_cnt and cnt and cnt <= 0 then
+        if (ok_cnt and cnt and cnt <= 0) or #ghost_ids == 0 then
+            axr_companions.companion_squads[sid] = nil
+            squad.scripted_target = nil
+            squad.current_action = nil
+            squad.assigned_smart_id = nil
+            squad.get_script_target = nil
             if SIMBOARD then SIMBOARD.squads[sid] = nil end
             pcall(function() sb.safe_alife_release(squad) end)
         end
