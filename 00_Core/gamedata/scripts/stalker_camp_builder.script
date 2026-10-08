@@ -3372,7 +3372,7 @@ function hf_on_furniture_place(obj_id)
                 last_raid_check_time = cur_sec
             }
             last_raid_game_sec = cur_sec + (cfg.raid_cooldown or 129600)
-            level.map_add_object_spot(obj_id, get_settlement_map_spot_type(), "Camp: My Settlement")  -- runtime camp marker, not serialized
+            refresh_settlement_map_spot(obj_id, stalker_camp_builder.active_camps[obj_id])  -- runtime camp marker, not serialized
 
             local ok_zone, se_zone = pcall(function()
                 return alife():create("script_zone", se_obj.position, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id)
@@ -3934,6 +3934,25 @@ function get_settlement_map_spot_type()
 end
 stalker_camp_builder.get_settlement_map_spot_type = get_settlement_map_spot_type
 
+-- The settlement marker, on whatever spot type the MCM style gives the hub: the camp's name
+-- (normalize_camps stores a missing one as "") and, below 40% morale, a warning. Adds the spot
+-- when it is missing; otherwise only its text changes.
+function refresh_settlement_map_spot(hub_id, camp)
+    local name = camp and camp.name
+    local hint = (name and name ~= "") and ("Settlement: " .. name) or "Settlement"
+    local morale = camp and camp.happiness
+    if morale and morale < 40 then
+        hint = hint .. string.format(" [LOW MORALE: %d%%]", morale)
+    end
+    local spot = get_settlement_map_spot_type()
+    if level.map_has_object_spot(hub_id, spot) == 0 then
+        level.map_add_object_spot(hub_id, spot, hint)
+    else
+        level.map_change_spot_hint(hub_id, spot, hint)
+    end
+end
+stalker_camp_builder.refresh_settlement_map_spot = refresh_settlement_map_spot
+
 function get_outpost_map_spot_type(camp, is_hostile)
     local style = (stalker_camp_builder.cfg and stalker_camp_builder.cfg.outpost_map_spot_style) or 0
 
@@ -4062,9 +4081,6 @@ function sync_all_camp_map_spots(force)
     for hub_id, camp in pairs(sb.active_camps) do
         local se_hub = sim:object(hub_id)
         if se_hub then
-            local c_name = camp.name or "Settlement"
-            local label = "Settlement: " .. c_name
-
             -- Remove obsolete/competing map spots on camp hub (strips legacy serialized spots too)
             if force then
                 for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
@@ -4079,9 +4095,7 @@ function sync_all_camp_map_spots(force)
                     end
                 end
             end
-            if level.map_has_object_spot(hub_id, camp_spot) == 0 then
-                pcall(function() level.map_add_object_spot(hub_id, camp_spot, label) end)
-            end
+            pcall(refresh_settlement_map_spot, hub_id, camp)
             if camp.zone_id and level.map_has_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location") ~= 0 then
                 level.map_remove_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location")
             end

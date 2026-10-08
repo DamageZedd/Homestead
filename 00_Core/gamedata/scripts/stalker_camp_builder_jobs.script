@@ -2162,12 +2162,8 @@ function stalker_camp_builder.update_camp_jobs()
         else
             local stats = sb.get_camp_stats and sb.get_camp_stats(camp, hub_obj)
             if stats then
-                local base_name = camp.name or "Settlement"
-                local spot_hint = base_name
-                if stats.morale and stats.morale < 40 then
-                    spot_hint = base_name .. sformat(" [LOW MORALE: %d%%]", stats.morale)
-                end
-                pcall(function() level.map_change_spot_hint(hub_id, "ui_pda2_actor_sleep_location", spot_hint) end)
+                -- get_camp_stats has just set camp.happiness, which the marker's morale warning reads
+                pcall(sb.refresh_settlement_map_spot, hub_id, camp)
             end
 
             if camp.active_trader_id then
