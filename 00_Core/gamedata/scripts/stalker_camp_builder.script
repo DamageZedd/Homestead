@@ -2624,11 +2624,11 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                 ["threat_na"] = true,
                 ["wait_na"] = true,
                 ["caution"] = true,
-                ["smoke"] = true,
+                ["smoking_stand"] = true,
                 ["sit_knee"] = true,
             }
             if not valid_states[cur_state] then
-                local idles = { "guard", "threat_na", "wait_na", "caution", "smoke", "sit_knee" }
+                local idles = { "guard", "threat_na", "wait_na", "caution", "smoking_stand", "sit_knee" }
                 local chosen_idle = idles[mrandom(#idles)]
                 local look_pos = vector():set(
                     npc_pos.x + (npc_pos.x - chest_pos.x) * 2.0,
@@ -3257,7 +3257,7 @@ function npc_on_update(npc)
             ["wait_na"] = true,
             ["guard"] = true,
             ["caution"] = true,
-            ["smoke"] = true,
+            ["smoking_stand"] = true,
             ["sit_knee"] = true,
             ["threat_na"] = true,
             ["ward"] = true,
@@ -3265,7 +3265,7 @@ function npc_on_update(npc)
         local need_new_anim = (not safe_idle_states[cur_state]) or (now_tg > (cache.idle_anim_tg or 0))
         if need_new_anim then
             cache.idle_anim_tg = now_tg + mrandom(20000, 35000)
-            local idle_choices = { "wait_na", "guard", "caution", "smoke", "sit_knee", "threat_na", "ward" }
+            local idle_choices = { "wait_na", "guard", "caution", "smoking_stand", "sit_knee", "threat_na", "ward" }
             local chosen_idle = idle_choices[mrandom(#idle_choices)]
             local look_pos = vector():set(
                 target_pos.x + (target_pos.x - hub_obj.position.x) * 2.0,
