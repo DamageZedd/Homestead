@@ -5286,9 +5286,8 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
 
     local squad = create_squad_at_pos(section, spawn_pos, spawn_lvi, spawn_gvi, true)
     if squad then
-        squad.get_script_target = function(self)
-            return AC_ID
-        end
+        -- kept in the squad's save, unlike a function: get_script_target reads "actor" as the player
+        squad.scripted_target = "actor"
         squad.rush = true
 
         local function enforce_raid_hostility()
@@ -5451,7 +5450,14 @@ end
 
 function check_completed_raids()
     for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
-        if camp.active_raid then
+        if camp.active_raid and camp.level and camp.level ~= level.name() then
+            -- the player has left the camp's level: the raid ends there, and the raiders stop following
+            local squad = camp.active_raid.squad_id and alife_object(camp.active_raid.squad_id)
+            if squad and squad.scripted_target == "actor" then
+                squad.scripted_target = nil
+            end
+            camp.active_raid = nil
+        elseif camp.active_raid then
             local raid = camp.active_raid
             local squad = camp.active_raid.squad_id and alife_object(camp.active_raid.squad_id)
             local squad_alive = false
