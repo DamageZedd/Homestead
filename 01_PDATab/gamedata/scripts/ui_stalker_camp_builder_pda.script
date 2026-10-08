@@ -2964,6 +2964,9 @@ function SettlementManagerPDA:OnRadioClearClicked()
     if stalker_camp_builder and stalker_camp_builder.clear_camp_radio_logs then
         stalker_camp_builder.clear_camp_radio_logs()
     end
+    -- the feed seeds any log with fewer than two entries; after Clear only new reports
+    -- and Scan fill it again
+    self.radio_cleared = true
     self:PopulateRadioFeed()
 end
 
@@ -2971,7 +2974,7 @@ function SettlementManagerPDA:PopulateRadioFeed()
     if not self.radio_scroll then return end
     self.radio_scroll:Clear()
 
-    if stalker_camp_builder and stalker_camp_builder.seed_initial_settlement_telemetry then
+    if stalker_camp_builder and stalker_camp_builder.seed_initial_settlement_telemetry and not self.radio_cleared then
         pcall(stalker_camp_builder.seed_initial_settlement_telemetry, false)
     end
 
