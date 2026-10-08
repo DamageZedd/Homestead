@@ -64,25 +64,11 @@ local REF_RIGHT_AXIS    = "k"
 
 -- =========================
 -- SOUND PATHS
--- v1.1.7: the shoot/reload sounds previously used GAMMA sound-pack paths
--- (weapons\silencers\no_clinks\..., weapons\mp7\...) which do not exist in
--- vanilla Anomaly 1.5.3. Pick the pack based on whether GAMMA is detected;
--- vanilla installs fall back to sounds that ship with the base game.
+-- the suppressed 9x19 shot and the MP7 reload, as in Gadgets 0.7.2; both ship in
+-- base Anomaly's sounds.db0, so every install has them
 -- =========================
-local function is_gamma_environment()
-    if stalker_camp_builder_gamma_flag ~= nil then return true end
-    if grok_stashes_on_corpses ~= nil then return true end
-    return false
-end
-
-local SND_SHOT_PATH, SND_RELOAD_PATH
-if is_gamma_environment() then
-    SND_SHOT_PATH   = [[weapons\silencers\no_clinks\silencer_9x19]]
-    SND_RELOAD_PATH = [[weapons\mp7\mp7_reload]]
-else
-    SND_SHOT_PATH   = [[weapons\pm\pm_shot]]
-    SND_RELOAD_PATH = [[weapons\pm\pm_reload_empty]]
-end
+local SND_SHOT_PATH   = [[weapons\silencers\no_clinks\silencer_9x19]]
+local SND_RELOAD_PATH = [[weapons\mp7\mp7_reload]]
 
 -- =========================
 -- PERFORMANCE TUNING
