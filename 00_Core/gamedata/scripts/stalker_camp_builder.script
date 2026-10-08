@@ -557,6 +557,9 @@ function is_valid_camp_box(box_id, hub_id, camp)
 
     local se_box = safe_alife_object(box_id)
     if not se_box then return false end
+    -- a backpack the player drops as a stash is an inv_backpack box; stash furniture has a
+    -- placeable_* section (sometimes with inv_backpack as its parent) and stays camp storage
+    if se_box:section_name() == "inv_backpack" then return false end
 
     local sb = stalker_camp_builder
     if type_(hub_id) == "table" and type_(camp) ~= "table" then
