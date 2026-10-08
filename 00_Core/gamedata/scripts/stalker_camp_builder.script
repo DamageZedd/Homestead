@@ -2727,6 +2727,9 @@ local function enforce_settler_leash(npc, npc_id, my_survivor, my_hub_id, hub_ob
         return "teleported"
     end
 
+    -- a settler with a post goes back to it in the job code, not toward the hub
+    if my_survivor and my_survivor.assigned_pos then return "ok" end
+
     local leash = max_boundary
     if my_survivor and (my_survivor.job == "idle" or not my_survivor.job) then
         leash = math.min(max_boundary, math.max(25, cfg.npc_leash_radius or 10))
