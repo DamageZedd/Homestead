@@ -3695,15 +3695,9 @@ function load_state(m_data)
         end
     end
 
-    if not next(stalker_camp_builder.active_camps) and alife_storage_manager and alife_storage_manager.get_state then
-        local ok, state = pcall(alife_storage_manager.get_state)
-        if ok and type_(state) == "table" and state.homestead_backup then
-            local backup = state.homestead_backup
-            stalker_camp_builder.active_camps = keys_to_numbers(unpack_table_vectors(backup.active_camps or {}))
-            stalker_camp_builder.rival_camps = keys_to_numbers(unpack_table_vectors(backup.rival_camps or {}))
-            save_version = backup.version or 0
-        end
-    end
+    -- versions before 1.1.7 also saved a copy of the camps here; nothing has written it since, so
+    -- it holds camps and outposts from that time. Dropped, so the next save leaves it out.
+    m_data.homestead_backup = nil
 
     normalize_camps()
 
