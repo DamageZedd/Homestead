@@ -177,6 +177,7 @@ function SurvivorListItem:__init(survivor_id, name, status_str, icon_sec, rank_s
         self.status_wnd:SetText(status_str or "")
         self.status_wnd:AdjustHeightToText()
         local sh = mmax(14, self.status_wnd:GetHeight())
+        self.status_h = sh
 
         local rank_y = status_y + sh + 3
         self.rank_wnd = xml:InitTextWnd("survivor_row_rank", self)
@@ -217,12 +218,16 @@ function SurvivorListItem:SetSelected(is_sel)
     end
 end
 
+-- returns true when the new status needs more lines than the card was laid out for (it would
+-- run over the rank line under it)
 function SurvivorListItem:UpdateStatus(status_str, color)
     if self.status_wnd then
         self.status_wnd:SetText(status_str or "")
         if color then
             self.status_wnd:SetTextColor(color)
         end
+        self.status_wnd:AdjustHeightToText()
+        return self.status_h ~= nil and self.status_wnd:GetHeight() > self.status_h
     end
 end
 
@@ -2418,6 +2423,7 @@ function SettlementManagerPDA:UpdateSurvivorsProgress()
     if not camp or not camp.survivors then return end
 
     local count = self.survivor_list:GetSize()
+    local outgrown = false
     for i = 0, count - 1 do
         pcall(function()
             local item = self.survivor_list:GetItemByIndex(i)
@@ -2428,7 +2434,7 @@ function SettlementManagerPDA:UpdateSurvivorsProgress()
                     surv.hub_id = surv.hub_id or hub_id
                     local str, clr = self:FormatSurvivorStatus(surv, camp, hub_id)
                     if item.UpdateStatus then
-                        item:UpdateStatus(str, clr)
+                        outgrown = item:UpdateStatus(str, clr) or outgrown
                     elseif item.status_wnd then
                         item.status_wnd:SetText(str)
                         if clr then item.status_wnd:SetTextColor(clr) end
@@ -2436,6 +2442,10 @@ function SettlementManagerPDA:UpdateSurvivorsProgress()
                 end
             end
         end)
+    end
+    -- a status that outgrew its card: lay the roster out again
+    if outgrown then
+        self:OnSettlementSelected()
     end
 
     local s_item = self.survivor_list:GetSelectedItem()
