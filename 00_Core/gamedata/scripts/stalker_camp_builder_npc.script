@@ -58,6 +58,9 @@ function stalker_camp_builder.camp_npc_move_to(npc, lvid, extra_lvid)
     end
 
     if not game_npc or not npc_id then return end
+    -- combat and danger reactions set their movement once, when they start; a walk set here
+    -- would override it
+    if game_npc:best_enemy() or game_npc:best_danger() then return end
 
     -- Normalize destination vertex:
     -- Could be called as (npc, lvid), (npc, target_pos, target_lvid), or (npc, target_pos)
