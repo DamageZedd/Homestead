@@ -2990,7 +2990,8 @@ function stalker_camp_builder.give_medic_drugkit(actor, npc)
         local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
         if camp then
             camp.has_drugkit = true
-            camp.morale = math.min(100, (camp.morale or 50) + 15)
+            -- rescore rather than add: get_camp_morale counts the drug kit once
+            stalker_camp_builder.get_camp_morale(camp)
         end
         news_manager.send_tip(actor_alao, game.translate_string("st_medic_drugkit_delivered"), nil, "general_stalker", 8000)
     end
@@ -3073,7 +3074,8 @@ local function deliver_toolkit(kit_section, tier)
         camp.tech_toolkit_tier = math.max(camp.tech_toolkit_tier or 0, tier)
         camp.toolkits = camp.toolkits or {}
         camp.toolkits[tier] = true
-        camp.morale = math.min(100, (camp.morale or 50) + 10)
+        -- rescore rather than add: get_camp_morale counts the toolkits once
+        stalker_camp_builder.get_camp_morale(camp)
     end
 
     local tier_names = { [1] = "Basic", [2] = "Advanced", [3] = "Expert" }
