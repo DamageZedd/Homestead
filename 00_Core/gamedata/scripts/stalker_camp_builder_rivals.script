@@ -2074,7 +2074,7 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                                 "medkit_army", "antirad", "specops_outfit",
                                 "wpn_ak74", "wpn_l85", "wpn_lr300",
                                 "grenade_rgd5", "grenade_f1",
-                                "elite_detector", "vodka", "tushonka"
+                                "detector_elite", "vodka", "tushonka"
                             }
                             local mid_level_loot = {
                                 "ammo_9x18_fmj", "ammo_9x19_fmj", "ammo_12x70_buck",
