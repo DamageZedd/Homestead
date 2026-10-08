@@ -7059,6 +7059,9 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
 
     local final_parts = nil
     if custom_parts and item_parts and item_parts.set_parts_con then
+        -- se_save_var keeps the table it is given: a haul item deposited twice would give both
+        -- items one parts table, and the save keeps it shared
+        if type_(custom_parts) == "table" then custom_parts = dup_table(custom_parts) end
         -- DANZY EDIT: the item's own entry in the parts table is its condition; keep it
         -- in line with the condition picked above instead of whatever was copied.
         if type_(custom_parts) == "table" and cond < 0.99 then
@@ -7358,10 +7361,15 @@ function stalker_camp_builder.recall_scavenger_expedition(stash_id)
 
     sb.active_stash_expeditions[primary_id or stash_id] = nil
     local camp = sb.active_camps[exp.hub_id]
-    -- the stashes looted so far are already emptied and unmarked: bring their items home
+    -- the stashes looted so far are already emptied and unmarked: bring their items home, with
+    -- the extra copies a finished expedition rolls (deposit_expedition_haul)
     if camp then
+        local spec_mult = (sb.get_specialization_mult and sb.get_specialization_mult(camp, "scavenge")) or 1.0
         for _, itm in ipairs(exp.haul or {}) do
-            pcall(sb.deposit_item_to_camp, exp.hub_id, camp, itm.sec, itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+            local count = (spec_mult > 1.0 and math.random() < (spec_mult - 1.0)) and 2 or 1
+            for c = 1, count do
+                pcall(sb.deposit_item_to_camp, exp.hub_id, camp, itm.sec, itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+            end
         end
     end
     if camp and camp.survivors and camp.survivors[exp.npc_id] then
