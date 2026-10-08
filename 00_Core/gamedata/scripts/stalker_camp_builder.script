@@ -3243,7 +3243,14 @@ function npc_on_update(npc)
     local target_lvid
 
     local wander_target_lvid = nil
-    if math.random(100) <= 30 then
+    -- the radio or piano corner is chosen for a whole idle period, not re-rolled every update
+    local wander = camp_npc_furniture_cache[npc_id] or {}
+    camp_npc_furniture_cache[npc_id] = wander
+    if now_tg > (wander.wander_pick_tg or 0) then
+        wander.wander_pick_tg = now_tg + math.random(20000, 35000)
+        wander.wander_music = math.random(100) <= 30
+    end
+    if wander.wander_music then
         for struct_id, struct_type in pairs_(my_camp.structures) do
             if struct_type == "piano" or struct_type == "radio" then
                 local se_struct = alife_object(struct_id)
