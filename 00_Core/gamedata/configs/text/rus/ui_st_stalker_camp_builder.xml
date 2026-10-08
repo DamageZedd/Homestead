@@ -1303,6 +1303,9 @@
     <string id="st_camp_medic_treat_back">
         <text>Не нужно, пока сам справлюсь.</text>
     </string>
+    <string id="st_manage_camp_close">
+        <text>Ничего, в другой раз.</text>
+    </string>
     <string id="st_manage_camp_close_reply">
         <text>Береги себя, сталкер.</text>
     </string>

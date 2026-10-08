@@ -390,7 +390,7 @@ local dialogues = [[
         <phrase id="15">
             <text>st_camp_tech_use_workbench</text>
             <action>stalker_camp_builder.open_technician_workbench</action>
-            <next>99</next>
+            <next>100</next>
         </phrase>
 
         <!-- 20: Actor selects: "Do you have spare parts or tools for trade?" -->
