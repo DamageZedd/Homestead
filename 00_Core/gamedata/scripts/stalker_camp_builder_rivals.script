@@ -912,6 +912,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 camp.sos_broadcasted = true
                                 camp.sos_active = true
                                 camp.sos_time = current_sec
+                                camp.sos_faction = camp.faction
                                 local faction_name = game.translate_string(camp.faction or "stalker")
                                 local lvl_name = game.translate_string(camp.level or level_name)
                                 if actor then
@@ -2459,6 +2460,13 @@ function stalker_camp_builder.check_sos_rescue_reward(actor)
     local current_sec = game.get_game_time():diffSec(game.CTime())
 
     for key, camp in pairs(sb.rival_camps) do
+        -- a call lapses two game hours after it went out, wherever the player is, and once the
+        -- camp has changed hands
+        if type(camp) == "table" and camp.sos_active
+            and (current_sec - (camp.sos_time or current_sec) > 7200 or camp.faction ~= camp.sos_faction) then
+            camp.sos_active = false
+            camp.sos_broadcasted = false
+        end
         if type(camp) == "table" and camp.sos_active and camp.chest_id and camp.position and camp.level == level.name() then
             local dx = actor_pos.x - camp.position.x
             local dy = actor_pos.y - camp.position.y
@@ -2477,9 +2485,6 @@ function stalker_camp_builder.check_sos_rescue_reward(actor)
                     local faction_name = camp.faction and game.translate_string(camp.faction) or "Stalkers"
                     news_manager.send_tip(actor, string.format(game.translate_string("st_recon_rescue_complete"), faction_name, reward_rubles), nil, "general_stalker", 12000)
                 end
-            elseif current_sec - (camp.sos_time or current_sec) > 7200 then
-                camp.sos_active = false
-                camp.sos_broadcasted = false
             end
         end
     end
