@@ -528,7 +528,7 @@ function stalker_camp_builder.teleport_settler_to_camp_level(npc_id, hub_id, for
         pcall(function() axr_companions.remove_from_actor_squad(online_obj) end)
         pcall(function() online_obj:disable_info_portion("npcx_is_companion") end)
     end
-    pcall(function() sim:disable_info_portion(npc_id, "npcx_is_companion") end)
+    pcall(function() sim:disable_info(npc_id, "npcx_is_companion") end)
 
     if se_npc.group_id == 0 then
         se_npc.group_id = 65535
@@ -1675,11 +1675,11 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
 
     -- 6. Strip companion & beh infoportions across both ALife and game_object
     pcall(function()
-        sim:disable_info_portion(npc_id, "npcx_is_companion")
-        sim:disable_info_portion(npc_id, "npcx_beh_wait")
-        sim:disable_info_portion(npc_id, "npcx_beh_cannot_dismiss")
-        sim:disable_info_portion(npc_id, "homestead_settler_guard")
-        sim:disable_info_portion(npc_id, "homestead_settler_patrol")
+        sim:disable_info(npc_id, "npcx_is_companion")
+        sim:disable_info(npc_id, "npcx_beh_wait")
+        sim:disable_info(npc_id, "npcx_beh_cannot_dismiss")
+        sim:disable_info(npc_id, "homestead_settler_guard")
+        sim:disable_info(npc_id, "homestead_settler_patrol")
     end)
     if online_npc then
         pcall(function()
@@ -1804,7 +1804,7 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                             se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
                         end)
                     end
-                    pcall(function() sim:disable_info_portion(mid, "npcx_is_companion") end)
+                    pcall(function() sim:disable_info(mid, "npcx_is_companion") end)
                     if stalker_generic and stalker_generic.remove_level_spot then
                         pcall(function() stalker_generic.remove_level_spot(mid) end)
                     end
