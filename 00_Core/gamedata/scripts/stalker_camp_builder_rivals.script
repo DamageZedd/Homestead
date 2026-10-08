@@ -979,7 +979,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 local m_ang = mrandom() * math.pi * 2
                                 v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
                                 local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
-                                if mlvid and mgpos then
+                                if mlvid and mgpos and not (actor and actor:position():distance_to_sqr(mgpos) <= 22500) then
                                     local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
@@ -2442,6 +2442,15 @@ end
 -- 2. SUPPLY CONVOYS & COURIER RUNS
 stalker_camp_builder.active_convoys = stalker_camp_builder.active_convoys or {}
 
+-- whether the player is on level lvl within 150 m of pos, close enough to see a squad appear or vanish
+local function is_player_near(lvl, pos)
+    local actor = db.actor
+    if not (actor and pos and lvl == level.name()) then return false end
+    local ap = actor:position()
+    local dx, dy, dz = ap.x - pos.x, ap.y - pos.y, ap.z - pos.z
+    return dx * dx + dy * dy + dz * dz <= 22500
+end
+
 function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     local sb = stalker_camp_builder
     local sim = alife()
@@ -2482,14 +2491,14 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
             local dx = sm.position.x - cx
             local dy = sm.position.y - cy
             local dz = sm.position.z - cz
-            if (dx*dx + dy*dy + dz*dz) >= 3600 then
+            if (dx*dx + dy*dy + dz*dz) >= 3600 and not is_player_near(camp.level, sm.position) then
                 candidates[#candidates + 1] = sm
             end
         end
     end
 
     local start_smart = (#candidates > 0) and candidates[math.random(#candidates)] or smarts[math.random(#smarts)].obj
-    if not start_smart then return end
+    if not start_smart or is_player_near(camp.level, start_smart.position) then return end
 
     local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
     local start_pos = start_smart.position
@@ -2535,7 +2544,9 @@ function stalker_camp_builder.update_active_convoys()
             sb.active_convoys[squad_id] = nil
         else
             local se_chest = sim:object(convoy.target_camp_chest)
-            if not se_chest then
+            if is_player_near(convoy.level, squad.position) then
+                -- the courier neither delivers nor vanishes while the player can see it
+            elseif not se_chest then
                 -- Destination outpost was dismantled or destroyed; release courier
                 squad.get_script_target = nil
                 for k in sb.safe_squad_members(squad) do
