@@ -1211,7 +1211,8 @@ function SettlementManagerPDA:OnRivalSelected()
     self.rival_camp_faction:SetTextColor(f_color)
 
     local location_text = rcamp.level and game.translate_string(rcamp.level) or game.translate_string("unknown")
-    if db.actor and rcamp.squad_id then
+    -- an outpost on another level has a position in that level's coordinates
+    if db.actor and rcamp.squad_id and rcamp.level == level.name() then
         local squad = alife_object(rcamp.squad_id)
         if squad and squad.position then
             local dist = math.floor(db.actor:position():distance_to(squad.position))
