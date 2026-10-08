@@ -50,8 +50,13 @@ function UIPistolTurret:InitControls()
     self.btn_reload = xml:Init3tButton("btn_reload", self.back)
     self:Register(self.btn_reload, "btn_reload")
 
-    self.btn_channel = xml:Init3tButton("btn_channel", self.back)
-    self:Register(self.btn_channel, "btn_channel")
+    -- only the dialog in Homestead's G.A.M.M.A. pack (04) has the channel button; base Gadgets
+    -- 0.7.2's has none, and Init3tButton asserts on a missing node
+    local ok, has_channel = pcall(function() return xml:NodeExist("btn_channel", 0) end)
+    if ok and has_channel then
+        self.btn_channel = xml:Init3tButton("btn_channel", self.back)
+        self:Register(self.btn_channel, "btn_channel")
+    end
 end
 
 function UIPistolTurret:Pickup()
