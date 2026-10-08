@@ -980,6 +980,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 local existing_m = sim:object(camp.heat_mutant_squad_id)
                                 if existing_m and is_squad_alive(existing_m) and is_squad_monster[existing_m.player_id] then
                                     has_active_heat_mutants = true
+                                    -- packs saved before this were sent at a squad id, which moves them nowhere
+                                    existing_m.scripted_target = camp.smart_name
                                 else
                                     camp.heat_mutant_squad_id = nil
                                 end
@@ -1006,8 +1008,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                     local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
-                                        -- kept in the squad's save; get_script_target reads a squad id as text
-                                        m_squad.scripted_target = tostring(camp.squad_id)
+                                        -- the outpost's smart terrain, kept in the squad's save: the simulation moves a
+                                        -- squad toward a smart terrain or the player, never toward another squad
+                                        m_squad.scripted_target = camp.smart_name
                                     end
                                 end
                             end
