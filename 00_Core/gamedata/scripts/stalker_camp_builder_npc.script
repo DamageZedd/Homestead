@@ -275,10 +275,15 @@ function stalker_camp_builder.release_settler_home_squad(npc_id)
     -- In the X-Ray engine, releasing an online_offline_group (squad) will release and destroy ALL
     -- registered member NPCs! If an NPC is still registered in this squad when alife():release(squad)
     -- is called, that NPC is permanently deleted from the world/save (Happy's bug).
-    pcall(function() squad:unregister_member(npc_id) end)
+    -- Only for a member: unregister_member checks membership with a VERIFY that release builds
+    -- compile out, so for an NPC outside the squad it dereferences m_members.end(). The banish
+    -- purge has usually unregistered the settler from this squad already.
     local se_npc = alife_object(npc_id)
     if se_npc and se_npc.group_id == squad_id then
-        se_npc.group_id = 65535
+        pcall(function() squad:unregister_member(npc_id) end)
+        if se_npc.group_id == squad_id then
+            se_npc.group_id = 65535
+        end
     end
 
     -- ONLY release the squad if it is now confirmed completely empty (npc_count == 0).
@@ -322,7 +327,8 @@ function stalker_camp_builder.convert_settler_to_companion_squad(npc_id, online_
 
     -- If squad missing or contains multiple other members, create a dedicated squad
     if not squad or squad:npc_count() > 1 then
-        if squad and squad:npc_count() > 1 then
+        -- squad can be the cached home squad rather than the one the settler is in
+        if squad and squad:npc_count() > 1 and se_npc.group_id == squad.id then
             pcall(function() squad:unregister_member(npc_id) end)
         end
         local spos = online_npc and online_npc:position() or se_npc.position
