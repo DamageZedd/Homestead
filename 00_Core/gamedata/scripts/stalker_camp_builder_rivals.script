@@ -2510,6 +2510,10 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     local sim = alife()
     if not sim or not camp or not camp.chest_id or not camp.level then return end
     if camp.status == "unoccupied" or camp.status == "mutant_nest" or camp.faction == "monster" then return end
+    -- one courier at a time: a run that falls due while the last one is still out is skipped
+    for _, conv in pairs(sb.active_convoys or {}) do
+        if conv.target_camp_chest == camp.chest_id then return end
+    end
 
     local smarts = sb.get_smart_terrains_on_level(camp.level)
     if not smarts or #smarts == 0 then return end
@@ -2603,7 +2607,9 @@ function stalker_camp_builder.update_active_convoys()
             sb.active_convoys[squad_id] = nil
         else
             local se_chest = sim:object(convoy.target_camp_chest)
-            if is_player_near(convoy.level, squad.position) then
+            local overdue = current_sec - (convoy.dispatch_time or current_sec) > 7200
+            -- an offline squad isn't drawn: past its two-hour mark it finishes with the player near too
+            if is_player_near(convoy.level, squad.position) and (squad.online or not overdue) then
                 -- the courier neither delivers nor vanishes while the player can see it
             elseif not se_chest then
                 -- Destination outpost was dismantled or destroyed; release courier
@@ -2622,7 +2628,7 @@ function stalker_camp_builder.update_active_convoys()
                 local dz = squad.position.z - convoy.target_pos.z
                 local dist_sqr = dx*dx + dy*dy + dz*dz
 
-                if dist_sqr <= 625.0 or (current_sec - (convoy.dispatch_time or current_sec) > 7200) then
+                if dist_sqr <= 625.0 or overdue then
                     local target_chest = (level and level.object_by_id(convoy.target_camp_chest)) or se_chest
                     if target_chest then
                         local delivery_items = {"conserva", "kolbasa", "vodka", "bandage", "medkit", "ammo_5.45x39_fmj", "ammo_5.56x45_fmj"}
