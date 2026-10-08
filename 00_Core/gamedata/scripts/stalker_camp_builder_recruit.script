@@ -2136,11 +2136,7 @@ function stalker_camp_builder.rename_camp(hub_id, name)
     local camp = sb.active_camps[hub_id]
     if camp then
         camp.name = name
-        pcall(function() level.map_change_spot_hint(hub_id, "treasure_player", "Settlement: " .. name) end)
-        pcall(function() level.map_change_spot_hint(hub_id, "green_location", "Settlement: " .. name) end)
-        if camp.zone_id then
-            pcall(function() level.map_change_spot_hint(camp.zone_id, "ui_pda2_actor_sleep_location", "Camp Boundary: " .. name) end)
-        end
+        pcall(sb.refresh_settlement_map_spot, hub_id, camp)
     end
 end
 
