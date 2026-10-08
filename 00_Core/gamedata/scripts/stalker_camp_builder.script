@@ -2219,7 +2219,7 @@ local function process_uninstall_prep()
             for _, id in ipairs(camp.decorations) do
                 local ok, se_obj = pcall(alife_object, id)
                 -- a freed id may name another object by now: release only outpost furniture
-                if ok and se_obj and stalker_camp_builder.is_rival_decor and stalker_camp_builder.is_rival_decor(se_obj) then
+                if ok and se_obj and stalker_camp_builder.is_camp_decor and stalker_camp_builder.is_camp_decor(camp, id, se_obj) then
                     pcall(alife_release, se_obj)
                     released = released + 1
                 end

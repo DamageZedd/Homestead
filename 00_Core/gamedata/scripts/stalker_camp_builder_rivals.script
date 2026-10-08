@@ -344,12 +344,7 @@ function stalker_camp_builder.release_camp_decorations(camp)
             local ok, se_decor = pcall(alife_object, id)
             -- a freed id may name another object by now: release only outpost furniture
             if ok and se_decor then
-                local is_decor = stalker_camp_builder.is_rival_decor and stalker_camp_builder.is_rival_decor(se_decor)
-                if not is_decor and camp.decor_sections and camp.decor_sections[id] then
-                    if se_decor.section_name and se_decor:section_name() == camp.decor_sections[id] then
-                        is_decor = true
-                    end
-                end
+                local is_decor = stalker_camp_builder.is_camp_decor(camp, id, se_decor)
                 if is_decor then
                     pcall(alife_release, se_decor)
                 end
@@ -1597,7 +1592,7 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                         for _, dec_id in ipairs(camp.decorations) do
                             local se_decor = sim:object(dec_id)
                             -- an id that no longer names outpost furniture is dropped, not moved
-                            local is_decor = se_decor and (sb.is_rival_decor(se_decor) or (camp.decor_sections and camp.decor_sections[dec_id] and se_decor.section_name and se_decor:section_name() == camp.decor_sections[dec_id]))
+                            local is_decor = se_decor and sb.is_camp_decor(camp, dec_id, se_decor)
                             if is_decor then
                                 local dpos = se_decor.position
                                 local dlvid, dvpos, d_surface_y, d_has_vis = find_ground_anchor(dpos.x, dpos.z, dpos.y, target_chest_y)
@@ -1761,6 +1756,15 @@ function stalker_camp_builder.is_rival_decor(se_obj)
         end
     end
     return se_obj ~= nil and rival_decor_sections[se_obj:section_name()] == true
+end
+
+-- is_camp_decor -- whether a stored decoration id still names this outpost's piece: the section
+-- recorded when it was placed, or any outpost section for pieces placed before sections were kept
+function stalker_camp_builder.is_camp_decor(camp, id, se_obj)
+    if not se_obj then return false end
+    local recorded = camp and camp.decor_sections and camp.decor_sections[id]
+    if recorded then return se_obj:section_name() == recorded end
+    return stalker_camp_builder.is_rival_decor(se_obj)
 end
 
 local function spawn_rival_camp_defenses_and_decor(camp_pos, lvid, gvid, target_level, occupant_faction)
