@@ -765,7 +765,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
             return
         end
 
-        if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) then
+        -- also with no garrison id left (server_entity_on_unregister drops a released squad's id):
+        -- an outpost not yet marked unoccupied still has to go through "garrison eliminated" below
+        if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) or camp.status ~= "unoccupied" then
             local squad = camp.squad_id and alife_object(camp.squad_id)
             -- a dead squad is released and its id handed to a later object: forget an id that
             -- no longer names a squad (here and for the extra squads below)
