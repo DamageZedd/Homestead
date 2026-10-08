@@ -2151,17 +2151,8 @@ function SettlementManagerPDA:OnBanishClicked()
     if not item then return end
     local npc_id = item.survivor_id
     local npc = level.object_by_id(npc_id)
-    if npc then
-        stalker_camp_builder.banish_npc(db.actor, npc)
-    else
-        for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
-            if camp.survivors[npc_id] then
-                local name = camp.survivors[npc_id].name or "settler"
-                camp.survivors[npc_id] = nil
-                actor_menu.set_msg(1, string.format(game.translate_string("st_settler_banished"), name), 4)
-                break
-            end
-        end
+    if stalker_camp_builder and stalker_camp_builder.banish_npc then
+        stalker_camp_builder.banish_npc(db.actor, npc or npc_id)
     end
     self:OnSettlementSelected()
 end
