@@ -2797,8 +2797,27 @@ function stalker_camp_builder.open_technician_workbench(actor, npc)
     end
 end
 
+-- the camp a drug kit goes to: the medic's own, else the one the player stands in
+local function get_drugkit_camp(actor, npc)
+    local a, n = resolve_speakers(actor, npc)
+    local n_id = n and n:id()
+    for _, camp in pairs(stalker_camp_builder.active_camps or {}) do
+        local surv = n_id and camp.survivors and (camp.survivors[n_id] or camp.survivors[tostring(n_id)])
+        if surv and surv.job == "medic" then
+            return camp
+        end
+    end
+    if db.actor then
+        local _, camp = stalker_camp_builder.get_active_camp_near(db.actor:position())
+        return camp
+    end
+end
+
 function stalker_camp_builder.actor_has_drugkit(actor, npc)
-    return db.actor and (db.actor:object("itm_drugkit") ~= nil or db.actor:object("drugkit") ~= nil)
+    if not (db.actor and (db.actor:object("itm_drugkit") or db.actor:object("drugkit"))) then return false end
+    -- a camp takes one kit: once it has one, the offer goes
+    local camp = get_drugkit_camp(actor, npc)
+    return not (camp and camp.has_drugkit)
 end
 
 local function get_upgrade_tier(section)
@@ -2986,8 +3005,11 @@ function stalker_camp_builder.give_medic_drugkit(actor, npc)
     if not actor_alao then return end
     local itm = actor_alao:object("itm_drugkit") or actor_alao:object("drugkit")
     if itm then
+        -- with no camp to record it in, or one that already has a kit, the player keeps it
+        local camp = get_drugkit_camp(actor, npc)
+        if not camp or camp.has_drugkit then return end
+
         alife_release(alife_object(itm:id()))
-        local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
         if camp then
             camp.has_drugkit = true
             -- rescore rather than add: get_camp_morale counts the drug kit once
