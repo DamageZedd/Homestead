@@ -1143,9 +1143,6 @@ end
 function pistol_turret_wrapper:fire_once(aim_pos)
     if not self.pitch_idx then return end
 
-    local ammo_sect = turret_mag_pop(self)
-    if not ammo_sect then return end
-
     local muzzle_bone = MUZZLE_BONES[self.pitch_idx]
     if not muzzle_bone then return end
 
@@ -1166,6 +1163,10 @@ function pistol_turret_wrapper:fire_once(aim_pos)
     dir:set(aim_pos)
     dir:sub(muzzle_pos)
 
+    if dir:magnitude() < 0.001 then return end
+    dir:normalize()
+
+    -- both unit vectors, so the dot product is the cosine of the steer angle
     if barrel_dir then
         local dot = barrel_dir:dotproduct(dir)
         dot = clamp(dot, -1, 1)
@@ -1175,8 +1176,8 @@ function pistol_turret_wrapper:fire_once(aim_pos)
         end
     end
 
-    if dir:magnitude() < 0.001 then return end
-    dir:normalize()
+    local ammo_sect = turret_mag_pop(self)
+    if not ammo_sect then return end
 
     self.snd_shoot:play_no_feedback(self.object, sound_object.s3d, 0, self.object:position(), 1, random_float(0.9, 1.1))
 
