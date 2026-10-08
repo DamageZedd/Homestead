@@ -1330,9 +1330,8 @@ function SettlementManagerPDA:OnRivalSelected()
 end
 
 function SettlementManagerPDA:OnRefreshClicked()
-    -- protected like the periodic run (run_periodic_actor_tasks): an error in a UI
-    -- callback ends the game
-    pcall(stalker_camp_builder.update_rival_camps)
+    -- only reloads the list: update_rival_camps is the outposts' 10-second tick, and each extra
+    -- call would advance their heat and event rolls
     self:Reset("rivals")
 end
 
