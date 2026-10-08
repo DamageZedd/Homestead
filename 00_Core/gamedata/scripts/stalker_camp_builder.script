@@ -8072,6 +8072,11 @@ local function find_expedition_survivor(camp, exp)
     return nil
 end
 
+-- `level` has no valid_vertex_id (that is a game graph method); u32(-1) means no vertex
+local function is_level_vertex(lvid)
+    return lvid and lvid < 4294967295 and lvid ~= -1
+end
+
 local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
     local sim_alao = alife()
     if surv then surv.on_expedition = nil end
@@ -8111,12 +8116,12 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
     local final_lvid = stand_lvid or spawn_lvid
 
     if is_same_level and level then
-        if final_lvid and (not level.valid_vertex_id(final_lvid)) then
-            final_lvid = (hub_lvid and level.valid_vertex_id(hub_lvid) and hub_lvid)
-                or (spawn_lvid and level.valid_vertex_id(spawn_lvid) and spawn_lvid)
+        if final_lvid and not is_level_vertex(final_lvid) then
+            final_lvid = (is_level_vertex(hub_lvid) and hub_lvid)
+                or (is_level_vertex(spawn_lvid) and spawn_lvid)
                 or (final_pos and level.vertex_id(final_pos))
         end
-        if final_lvid and level.valid_vertex_id(final_lvid) then
+        if is_level_vertex(final_lvid) then
             final_pos = level.vertex_position(final_lvid)
         end
     end
@@ -8135,8 +8140,8 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
 
     if is_same_level then
         local wait_lvid = final_lvid or spawn_lvid or (hub_obj and hub_obj.m_level_vertex_id)
-        if wait_lvid and level and not level.valid_vertex_id(wait_lvid) then
-            wait_lvid = (hub_lvid and level.valid_vertex_id(hub_lvid) and hub_lvid) or nil
+        if wait_lvid and not is_level_vertex(wait_lvid) then
+            wait_lvid = (is_level_vertex(hub_lvid) and hub_lvid) or nil
         end
         local look_pos  = spawn_pos  or (hub_obj and hub_obj.position)
         local npc_id    = exp.npc_id
@@ -8151,7 +8156,7 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
                     stalker_camp_builder.setup_settler_beh_logic(online_npc, wait_lvid, look_pos, "guard")
                 end
             end)
-        else
+        elseif se_npc then  -- set_switch_online on an id with no server object is an engine crash
             if utils_obj and utils_obj.switch_online then
                 pcall(utils_obj.switch_online, npc_id)
             else
@@ -8169,7 +8174,7 @@ local function reposition_survivor_at_camp(exp, camp, hub_obj, box_se, surv)
                         if IsStalker(obj) and obj.set_npc_position and final_pos then
                             obj:set_npc_position(final_pos)
                         end
-                        if stalker_camp_builder.setup_settler_beh_logic and wait_lvid and level and level.valid_vertex_id and level.valid_vertex_id(wait_lvid) then
+                        if stalker_camp_builder.setup_settler_beh_logic and is_level_vertex(wait_lvid) then
                             stalker_camp_builder.setup_settler_beh_logic(obj, wait_lvid, look_pos, "guard")
                         end
                     end
