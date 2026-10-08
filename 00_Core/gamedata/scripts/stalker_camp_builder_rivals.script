@@ -1287,7 +1287,7 @@ function stalker_camp_builder.update_rival_camps()
         end
     end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     if sb.update_active_convoys then sb.update_active_convoys() end
     if sb.check_sos_rescue_reward then sb.check_sos_rescue_reward(actor) end
@@ -1908,7 +1908,7 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
     -- hitch of NPCs loading in nearby). Camps appear on other maps instead.
     if target_level == level_name then return false end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     local camps_here = 0
     for _, c in pairs_(sb.rival_camps) do
@@ -2573,7 +2573,7 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
             target_gvid = camp.game_vertex_id,
             faction = camp.faction,
             section = squad_sec,
-            dispatch_time = game.get_game_time():diffSec(game.CTime()),
+            dispatch_time = sb.game_sec(),
             level = camp.level
         }
     end
@@ -2584,7 +2584,7 @@ function stalker_camp_builder.update_active_convoys()
     local sim = alife()
     if not sim then return end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     for squad_id, convoy in pairs(sb.active_convoys) do
         local squad = sim:object(squad_id)
@@ -2649,7 +2649,7 @@ function stalker_camp_builder.process_rival_camp_surge(is_peak)
     local sim = alife()
     if not sim or sb.cfg.rival_camp_surge_effects == false then return end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     local actor = db.actor
     local actor_level = level.name()
@@ -2769,7 +2769,7 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
     camp.unoccupied_time = nil
     camp.despawn_chest_when_empty = nil
     -- the pack's stay starts now; the lost garrison's timer doesn't carry over
-    camp.setup_sec = game.get_game_time():diffSec(game.CTime())
+    camp.setup_sec = sb.game_sec()
     camp.setup_duration = mrandom(21600, 64800) -- 6 to 18 in-game hours
 
     local squad_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
@@ -2819,7 +2819,7 @@ function stalker_camp_builder.check_sos_rescue_reward(actor)
     if not actor then return end
 
     local actor_pos = actor:position()
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     for key, camp in pairs(sb.rival_camps) do
         -- a call lapses two game hours after it went out, wherever the player is, and once the

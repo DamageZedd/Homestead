@@ -89,7 +89,7 @@ function stalker_camp_builder.set_survivor_job(npc_id, job)
                 if surv.job == job and not was_companion and not surv.on_expedition then return end
 
                 surv.job = job
-                surv.job_start_time = game.get_game_time():diffSec(game.CTime())
+                surv.job_start_time = sb.game_sec()
                 surv.job_start_realtime = time_global()
                 surv.paused_elapsed = nil
                 surv.assigned_furniture = {}
@@ -1996,7 +1996,7 @@ function stalker_camp_builder.process_settler_eating(hub_id, camp)
     local sb = stalker_camp_builder
     if not camp or not camp.survivors then return end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
     camp.last_food_consumption_time = camp.last_food_consumption_time or current_sec
     local elapsed = current_sec - camp.last_food_consumption_time
     if elapsed < (sb.cfg.food_consumption_interval or 86400) then return end
@@ -2180,8 +2180,7 @@ function stalker_camp_builder.update_camp_jobs()
     local tostr = tostring
             local actor = db.actor
     local sb = stalker_camp_builder
-    local g_time = game.get_game_time()
-    local current_sec = g_time:diffSec(game.CTime())
+    local current_sec = sb.game_sec()
 
     for hub_id, camp in pairs_(sb.active_camps) do
         local hub_obj = alife_object(hub_id)
@@ -2667,13 +2666,9 @@ function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)
         if survivor.on_expedition then
             local exp = sb.get_scavenger_expedition_for_survivor and sb.get_scavenger_expedition_for_survivor(survivor, survivor.npc_id or survivor.id)
             if exp then
-                local current_sec = game.get_game_time():diffSec(game.CTime())
+                local current_sec = sb.game_sec()
                 local game_elapsed = current_sec - exp.start_sec
-                local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
-                if tf <= 0 then tf = 10 end
-                local real_elapsed = (time_global() - (exp.start_realtime or time_global())) / 1000
-                local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
-                return mmin(1.0, mmax(0.0, effective_elapsed / exp.duration))
+                return mmin(1.0, mmax(0.0, game_elapsed / exp.duration))
             end
         end
         return nil  -- Scavengers wait at camp for orders; no passive progress cycle
@@ -2694,7 +2689,7 @@ function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)
     if not rt_interval or rt_interval <= 0 then return 0 end
 
     local tg = time_global()
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
     local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
     if tf <= 0 then tf = 10 end
 
@@ -2748,13 +2743,11 @@ function stalker_camp_builder.get_job_time_remaining(survivor, camp, hub_id)
         if survivor.on_expedition then
             local exp = sb.get_scavenger_expedition_for_survivor and sb.get_scavenger_expedition_for_survivor(survivor, survivor.npc_id or survivor.id)
             if exp then
-                local current_sec = game.get_game_time():diffSec(game.CTime())
+                local current_sec = sb.game_sec()
                 local game_elapsed = current_sec - exp.start_sec
                 local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
                 if tf <= 0 then tf = 10 end
-                local real_elapsed = (time_global() - (exp.start_realtime or time_global())) / 1000
-                local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
-                local rem_game_sec = mmax(0, exp.duration - effective_elapsed)
+                local rem_game_sec = mmax(0, exp.duration - game_elapsed)
                 return mmax(0, math.floor(rem_game_sec / tf))
             end
         end

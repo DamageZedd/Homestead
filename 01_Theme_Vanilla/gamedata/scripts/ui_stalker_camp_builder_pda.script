@@ -1613,16 +1613,9 @@ function SettlementManagerPDA:OnSurvivorSelected()
     elseif job == "scavenge" then
         local exp = stalker_camp_builder.get_scavenger_expedition_for_survivor and stalker_camp_builder.get_scavenger_expedition_for_survivor(s_item, survivor_id)
         if exp then
-            local current_sec = game.get_game_time():diffSec(game.CTime())
+            local current_sec = stalker_camp_builder.game_sec()
             local game_elapsed = current_sec - exp.start_sec
-            local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
-            if tf <= 0 then tf = 10 end
-            local tg = time_global()
-            if (not exp.start_realtime) or (exp.start_realtime > tg) then
-                exp.start_realtime = tg - (mmax(0, game_elapsed / tf) * 1000)
-            end
-            local real_elapsed = (tg - exp.start_realtime) / 1000
-            local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
+            local effective_elapsed = mmax(0, game_elapsed)
             local sc_pct = mfloor(math.min(100, (effective_elapsed / exp.duration) * 100))
             local rem_sec = mmax(0, exp.duration - effective_elapsed)
             local time_str = stalker_camp_builder.format_expedition_time and stalker_camp_builder.format_expedition_time(rem_sec) or sformat("%dm", mfloor(rem_sec / 60))
@@ -2322,16 +2315,11 @@ function SettlementManagerPDA:FormatSurvivorStatus(survivor, camp, hub_id)
     if job == "scavenge" or job == "scavenger" then
         local exp = stalker_camp_builder and stalker_camp_builder.get_scavenger_expedition_for_survivor and stalker_camp_builder.get_scavenger_expedition_for_survivor(survivor, survivor.npc_id or survivor.id)
         if exp then
-            local current_sec = game.get_game_time():diffSec(game.CTime())
+            local current_sec = stalker_camp_builder.game_sec()
             local game_elapsed = current_sec - (exp.start_sec or current_sec)
             local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
             if tf <= 0 then tf = 10 end
-            local tg = time_global()
-            if (not exp.start_realtime) or (exp.start_realtime > tg) then
-                exp.start_realtime = tg - (mmax(0, game_elapsed / tf) * 1000)
-            end
-            local real_elapsed = (tg - exp.start_realtime) / 1000
-            local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
+            local effective_elapsed = mmax(0, game_elapsed)
             local dur = mmax(1, exp.duration or 1)
             local prog = mfloor(math.min(100, (effective_elapsed / dur) * 100))
             local rem_game_sec = mmax(0, dur - effective_elapsed)
@@ -2595,16 +2583,11 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                     elseif job == "scavenge" then
                         local exp = stalker_camp_builder.get_scavenger_expedition_for_survivor and stalker_camp_builder.get_scavenger_expedition_for_survivor(survivor, survivor_id)
                         if exp then
-                            local current_sec = game.get_game_time():diffSec(game.CTime())
+                            local current_sec = stalker_camp_builder.game_sec()
                             local game_elapsed = current_sec - (exp.start_sec or current_sec)
                             local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
                             if tf <= 0 then tf = 10 end
-                            local tg = time_global()
-                            if (not exp.start_realtime) or (exp.start_realtime > tg) then
-                                exp.start_realtime = tg - (mmax(0, game_elapsed / tf) * 1000)
-                            end
-                            local real_elapsed = (tg - exp.start_realtime) / 1000
-                            local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
+                            local effective_elapsed = mmax(0, game_elapsed)
                             local dur = mmax(1, exp.duration or 1)
                             local sc_pct = math.floor(math.min(100, (effective_elapsed / dur) * 100))
                             local rem_sec = mmax(0, math.floor(dur - effective_elapsed))

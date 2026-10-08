@@ -79,6 +79,21 @@ local function is_level_vertex(lvid)
     return lvid and lvid < 4294967295 and lvid ~= -1 and lvid >= 0
 end
 
+-- The game time in whole seconds from 1 January of year 1, the epoch of the engine's game clock
+-- (date_time.cpp generate_time). CTime:diffSec returns a float, which holds today's ~6.4e10
+-- seconds only to the nearest 4096; CTime:get returns the exact date and time.
+local GAME_SEC_DAYS_BEFORE_MONTH = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 }
+function game_sec()
+    local y, mo, d, h, mi, s = game.get_game_time():get(0, 0, 0, 0, 0, 0, 0)
+    local p = y - 1
+    local days = p * 365 + mfloor(p / 4) - mfloor(p / 100) + mfloor(p / 400)
+        + GAME_SEC_DAYS_BEFORE_MONTH[mo] + d - 1
+    if mo > 2 and y % 4 == 0 and (y % 100 ~= 0 or y % 400 == 0) then
+        days = days + 1
+    end
+    return ((days * 24 + h) * 60 + mi) * 60 + s
+end
+
 local _suppress_news_intercept = false
 stalker_camp_builder._suppress_news_intercept = false
 
@@ -2452,7 +2467,7 @@ function process_refugee_despawns()
     end
     last_refugee_despawn_check_tg = now_tg
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
     local REFUGEE_DESPAWN_TIME = 172800  -- 2 game days
     local to_despawn = {}
     for npc_id, info in pairs(stalker_camp_builder.refugee_ids) do
@@ -3413,8 +3428,7 @@ function hf_on_furniture_place(obj_id)
         end
 
         if not stalker_camp_builder.active_camps[obj_id] then
-            local g_time = game.get_game_time()
-            local cur_sec = g_time:diffSec(game.CTime())
+            local cur_sec = game_sec()
             stalker_camp_builder.active_camps[obj_id] = {
                 hub_id = obj_id,
                 pos = {x = se_obj.position.x, y = se_obj.position.y, z = se_obj.position.z},
@@ -3673,20 +3687,6 @@ function load_state(m_data)
     local raw_hosp = m_data.stalker_camp_builder_hospitality_end_sec
     stalker_camp_builder.hospitality_buff_end_sec = (type_(raw_hosp) == "number") and raw_hosp or nil
 
-    do
-        local cur_tg = time_global()
-        local cur_gsec = game.get_game_time():diffSec(game.CTime())
-        local tf_load = (level and level.get_time_factor and level.get_time_factor()) or 10
-        if tf_load <= 0 then tf_load = 10 end
-        for stash_id, exp in pairs_(stalker_camp_builder.active_stash_expeditions or {}) do
-            if type_(exp) == "table" and exp.start_sec and exp.duration then
-                local game_elapsed = math.max(0, cur_gsec - exp.start_sec)
-                local effective_real_sec = math.min(exp.duration / tf_load, game_elapsed / tf_load)
-                exp.start_realtime = cur_tg - (effective_real_sec * 1000)
-            end
-        end
-    end
-
     if save_version < 2 then
         for hub_id, camp in pairs_(stalker_camp_builder.active_camps) do
             invalidate_scan_camp_structures_cache(hub_id)
@@ -3727,7 +3727,7 @@ function load_state(m_data)
                 elseif job == "scrapper" then rt_interval = cfg.realtime_job_scrapper_interval or defaults.realtime_job_scrapper_interval
                 end
                 if rt_interval and rt_interval > 0 then
-                    local current_sec = game.get_game_time():diffSec(game.CTime())
+                    local current_sec = game_sec()
                     local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
                     if tf <= 0 then tf = 10 end
                     local tod_mult = stalker_camp_builder.get_time_of_day_mult and stalker_camp_builder.get_time_of_day_mult(job) or 1.0
@@ -4239,16 +4239,6 @@ local function show_camp_summary_toast(actor, current_level)
     end)
 end
 
-local function rebase_stash_expeditions(cur_tg, cur_gsec, tf)
-    for _, exp in pairs(stalker_camp_builder.active_stash_expeditions or {}) do
-        if type(exp) == "table" and exp.start_sec and exp.duration then
-            local game_elapsed = mmax(0, cur_gsec - exp.start_sec)
-            local effective_real_sec = mmin(exp.duration / tf, game_elapsed / tf)
-            exp.start_realtime = cur_tg - (effective_real_sec * 1000)
-        end
-    end
-end
-
 local function get_job_realtime_interval(job)
     if     job == "cook"        then return cfg.realtime_job_cook_interval
     elseif job == "craft"       then return cfg.realtime_job_craft_interval
@@ -4663,11 +4653,10 @@ function actor_on_first_update()
     sync_all_camp_map_spots(true)
 
     local cur_tg = time_global()
-    local cur_gsec = game.get_game_time():diffSec(game.CTime())
+    local cur_gsec = game_sec()
     local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
     if tf <= 0 then tf = 10 end
 
-    rebase_stash_expeditions(cur_tg, cur_gsec, tf)
     pcall(stalker_camp_builder.process_stash_expeditions)
     rebase_all_survivor_jobs(cur_tg, cur_gsec, tf)
 
@@ -4929,7 +4918,7 @@ function get_camp_stats(camp, hub_obj)
 
     -- DANZY EDIT: hungry settlers are unhappy (-5 per hungry settler, max -30)
     if camp.hungry_until and camp.hungry_count then
-        local now_s = game.get_game_time():diffSec(game.CTime())
+        local now_s = game_sec()
         if now_s < camp.hungry_until then
             score = score - mmin(30, camp.hungry_count * 5)
         end
@@ -4949,14 +4938,7 @@ end
 
 function process_camp_morale()
     local pairs_ = pairs
-    local now_sec = 0
-    do
-        local gt = game.get_game_time()
-        if gt then
-            local Y, M, D, h, m, s, ms = gt:get(0, 0, 0, 0, 0, 0, 0)
-            now_sec = ((Y or 0) * 365.25 * 24 + (M or 0) * 30 * 24 + (D or 0) * 24 + (h or 0)) * 3600 + (m or 0) * 60 + (s or 0)
-        end
-    end
+    local now_sec = game_sec()
 
     for hub_id, camp in pairs_(stalker_camp_builder.active_camps) do
         local hub_obj = alife_object(hub_id)
@@ -4964,6 +4946,10 @@ function process_camp_morale()
             get_camp_stats(camp, hub_obj)  -- writes camp.happiness as a side-effect
         end
 
+        -- older versions counted 30-day months and 365.25-day years, some 408 days ahead
+        if camp._last_abandon_time and camp._last_abandon_time > now_sec then
+            camp._last_abandon_time = nil
+        end
         if camp.happiness and camp.happiness < 20 then
             if camp._last_abandon_time and (now_sec - camp._last_abandon_time) < 7200 then
             elseif camp.survivors then
@@ -5047,8 +5033,7 @@ function get_camp_status_text(actor, npc, dialog_id, phrase_id)
 end
 
 function process_camp_random_events()
-    local g_time = game.get_game_time()
-    local current_sec = g_time:diffSec(game.CTime())
+    local current_sec = game_sec()
 
     if last_random_event_sec then
         local elapsed = current_sec - last_random_event_sec
@@ -5113,7 +5098,7 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
         local lvi = spawn_lvid or hub_obj.m_level_vertex_id
         local se_refugee = alife():create("stalker_regular", pos, lvi, hub_obj.m_game_vertex_id)
         if se_refugee then
-            stalker_camp_builder.refugee_ids[se_refugee.id] = { arrived_sec = game.get_game_time():diffSec(game.CTime()) }
+            stalker_camp_builder.refugee_ids[se_refugee.id] = { arrived_sec = game_sec() }
             camp_send_tip(db.actor, game.translate_string("st_event_refugees_arrived"), nil, "general_stalker", 12000)
         end
     elseif chosen_event == "migration" then
@@ -5176,7 +5161,7 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
         local se_trader = alife():create(sec, pos, lvi, hub_obj.m_game_vertex_id)
         if se_trader then
             camp.active_trader_id = se_trader.id
-            camp.trader_spawn_time = game.get_game_time():diffSec(game.CTime())
+            camp.trader_spawn_time = game_sec()
             camp.trader_needs_stock = true
             camp.trader_community = comm
 
@@ -5332,7 +5317,7 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
         end
         camp.active_raid = {
             squad_id = squad.id,
-            start_sec = game.get_game_time():diffSec(game.CTime()),
+            start_sec = game_sec(),
             raiders_killed = 0,
             guards_lost = 0,
             original_squad_size = squad_size,
@@ -5400,8 +5385,7 @@ local function has_active_alarm(camp)
 end
 
 function process_camp_raids()
-    local g_time = game.get_game_time()
-    local current_sec = g_time:diffSec(game.CTime())
+    local current_sec = game_sec()
 
     if not last_raid_game_sec then
         last_raid_game_sec = current_sec
@@ -5539,7 +5523,7 @@ function check_camp_sleep_bonus()
     if not actor then return end
     if cfg.camp_rest_bonus == false then return end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
 
     local actor_pos = db.actor:position()
     local current_hub_id = get_active_camp_near(actor_pos)
@@ -5727,7 +5711,7 @@ function establish_trade_route(source_hub_id, target_hub_id, item_section, quant
         item_section = item_section,
         quantity = quantity or 5,
         interval_sec = interval_sec or 3600,  -- default: 1 game hour
-        last_run_sec = game.get_game_time():diffSec(game.CTime()),
+        last_run_sec = game_sec(),
     }
     source_camp.trade_routes[#source_camp.trade_routes+1] = route
     return true
@@ -5748,7 +5732,7 @@ end
 -- Process all trade routes for all camps. Called from the staggered
 -- actor_on_update task table (slot 9, teardown-grace gated).
 function process_trade_routes()
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
     for source_hub_id, camp in pairs(stalker_camp_builder.active_camps) do
         if camp.trade_routes then
             for i, route in ipairs(camp.trade_routes) do
@@ -6708,7 +6692,7 @@ function stalker_camp_builder.queue_item_cond(id, sec, cond, parts)
     local cur_sec = 0
     if game and game.get_game_time then
         pcall(function()
-            cur_sec = game.get_game_time():diffSec(game.CTime())
+            cur_sec = game_sec()
         end)
     end
     sb.pending_item_cond[id] = { c = cond, s = sec, p = parts, t = cur_sec }
@@ -6759,7 +6743,7 @@ function stalker_camp_builder.pending_cond_tick()
         local cur_sec = 0
         if game and game.get_game_time then
             pcall(function()
-                cur_sec = game.get_game_time():diffSec(game.CTime())
+                cur_sec = game_sec()
             end)
         end
         local MAX_PENDING_AGE_SEC = 7 * 86400 -- 7 in-game days
@@ -8070,7 +8054,7 @@ function map_spot_menu_add_property(property_ui, id, level_name)
             primary_id = id
         end
         if exp then
-            local current_sec = game.get_game_time():diffSec(game.CTime())
+            local current_sec = game_sec()
             local elapsed = current_sec - exp.start_sec
             local pct = math.floor(math.min(100, (elapsed / exp.duration) * 100))
             local rem_sec = math.max(0, exp.duration - elapsed)
@@ -8232,7 +8216,7 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
     end
 
     local final_duration_sec = sb.calculate_single_stash_duration(best_hub_id, stash_id, target_level, best_surv)
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
 
     best_surv.on_expedition = true
     sb.active_stash_expeditions[stash_id] = {
@@ -8247,7 +8231,6 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
         survivor_name = best_surv.name or "Scavenger",
         survivor_tier = best_surv.tier or 0,
         start_sec = current_sec,
-        start_realtime = time_global(),
         duration = final_duration_sec,
         chatter = {}
     }
@@ -8323,7 +8306,7 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
 
     local count = #all_stashes
     local final_duration_sec = sb.calculate_regional_sweep_duration(best_hub_id, all_stashes, target_level, best_surv)
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
 
     best_surv.on_expedition = true
     sb.active_stash_expeditions[primary_stash_id] = {
@@ -8338,7 +8321,6 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
         survivor_name = best_surv.name or "Scavenger",
         survivor_tier = best_surv.tier or 0,
         start_sec = current_sec,
-        start_realtime = time_global(),
         duration = final_duration_sec,
         chatter = {}
     }
@@ -8370,12 +8352,11 @@ end
 -- Expedition helpers (extracted from process_stash_expeditions)
 local tonum = tonumber  -- file-local alias used by the lookup helpers below
 
-local function get_expedition_progress(exp, current_sec, tg, tf)
-    local game_elapsed = current_sec - (exp.start_sec or current_sec)
-    local real_elapsed = (tg - (exp.start_realtime or tg)) / 1000
-    local elapsed = math.max(game_elapsed, real_elapsed * tf)
+-- game time alone: it counts sleep, and runs at the faster pace of emissions and psi storms
+local function get_expedition_progress(exp, current_sec)
+    local elapsed = current_sec - (exp.start_sec or current_sec)
     local dur = math.max(1, exp.duration or 1)
-    return game_elapsed, elapsed, dur, elapsed / dur
+    return elapsed, dur, elapsed / dur
 end
 
 local function emit_expedition_chatter(actor, exp, progress, target_lvl_name, camp_name)
@@ -8797,16 +8778,12 @@ function stalker_camp_builder.process_stash_expeditions()
     local actor = db.actor
     if not actor then return end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
-    local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
-    if tf <= 0 then tf = 10 end
-    local tg = time_global()
+    local current_sec = game_sec()
 
     local completed = {}
 
     for stash_id, exp in pairs_(sb.active_stash_expeditions or {}) do
-        local game_elapsed, elapsed, dur, progress =
-            get_expedition_progress(exp, current_sec, tg, tf)
+        local elapsed, dur, progress = get_expedition_progress(exp, current_sec)
 
         exp.chatter        = exp.chatter or {}
         exp.looted_stashes = exp.looted_stashes or {}
@@ -8819,8 +8796,7 @@ function stalker_camp_builder.process_stash_expeditions()
         emit_expedition_chatter(actor, exp, progress, target_lvl_name, camp_name)
         loot_due_stashes(exp, stash_id, progress)
 
-        if (elapsed >= dur and progress >= 1.0)
-            or (game_elapsed > (dur + 300)) then
+        if elapsed >= dur then
             completed[#completed + 1] = stash_id
         end
     end
@@ -8838,7 +8814,7 @@ function stalker_camp_builder.apply_hospitality_buff(hours)
     local actor = db.actor
     if not actor then return end
     local sb = stalker_camp_builder
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
     local was_active = current_sec < (sb.hospitality_buff_end_sec or 0)
     sb.hospitality_buff_end_sec = math.max(sb.hospitality_buff_end_sec or 0, current_sec + ((hours or 4) * 3600))
     if was_active then return end  -- already fed/rested: just extend it quietly
@@ -8851,7 +8827,7 @@ end
 function stalker_camp_builder.tick_hospitality_buff(actor)
     local sb = stalker_camp_builder
     if not (actor and actor:alive()) then return end
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = game_sec()
     if current_sec >= (sb.hospitality_buff_end_sec or 0) then return end
     if actor.health < 1.0 then actor.health = math.min(1.0, actor.health + 0.005) end
     if actor.power < 1.0 then actor.power = math.min(1.0, actor.power + 0.05) end
