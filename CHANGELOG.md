@@ -79,6 +79,11 @@
 - **Player-Created Stash Tracking Retention (PR #86)**: Preserved `m_data.player_created_stashes` entries during entity unregistration, allowing external stash pickup scripts to correctly return deployed backpacks.
 - **Treasure Cache Deregistration on Outpost Chest Release (PR #124)**: Cleared G.A.M.M.A. `treasure_manager.caches` records when outpost chests are released or decayed, preventing recycled ALife IDs from generating invalid quest stash locations.
 - **Primary Camp Container Persistence (PR #140)**: Retained player-designated primary chests across game sessions by deferring container validity checks until ALife storage initialization finishes.
+- **Stash Weight Capacity Enforcement & Multi-Container Overflow Routing (Fixes #173)**: Integrated Hideout Furniture and G.A.M.M.A. stash weight capacities (`capacity` in LTX) into Auto-Sort and job resource deposits:
+  - Added `get_box_capacity`, `get_box_current_weight`, and `box_has_room_for` utilities that calculate online and offline container weight to evaluate capacity thresholds.
+  - Refactored `get_auto_sort_target_box` to track all candidate settlement containers per category (multiple ammo sumkas, gun cases, medicine boxes, etc.) and route incoming items to the first container of that type with available capacity before spilling over to general chests.
+  - Updated 1-click Auto-Sort (`smart_dump_to_camp_storage`) with an in-memory batch weight cache to stop transferring items once containers reach their capacity limits, notifying the player of skipped items rather than overfilling capped boxes.
+  - Passed item weight during settler job deposits (`deposit_item_to_camp`) so automation cycles seamlessly spread production across available settlement containers.
 - **Fallback Stash & Outpost Loot Table Sanitization (PR #159)**: Replaced nonexistent item section entries (`prt_i_resistor`, `prt_i_transist`, `toolkit_r`, `elite_detector`, etc.) in fallback loot and outpost chest tables with authentic items.
 
 ### 🛡️ Defense Turrets, Audio & Gadgets Hardening (Community / devinhorowitz):

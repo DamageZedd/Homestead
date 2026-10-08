@@ -6591,9 +6591,72 @@ function stalker_camp_builder.get_camp_morale(camp, hub_obj)
     return camp.morale
 end
 
+-- STASH CAPACITY & WEIGHT QUERY UTILITIES (v1.2.4)
+function stalker_camp_builder.get_box_capacity(box_id)
+    if not box_id then return nil end
+    local se = safe_alife_object(box_id)
+    if not se then return nil end
+    local sec = se:section_name()
+    if not sec then return nil end
+    local ini = ini_sys or sys_ini or system_ini()
+    if not (ini and ini:section_exist(sec)) then return nil end
+    local cap = ini:r_float_ex(sec, "capacity")
+    if cap and cap > 0 then
+        return cap
+    end
+    return nil
+end
+
+function stalker_camp_builder.get_box_current_weight(box_id)
+    if not box_id then return 0 end
+    local cl_box = level and level.object_by_id and level.object_by_id(box_id)
+    local weight = 0
+    if cl_box and cl_box.iterate_inventory_box then
+        local ok = pcall(function()
+            cl_box:iterate_inventory_box(function(owner, item)
+                if item then
+                    local w = (item.weight and item:weight()) or 0
+                    weight = weight + w
+                end
+            end)
+        end)
+        if ok then return weight end
+    end
+
+    local se_box = alife_object(box_id)
+    if se_box then
+        local ini = ini_sys or sys_ini or system_ini()
+        stalker_camp_builder.iterate_server_container(se_box, function(child_id, se_item)
+            if se_item then
+                local sec = se_item:section_name()
+                local w = (ini and ini:r_float_ex(sec, "inv_weight")) or 0.05
+                weight = weight + w
+            end
+        end)
+    end
+    return weight
+end
+
+function stalker_camp_builder.box_has_room_for(box_id, add_weight, weight_cache)
+    if not box_id then return false end
+    local cap = stalker_camp_builder.get_box_capacity(box_id)
+    if not cap then return true end
+    local cur_w
+    if weight_cache and weight_cache[box_id] ~= nil then
+        cur_w = weight_cache[box_id]
+    else
+        cur_w = stalker_camp_builder.get_box_current_weight(box_id)
+        if weight_cache then
+            weight_cache[box_id] = cur_w
+        end
+    end
+    return (cur_w + (add_weight or 0)) <= (cap + 0.001)
+end
+
 -- AUTO-SORT TARGET ROUTING & CENTRALIZED DEPOSIT SYSTEM (v1.3.0)
-function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item, is_player_dump)
+function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item, is_player_dump, item_weight, weight_cache)
     local pairs_ = pairs
+    local ipairs_ = ipairs
     local type_ = type
     local mabs = math.abs
     local sb = stalker_camp_builder
@@ -6624,8 +6687,9 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local sec = type_(sec_or_item) == "string" and sec_or_item or (sec_or_item and sec_or_item.section and sec_or_item:section()) or ""
     local sec_l = string.lower(sec)
 
-    local fridge_box, stove_box, crafter_box, tech_box, medic_box, weapon_box, armor_box = nil, nil, nil, nil, nil, nil, nil
-    local settlement_chest, any_box = nil, nil
+    local fridge_boxes, stove_boxes, crafter_boxes, tech_boxes, medic_boxes, weapon_boxes, armor_boxes = {}, {}, {}, {}, {}, {}, {}
+    local chest_boxes, other_boxes = {}, {}
+    local any_box = nil
 
     local hub_obj = hub_id and safe_alife_object(hub_id)
     local hub_pos = hub_obj and hub_obj.position
@@ -6633,7 +6697,7 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     sb.sanitize_primary_chest(camp)
     if camp.primary_chest_id then
         if is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
-            settlement_chest = camp.primary_chest_id
+            table.insert(chest_boxes, camp.primary_chest_id)
             any_box = any_box or camp.primary_chest_id
         else
             camp.primary_chest_id = nil
@@ -6644,9 +6708,9 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     if m_data and m_data.workshop_stashes and hub_id and m_data.workshop_stashes[hub_id] then
         local ws_id = m_data.workshop_stashes[hub_id]
         if is_valid_camp_box(ws_id, hub_id, camp) then
-            settlement_chest = settlement_chest or ws_id
+            table.insert(tech_boxes, ws_id)
+            table.insert(chest_boxes, ws_id)
             any_box = any_box or ws_id
-            tech_box = tech_box or ws_id
         end
     end
 
@@ -6660,21 +6724,23 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
             local ssec = se and se:section_name() and se:section_name():lower() or ""
             any_box = any_box or target_id
             if ssec:find("fridge") or ssec:find("refrigerator") or ssec:find("cooler") then
-                fridge_box = fridge_box or target_id
+                table.insert(fridge_boxes, target_id)
             elseif ssec:find("stove") or ssec:find("fireplace") or ssec:find("wood_stove") or ssec:find("barrel_metal") then
-                stove_box = stove_box or target_id
+                table.insert(stove_boxes, target_id)
             elseif ssec:find("clinic") or ssec:find("med") then
-                medic_box = medic_box or target_id
+                table.insert(medic_boxes, target_id)
             elseif ssec:find("repair") or ssec:find("tool") or ssec:find("tech") or ssec:find("workshop") then
-                tech_box = tech_box or target_id
+                table.insert(tech_boxes, target_id)
             elseif ssec:find("gun") or ssec:find("weapon") or ssec:find("rifle") or ssec:find("armory") then
-                weapon_box = weapon_box or target_id
+                table.insert(weapon_boxes, target_id)
             elseif ssec:find("wardrobe") or ssec:find("locker") or ssec:find("armor") or ssec:find("suit") then
-                armor_box = armor_box or target_id
+                table.insert(armor_boxes, target_id)
             elseif (ssec:find("case") and not ssec:find("gun") and not ssec:find("weapon")) or ssec:find("sumka") or ssec:find("ammo") then
-                crafter_box = crafter_box or target_id
+                table.insert(crafter_boxes, target_id)
             elseif ssec:find("stash") or ssec:find("chest") or ssec:find("safe") or ssec:find("box_wood") or ssec:find("inv_box") or ssec:find("blue_box") then
-                settlement_chest = settlement_chest or target_id
+                table.insert(chest_boxes, target_id)
+            else
+                table.insert(other_boxes, target_id)
             end
         end
     end
@@ -6685,7 +6751,7 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
             for i, _ in pairs_(registry) do
                 if is_valid_camp_box(i, hub_id, camp) then
                     any_box = i
-                    settlement_chest = i
+                    table.insert(chest_boxes, i)
                     camp.primary_chest_id = i
                     camp.structures = camp.structures or {}
                     camp.structures[i] = "stash"
@@ -6696,7 +6762,7 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
             for i = 1, 65534 do
                 if is_valid_camp_box(i, hub_id, camp) then
                     any_box = i
-                    settlement_chest = i
+                    table.insert(chest_boxes, i)
                     camp.primary_chest_id = i
                     camp.structures = camp.structures or {}
                     camp.structures[i] = "stash"
@@ -6716,15 +6782,28 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
             camp.structures[new_box.id] = "stash"
             camp.primary_chest_id = new_box.id
             any_box = new_box.id
-            settlement_chest = new_box.id
+            table.insert(chest_boxes, new_box.id)
         end
     end
 
-    local fallback_chest = settlement_chest or tech_box or crafter_box or any_box
+    local fallback_chest = chest_boxes[1] or tech_boxes[1] or crafter_boxes[1] or any_box
     if not fallback_chest then return nil end
+
+    local function pick_box(priority_lists)
+        for _, list in ipairs(priority_lists) do
+            for _, bid in ipairs(list) do
+                if sb.box_has_room_for(bid, item_weight, weight_cache) then
+                    return bid
+                end
+            end
+        end
+        return nil
+    end
 
     local is_mutant_part = sec_l:find("mutant_part_") ~= nil
     local is_edible_mutant_meat = is_mutant_part and (sec_l:find("_meat") or sec_l:find("boar_chop") or sec_l:find("snork_hand"))
+
+    local target_priority = nil
 
     if is_edible_mutant_meat or (not is_mutant_part and (sec_l:find("meat_") or sec_l:find("tushonka") or sec_l:find("conserva")
        or sec_l:find("bread") or sec_l:find("kolbasa") or sec_l:find("cheese") or sec_l:find("nuts") or sec_l:find("chocolate")
@@ -6732,51 +6811,44 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
        or sec_l:find("water") or sec_l:find("mineral_water") or sec_l:find("flask") or sec_l:find("vodka") or sec_l:find("beer")
        or sec_l:find("energy_drink") or sec_l:find("tea") or sec_l:find("drink_") or sec_l:find("bottle_") or sec_l:find("ration")
        or sec_l:find("mre") or sec_l:find("cereal") or sec_l:find("tomato") or sec_l:find("corn") or sec_l:find("sausage"))) then
-        return fridge_box or fallback_chest
-    end
-
-    if sec_l:find("charcoal") or sec_l:find("firewood") or sec_l:find("matches") or sec_l:find("kerosene")
+        target_priority = { fridge_boxes, chest_boxes, other_boxes }
+    elseif sec_l:find("charcoal") or sec_l:find("firewood") or sec_l:find("matches") or sec_l:find("kerosene")
        or sec_l:find("fuel") or sec_l:find("diesel") or sec_l:find("coal") or sec_l:find("igniter") or sec_l:find("prt_i_wood") then
-        return stove_box or fallback_chest
-    end
-
-    if sec_l:find("medkit") or sec_l:find("bandage") or sec_l:find("antirad") or sec_l:find("drug_")
+        target_priority = { stove_boxes, chest_boxes, other_boxes }
+    elseif sec_l:find("medkit") or sec_l:find("bandage") or sec_l:find("antirad") or sec_l:find("drug_")
        or sec_l:find("stimpack") or sec_l:find("salve") or sec_l:find("morphine") or sec_l:find("jgut")
        or sec_l:find("e_syringe") or sec_l:find("glucose") or sec_l:find("analgetic") or sec_l:find("tetanus")
        or sec_l:find("yad") or sec_l:find("antibio") or sec_l:find("splint") or sec_l:find("iod")
        or sec_l == "akvatab" or sec_l:find("ibuprofen") then
-        return medic_box or fallback_chest
-    end
-
-    -- Firearms and weapons route to dedicated Gun Cases / Weapon Racks
-    local is_wpn = (ini_sys:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
-    if is_wpn then
-        return weapon_box or fallback_chest
-    end
-
-    -- Armor and suits route to Wardrobes / Lockers
-    local is_outfit = (ini_sys:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
-    if is_outfit then
-        return armor_box or fallback_chest
-    end
-
-    if sec_l:find("ammo_") or sec_l:find("grenade_") or sec_l:find("gl_") or sec_l:find("vog_")
+        target_priority = { medic_boxes, chest_boxes, other_boxes }
+    elseif ((ini_sys and ini_sys:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)) then
+        target_priority = { weapon_boxes, chest_boxes, other_boxes }
+    elseif ((ini_sys and ini_sys:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")) then
+        target_priority = { armor_boxes, chest_boxes, other_boxes }
+    elseif sec_l:find("ammo_") or sec_l:find("grenade_") or sec_l:find("gl_") or sec_l:find("vog_")
        or sec_l:find("powder") or sec_l:find("scrap") or sec_l:find("casing") or sec_l:find("bullet")
        or sec_l:find("primer") or sec_l:find("prt_i_copper") or sec_l:find("prt_i_paper") or sec_l:find("prt_i_plastic")
        or sec_l:find("prt_i_resistor") or sec_l:find("prt_i_transist") or sec_l:find("prt_i_cond") or sec_l:find("prt_i_capacit") or sec_l:find("prt_i_microchip")
        or (is_mutant_part and not is_edible_mutant_meat) then
-        return crafter_box or tech_box or fallback_chest
-    end
-
-    if sec_l:find("toolkit") or sec_l:find("glue") or sec_l:find("sewing") or sec_l:find("oil") or sec_l:find("solvent")
+        target_priority = { crafter_boxes, tech_boxes, chest_boxes, other_boxes }
+    elseif sec_l:find("toolkit") or sec_l:find("glue") or sec_l:find("sewing") or sec_l:find("oil") or sec_l:find("solvent")
        or sec_l:find("rasp") or sec_l:find("ramrod") or sec_l:find("prt_w_") or sec_l:find("prt_o_")
        or sec_l:find("cleaning_kit") or sec_l:find("repair_kit") or sec_l:find("upg_") or sec_l:find("lead_box") or sec_l:find("leatherman") then
-        return tech_box or fallback_chest
+        target_priority = { tech_boxes, crafter_boxes, chest_boxes, other_boxes }
+    else
+        target_priority = { chest_boxes, other_boxes }
     end
+
+    local chosen = pick_box(target_priority)
+    if chosen then return chosen end
 
     if is_player_dump then
         return nil
     end
+
+    -- Job deposits fallback: check any remaining container with room
+    local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes, fridge_boxes, stove_boxes, medic_boxes })
+    if general_fallback then return general_fallback end
 
     return fallback_chest
 end
@@ -6902,7 +6974,8 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
 
     local ini = ini_sys or sys_ini or system_ini()
     if not sec or not ini or not ini:section_exist(sec) then return nil end
-    local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, false)
+    local item_w = (ini and ini:r_float_ex(sec, "inv_weight")) or 0.1
+    local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, false, item_w)
     if not target_box_id then return nil end
 
     local box_se = alife_object(target_box_id)
@@ -7086,6 +7159,8 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
     end
 
     local count_transferred = 0
+    local count_skipped_full = 0
+    local weight_cache = {}
 
     local function is_item_equipped(act, itm)
         if not itm or not act then return false end
@@ -7118,12 +7193,21 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
             return
         end
 
-        local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, true)
+        local item_w = (item.weight and item:weight()) or 0.05
+        local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, true, item_w, weight_cache)
         if target_box_id then
             local box_obj = level.object_by_id(target_box_id)
             if box_obj then
                 actor:transfer_item(item, box_obj)
                 count_transferred = count_transferred + 1
+                if weight_cache[target_box_id] ~= nil then
+                    weight_cache[target_box_id] = weight_cache[target_box_id] + item_w
+                end
+            end
+        else
+            local test_box = sb.get_auto_sort_target_box(camp, hub_id, sec, false)
+            if test_box then
+                count_skipped_full = count_skipped_full + 1
             end
         end
     end
@@ -7133,12 +7217,19 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
     if count_transferred > 0 then
         local snd = sound_object([[interface\inv_drop]])
         if snd then snd:play(actor, 0, sound_object.s2d) end
-        news_manager.send_tip(actor, string.format(game.translate_string("st_auto_sort_success"), count_transferred), nil, "general_stalker", 6000)
+        local msg = string.format(game.translate_string("st_auto_sort_success"), count_transferred)
+        if count_skipped_full > 0 then
+            msg = msg .. " (" .. count_skipped_full .. " items skipped: capacity reached)"
+        end
+        news_manager.send_tip(actor, msg, nil, "general_stalker", 6000)
         add_camp_radio_log(hub_id, "work", string.format(game.translate_string("st_radio_autosort_deposited"), count_transferred))
         if camp then
             camp._cached_storage_metrics_tg = nil
         end
         return true, count_transferred
+    elseif count_skipped_full > 0 then
+        news_manager.send_tip(actor, "Auto-Sort skipped: settlement storage containers are at full capacity!", nil, "general_stalker", 6000)
+        return false, 0
     else
         news_manager.send_tip(actor, game.translate_string("st_auto_sort_empty"), nil, "general_stalker", 5000)
         return false, 0
