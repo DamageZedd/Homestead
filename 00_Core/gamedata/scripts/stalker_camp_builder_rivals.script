@@ -1081,7 +1081,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                     camp.faction = enemy_fac
                                     camp.setup_sec = current_sec
                                     camp.setup_duration = mrandom(21600, 64800)
-                                    camp.tier = 1
+                                    -- the tier stays with the furniture it built: reset, it would build it again
 
                                     local squad_pos = v_scratch_pos:set(camp.position.x, camp.position.y, camp.position.z)
                                     local squad_sec = sb.get_dynamic_squad_section_for_faction(enemy_fac)
