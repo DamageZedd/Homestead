@@ -7,6 +7,7 @@ local mmin = math.min
 local mmax = math.max
 local mfloor = math.floor
 local mabs = math.abs
+local mrandom = math.random
 local STATIC_ZERO_VECTOR = vector()
 -- stalker_camp_builder_jobs.script
 

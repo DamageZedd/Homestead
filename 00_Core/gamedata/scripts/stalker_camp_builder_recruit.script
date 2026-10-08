@@ -1,4 +1,9 @@
 local sformat = string.format
+local mmin = math.min
+local mmax = math.max
+local mfloor = math.floor
+local mrandom = math.random
+local sfind = string.find
 
 -- ============================================================================
 -- Territory & Faction Compatibility Safety Checks

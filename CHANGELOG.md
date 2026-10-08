@@ -48,6 +48,7 @@
 - **System INI Lookups (PR #11, #12)**: Ensured `ini_sys` is properly read during quest stash verification and auto-sort weapon/armor type checks.
 - **Settler Idle State & Animations (PR #14)**: Switched from undefined `"smoke"` state to authentic `"smoking_stand"`.
 - **MCM Map Marker Labels (PR #15)**: Restored descriptive UI text strings for custom map marker styles in the MCM menu.
+- **Settler Idle Animation Crash Fix (`npc_on_update`)**: Fixed a crash (`attempt to call global 'mrandom' (a nil value)`) occurring when recruiting a settler or when unstructured settlers arrive/idle at camp hubs. Promoted `mrandom`, `mcos`, `msin`, `msqrt`, and `tsort` to module scope and routed idle animation rolls to `math.random`.
 - **Math & Patrol Optimizations (PR #7, #17)**: Hoisted trigonometric math calls in `npc_on_update` and streamlined outpost patrol distance-to-chest calculations.
 
 ### ⚡ Performance Optimization & Engine Hardening (ALAO & Codex Audit):

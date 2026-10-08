@@ -8,7 +8,12 @@ local mmin = math.min
 local mmax = math.max
 local mfloor = math.floor
 local mabs = math.abs
+local mrandom = math.random
+local mcos = math.cos
+local msin = math.sin
+local msqrt = math.sqrt
 local sfind = string.find
+local tsort = table.sort
 
 -- Monolith / Anomaly Engine Crash Guard: alife_storage_manager
 function patch_alife_storage_manager()
@@ -3266,9 +3271,9 @@ function npc_on_update(npc)
         }
         local need_new_anim = (not safe_idle_states[cur_state]) or (now_tg > (cache.idle_anim_tg or 0))
         if need_new_anim then
-            cache.idle_anim_tg = now_tg + mrandom(20000, 35000)
+            cache.idle_anim_tg = now_tg + math.random(20000, 35000)
             local idle_choices = { "wait_na", "guard", "caution", "smoking_stand", "sit_knee", "threat_na", "ward" }
-            local chosen_idle = idle_choices[mrandom(#idle_choices)]
+            local chosen_idle = idle_choices[math.random(#idle_choices)]
             local look_pos = vector():set(
                 target_pos.x + (target_pos.x - hub_obj.position.x) * 2.0,
                 target_pos.y,
