@@ -9264,6 +9264,14 @@ function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)
     if not force_refresh and #g_logs >= 2 then
         return
     end
+    -- a scan's lines replace the previous scan's (flagged at the end) instead of pushing the real
+    -- reports out of the log, which add_camp_radio_log keeps to 50 entries
+    for i = #g_logs, 1, -1 do
+        if g_logs[i].scan then
+            table.remove(g_logs, i)
+        end
+    end
+    local kept = #g_logs
 
     local h = (level and level.get_time_hours and level.get_time_hours()) or 12
     local m = (level and level.get_time_minutes and level.get_time_minutes()) or 0
@@ -9345,17 +9353,27 @@ function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)
         end
     end
 
+    -- hostile as the Rivals tab judges it: occupied, not cleared, and at war with the player.
+    -- Rival camps have no is_hostile field; abandoned and friendly outposts aren't reported.
     local rival_camps = stalker_camp_builder.rival_camps or {}
     for sm_id, rcamp in pairs_(rival_camps) do
         local r_name = rcamp.name or "Rival Camp"
         local r_lvl = game.translate_string(rcamp.level or "unknown")
-        local fac = rcamp.faction or "hostile"
-        local is_hostile = rcamp.is_hostile or "hostile"
-        if is_hostile == "hostile" then
+        local fac = rcamp.faction
+        local text
+        if rcamp.status == "mutant_nest" or fac == "monster" then
+            text = sformat("INTEL RECON: Mutant nest at %s (%s).", r_name, r_lvl)
+        elseif fac and rcamp.status ~= "unoccupied" and not rcamp.cleared then
+            local actor_comm = db.actor and db.actor:character_community() or "stalker"
+            if relation_registry.community_relation(fac, actor_comm) <= -1000 then
+                text = sformat("INTEL RECON: Active hostile outpost at %s (%s) operated by %s forces.", r_name, r_lvl, game.translate_string(fac):upper())
+            end
+        end
+        if text then
             table.insert(g_logs, 1, {
                 time_str = time_str,
                 category = "combat",
-                text = sformat("INTEL RECON: Active hostile outpost at %s (%s) operated by %s forces.", r_name, r_lvl, fac:upper())
+                text = text
             })
         end
     end
@@ -9366,6 +9384,9 @@ function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)
             category = "general",
             text = "Zone Radio Scan Complete: No active settlement hubs detected. Place a workbench to initialize telemetry."
         })
+    end
+    for i = 1, #g_logs - kept do
+        g_logs[i].scan = true
     end
 
     while #g_logs > 100 do
