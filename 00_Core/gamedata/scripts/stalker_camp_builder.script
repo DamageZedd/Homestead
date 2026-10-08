@@ -974,7 +974,9 @@ stalker_camp_builder.CAMP_BOX_ID_CACHE_TTL_MS = 30000  -- 30 real seconds
 local last_rival_spawn_scan_tg = 0
 local RIVAL_SPAWN_SCAN_INTERVAL_MS = 60000  -- 60 real seconds
 
-function camp_send_tip(actor, text, snd_type, category, duration, hub_id)
+-- category is the news icon; radio_category is the radio feed's filter for the report:
+-- "work" (the default), "expedition", "combat" or "general"
+function camp_send_tip(actor, text, snd_type, category, duration, hub_id, radio_category)
     if cfg.verbose_notifications ~= false then
         _suppress_news_intercept = true
         stalker_camp_builder._suppress_news_intercept = true
@@ -984,7 +986,7 @@ function camp_send_tip(actor, text, snd_type, category, duration, hub_id)
     end
     add_camp_log_entry(text, "info")
     if add_camp_radio_log then
-        add_camp_radio_log(hub_id, category or "work", text)
+        add_camp_radio_log(hub_id, radio_category or "work", text)
     end
 end
 
@@ -2240,7 +2242,7 @@ local function process_uninstall_prep()
             fmt = "Homestead uninstall prep complete. Rival camp furniture released: %d"
         end
         local ok, msg = pcall(string.format, fmt, released)
-        camp_send_tip(actor, ok and msg or fmt, nil, "general_stalker", 8000)
+        camp_send_tip(actor, ok and msg or fmt, nil, "general_stalker", 8000, nil, "general")
     end
     if cfg.debug_logging then
         printf("[Homestead] Uninstall prep: purged %d rival decorations/structures.", released)
@@ -2259,7 +2261,7 @@ local function process_boundary_rescan(actor)
             scan_camp_structures(hub_id)
         end
         camp_send_tip(actor, game.translate_string("st_mcm_boundary_rescanned"),
-                      nil, "general_stalker", 8000)
+                      nil, "general_stalker", 8000, nil, "general")
     end
     last_boundary_dist = current_boundary
 end
@@ -4235,7 +4237,7 @@ local function show_camp_summary_toast(actor, current_level)
         camp_send_tip(actor,
             string.format(game.translate_string("st_event_settlements_on_level"),
                 table.concat(camps_on_level, "; ")),
-            nil, "general_stalker", 10000)
+            nil, "general_stalker", 10000, nil, "general")
         return true
     end)
 end
