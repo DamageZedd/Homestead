@@ -1743,13 +1743,11 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
 
     -- 6. Strip companion & beh infoportions across both ALife and game_object
     pcall(function()
-        if sim.disable_info_portion then
-            sim:disable_info_portion(npc_id, "npcx_is_companion")
-            sim:disable_info_portion(npc_id, "npcx_beh_wait")
-            sim:disable_info_portion(npc_id, "npcx_beh_cannot_dismiss")
-            sim:disable_info_portion(npc_id, "homestead_settler_guard")
-            sim:disable_info_portion(npc_id, "homestead_settler_patrol")
-        end
+        sim:disable_info(npc_id, "npcx_is_companion")
+        sim:disable_info(npc_id, "npcx_beh_wait")
+        sim:disable_info(npc_id, "npcx_beh_cannot_dismiss")
+        sim:disable_info(npc_id, "homestead_settler_guard")
+        sim:disable_info(npc_id, "homestead_settler_patrol")
     end)
     if online_npc then
         pcall(function()
@@ -1975,9 +1973,7 @@ function stalker_camp_builder.heal_ghost_companion_squads()
                         se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
                     end)
                 end
-                if sim.disable_info_portion then
-                    pcall(function() sim:disable_info_portion(mid, "npcx_is_companion") end)
-                end
+                pcall(function() sim:disable_info(mid, "npcx_is_companion") end)
                 local on_m = level.object_by_id(mid)
                 if on_m then
                     pcall(function() on_m:disable_info_portion("npcx_is_companion") end)
