@@ -2566,7 +2566,9 @@ function stalker_camp_builder.update_camp_jobs()
                                         if hunt_box then
                                             local tier_mult = sb.get_survivor_tier_mult(survivor)
                                             local spec_mult = sb.get_specialization_mult(camp, "hunter")
-                                            local hunt_mult = tier_mult * spec_mult
+                                            -- the tier counts up to 1.5, as spawn_hunted_meat's old cap had it;
+                                            -- the Farm's and the Hideout's bonus apply on top
+                                            local hunt_mult = mmin(1.5, tier_mult) * spec_mult
                                             local hunter_name = survivor.name or "Hunter"
                                             local deposited = sb.spawn_hunted_meat(hunt_box, hunt_mult, hub_id, camp)
                                             local meat_desc = format_deposited_items_summary(deposited, "fresh mutant meat")
