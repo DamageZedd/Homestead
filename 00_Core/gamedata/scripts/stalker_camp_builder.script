@@ -3801,12 +3801,9 @@ function normalize_camps()
         local hub_obj = safe_alife_object(hub_id)
         local hub_pos = hub_obj and hub_obj.position
 
+        -- the box itself is checked where the chest is used: this runs from load_state, before the
+        -- save's objects are loaded, when every box looks missing
         stalker_camp_builder.sanitize_primary_chest(camp)
-        if camp.primary_chest_id then
-            if not is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
-                camp.primary_chest_id = nil
-            end
-        end
 
     end
 
