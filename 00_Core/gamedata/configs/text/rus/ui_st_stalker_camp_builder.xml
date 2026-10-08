@@ -257,7 +257,7 @@
         <text>Разобрать этот лагерь? Центр и вся мебель будут удалены. Выжившие будут распущены.</text>
     </string>
     <string id="st_dismantle_camp_done">
-        <text>Лагерь разобран. Центр и мебель удалены.</text>
+        <text>Лагерь разобран. Верстаки и ящики для хранения остаются на месте.</text>
     </string>
     <string id="st_rename_survivor">
         <text>Переименовать выжившего</text>
@@ -645,6 +645,9 @@
     </string>
     <string id="st_pda_settlement_job_scavenge">
         <text>Мусорщик</text>
+    </string>
+    <string id="st_pda_settlement_job_hunter">
+        <text>Охотник</text>
     </string>
     <string id="st_pda_settlement_job_craft">
         <text>Ремесленник</text>
@@ -1300,9 +1303,6 @@
     <string id="st_camp_medic_treat_back">
         <text>Не нужно, пока сам справлюсь.</text>
     </string>
-    <string id="st_camp_medic_heal_done">
-        <text>Вот и все. Залатал тебя как новенького. Будь осторожнее в Зоне.</text>
-    </string>
     <string id="st_manage_camp_close_reply">
         <text>Береги себя, сталкер.</text>
     </string>
@@ -1421,7 +1421,7 @@
         <text>Очистить журнал</text>
     </string>
     <string id="st_pda_radio_no_logs">
-        <text>В этом поселении радиоактивность не зафиксирована.</text>
+        <text>Радиопереговоры этого поселения не зафиксированы.</text>
     </string>
     <string id="st_pda_radio_init_msg">
         <text>Ретранслятор рации Homestead на связи. Мониторинг частот Зоны...</text>
