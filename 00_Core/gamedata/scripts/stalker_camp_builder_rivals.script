@@ -982,6 +982,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                 local old_faction = camp.faction
                 camp.faction = nil
                 camp.squad_id = nil
+                camp.extra_squad_ids = nil
                 camp.cleared = true
                 camp.despawn_chest_when_empty = true
 
