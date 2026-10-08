@@ -5949,8 +5949,8 @@ function on_game_start()
             for _, rcamp in pairs(stalker_camp_builder.rival_camps) do
                 if type(rcamp) == "table" then
                     if rcamp.chest_id == id then return true end
-                    if rcamp.decor_ids then
-                        for _, did in ipairs(rcamp.decor_ids) do
+                    if rcamp.decorations then
+                        for _, did in ipairs(rcamp.decorations) do
                             if did == id then return true end
                         end
                     end
