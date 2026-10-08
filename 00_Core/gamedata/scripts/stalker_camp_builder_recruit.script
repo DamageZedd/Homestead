@@ -2326,6 +2326,15 @@ function stalker_camp_builder.dismantle_camp(hub_id)
 
     -- printf(string.format("[Homestead] Dismantling camp %d (%s)", hub_id, tostring(camp.name)))
 
+    -- End scavengers' expeditions while the camp still exists, as banish_npc does: the haul so far
+    -- goes into the camp's storage. Left running, an expedition outlives the camp, loses its haul
+    -- and puts the freed stalker back on the settler beh scheme.
+    if camp.survivors and sb.recall_scavenger_expedition_by_npc then
+        for npc_id in pairs(camp.survivors) do
+            sb.recall_scavenger_expedition_by_npc(tonumber(npc_id) or npc_id)
+        end
+    end
+
     -- Cleanly free/release settler home squads so settlers are no longer bound to this settlement
     if camp.survivors then
         for npc_id, survivor in pairs(camp.survivors) do
