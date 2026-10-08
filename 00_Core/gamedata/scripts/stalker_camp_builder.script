@@ -6691,13 +6691,31 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local chest_boxes, other_boxes = {}, {}
     local any_box = nil
 
+    -- Hideout Furniture Expansion's single-kind boxes (specialized_storage) take only their kind:
+    -- haru_specialized_storage_boxes refuses anything else the player puts in by hand
+    local function takes_item(box_id)
+        local se_b = safe_alife_object(box_id)
+        local kind = se_b and ini_sys and ini_sys:r_string_ex(se_b:section_name(), "specialized_storage")
+        if kind == "ammo" then
+            return IsItem ~= nil and IsItem("ammo", sec) ~= nil
+        elseif kind == "meds" then
+            return ini_sys:r_string_ex(sec, "kind") == "i_medical"
+        elseif kind == "canned_food" then
+            local canned = haru_specialized_storage_boxes and haru_specialized_storage_boxes.canned_food
+            return (canned and canned[sec]) == true
+        end
+        return true
+    end
+
     local hub_obj = hub_id and safe_alife_object(hub_id)
     local hub_pos = hub_obj and hub_obj.position
 
     sb.sanitize_primary_chest(camp)
     if camp.primary_chest_id then
         if is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
-            table.insert(chest_boxes, camp.primary_chest_id)
+            if takes_item(camp.primary_chest_id) then
+                table.insert(chest_boxes, camp.primary_chest_id)
+            end
             any_box = any_box or camp.primary_chest_id
         else
             camp.primary_chest_id = nil
@@ -6723,7 +6741,9 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
             local se = safe_alife_object(target_id)
             local ssec = se and se:section_name() and se:section_name():lower() or ""
             any_box = any_box or target_id
-            if ssec:find("fridge") or ssec:find("refrigerator") or ssec:find("cooler") then
+            if not takes_item(target_id) then
+                -- a single-kind box for another kind of item
+            elseif ssec:find("fridge") or ssec:find("refrigerator") or ssec:find("cooler") then
                 table.insert(fridge_boxes, target_id)
             elseif ssec:find("stove") or ssec:find("fireplace") or ssec:find("wood_stove") or ssec:find("barrel_metal") then
                 table.insert(stove_boxes, target_id)
@@ -6847,7 +6867,8 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     end
 
     -- Job deposits fallback: check any remaining container with room
-    local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes, fridge_boxes, stove_boxes, medic_boxes })
+    -- not fridges, stoves or med cases: they hold their own kind (see sanitize_primary_chest)
+    local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes })
     if general_fallback then return general_fallback end
 
     return fallback_chest
