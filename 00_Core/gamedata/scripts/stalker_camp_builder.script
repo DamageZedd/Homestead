@@ -6318,13 +6318,13 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     end
 
     -- Firearms and weapons route to dedicated Gun Cases / Weapon Racks
-    local is_wpn = (ini and ini:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
+    local is_wpn = (ini_sys:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
     if is_wpn then
         return weapon_box or fallback_chest
     end
 
     -- Armor and suits route to Wardrobes / Lockers
-    local is_outfit = (ini and ini:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
+    local is_outfit = (ini_sys:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
     if is_outfit then
         return armor_box or fallback_chest
     end
