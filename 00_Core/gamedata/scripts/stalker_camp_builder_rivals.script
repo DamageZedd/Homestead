@@ -22,6 +22,24 @@ local mcos = math.cos
 local msin = math.sin
 local msqrt = math.sqrt
 
+-- whether the player has taken this squad as companions (axr_companions keeps them by squad id)
+local function is_companion_squad(id)
+    local cs = id and axr_companions and axr_companions.companion_squads
+    return cs ~= nil and cs[id] ~= nil
+end
+
+-- stop holding a squad at an outpost: drop the pin and the members' rival lookups
+local function release_rival_hold(sb, squad)
+    if not squad then return end
+    squad.get_script_target = nil
+    for k in sb.safe_squad_members(squad) do
+        if k.id then
+            if sb.camp_npc_released then sb.camp_npc_released[k.id] = nil end
+            if sb.settler_lookup then sb.settler_lookup[k.id] = nil end
+        end
+    end
+end
+
 local function is_squad_alive(squad)
     if not squad then return false end
     if squad.npc_count then
@@ -671,6 +689,20 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
         if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) then
             local squad = camp.squad_id and alife_object(camp.squad_id)
+            -- a squad the player recruited as companions is no longer the garrison
+            if squad and is_companion_squad(camp.squad_id) then
+                release_rival_hold(sb, squad)
+                squad, camp.squad_id = nil, nil
+            end
+            if camp.extra_squad_ids then
+                for i = #camp.extra_squad_ids, 1, -1 do
+                    local ex_id = camp.extra_squad_ids[i]
+                    if is_companion_squad(ex_id) then
+                        release_rival_hold(sb, alife_object(ex_id))
+                        table.remove(camp.extra_squad_ids, i)
+                    end
+                end
+            end
             local has_alive = false
             if squad then
                 for k in sb.safe_squad_members(squad) do
@@ -2274,7 +2306,8 @@ function stalker_camp_builder.process_rival_camp_surge(is_peak)
     local current_sec = game.get_game_time():diffSec(game.CTime())
 
     for key, camp in pairs(sb.rival_camps) do
-        if type(camp) == "table" and camp.chest_id and camp.squad_id and camp.status ~= "unoccupied" and camp.status ~= "mutant_nest" and camp.faction ~= "zombied" then
+        if type(camp) == "table" and camp.chest_id and camp.squad_id and camp.status ~= "unoccupied" and camp.status ~= "mutant_nest" and camp.faction ~= "zombied"
+            and not is_companion_squad(camp.squad_id) then
             if math.random(100) <= 25 then
                 sb.zombify_rival_camp(camp)
             end
