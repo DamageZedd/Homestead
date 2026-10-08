@@ -5770,6 +5770,10 @@ function server_entity_on_unregister(se_obj, type_name)
     if m_data and m_data.stalker_camp_builder_freed_settlers and m_data.stalker_camp_builder_freed_settlers[obj_id] then
         m_data.stalker_camp_builder_freed_settlers[obj_id] = nil
     end
+    -- a courier whose squad is gone: its entry goes too, so the freed id is never taken for it
+    if stalker_camp_builder.active_convoys then
+        stalker_camp_builder.active_convoys[obj_id] = nil
+    end
 
     if stalker_camp_builder.rival_camps then
         for key, rcamp in pairs(stalker_camp_builder.rival_camps) do
@@ -5814,6 +5818,10 @@ function server_entity_on_unregister(se_obj, type_name)
                                 break
                             end
                         end
+                    end
+                    -- the same for the outpost's heat pack
+                    if rcamp.heat_mutant_squad_id == obj_id then
+                        rcamp.heat_mutant_squad_id = nil
                     end
                     if rcamp.decorations then
                         for i = #rcamp.decorations, 1, -1 do
