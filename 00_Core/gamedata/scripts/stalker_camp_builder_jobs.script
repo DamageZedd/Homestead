@@ -766,13 +766,17 @@ function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor
 
     -- DANZY EDIT: technicians only repair gear placed in a workbench, so loot in
     -- your stashes keeps its found condition.
+    -- A Workshop keeps its gear in a hidden workshop_stash, the box camp_iterate_inventory
+    -- reports, so the set holds that stash's id
+    local m_data = alife_storage_manager and alife_storage_manager.get_state()
+    local ws = m_data and m_data.workshop_stashes or {}
     local wb_set = {}
     local has_wb = false
     for sid, stype in pairs(camp and camp.structures or {}) do
-        if stype == "workbench" or stype == "repair_bench" then wb_set[sid] = true; has_wb = true end
+        if stype == "workbench" or stype == "repair_bench" then wb_set[ws[sid] or sid] = true; has_wb = true end
     end
     -- the settlement's own Workshop (the hub) counts as a workbench too
-    if hub_id and is_valid_box(hub_id) then wb_set[hub_id] = true; has_wb = true end
+    if hub_id and ws[hub_id] then wb_set[ws[hub_id]] = true; has_wb = true end
     if not has_wb then
         if survivor then survivor.shortfall_reason = "No Workbench" end
         return false
@@ -1000,9 +1004,13 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
         end
     end
 
+    -- a Workshop's gear is in its workshop_stash, the box id the callback below gets
+    local m_data = alife_storage_manager and alife_storage_manager.get_state()
+    local ws = m_data and m_data.workshop_stashes or {}
     local wb_only = {}
+    if hub_id and ws[hub_id] then wb_only[ws[hub_id]] = true end
     for sid, stype in pairs(camp.structures or {}) do
-        if stype == "workbench" or stype == "repair_bench" then wb_only[sid] = true end
+        if stype == "workbench" or stype == "repair_bench" then wb_only[ws[sid] or sid] = true end
     end
     if hub_id then wb_only[hub_id] = true end
     if sb.camp_iterate_inventory then
