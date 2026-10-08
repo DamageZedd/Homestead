@@ -964,8 +964,6 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
                     elseif restored_job == "electrician" then rt_interval = sb.cfg.electrician_job_interval or (sb.defaults and sb.defaults.electrician_job_interval) or 900
                     end
                     restored_job_start_realtime = time_global() - (s.paused_job_progress * (rt_interval or 300) * 1000)
-                else
-                    restored_job_start_realtime = s.paused_job_start_realtime or time_global()
                 end
                 -- printf(sformat("[Homestead] recruit_npc_to_camp: restoring paused job '%s' (xp=%d, tier=%d) for npc %d", restored_job, restored_xp, restored_tier, npc_id))
             end
@@ -1405,7 +1403,6 @@ function stalker_camp_builder.recruit_back(p1, p2)
             survivor.paused_xp = survivor.xp or 0
             survivor.paused_tier = survivor.tier or 0
             survivor.paused_job_progress = sb.get_job_progress and sb.get_job_progress(survivor) or 0
-            survivor.paused_job_start_realtime = survivor.job_start_realtime
             survivor.job = "companion"
             survivor.is_companion = true
 

@@ -3745,7 +3745,9 @@ function load_state(m_data)
                 end
             else
                 if type_(survivor) == "table" then
-                    survivor.job_start_realtime = survivor.job_start_realtime or time_global()
+                    -- idle, or away as a companion: a job taken up later starts its own cycle
+                    survivor.job_start_time = nil
+                    survivor.job_start_realtime = nil
                 end
             end
         end
