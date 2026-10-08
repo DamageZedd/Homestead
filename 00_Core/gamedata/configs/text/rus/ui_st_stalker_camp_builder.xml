@@ -454,12 +454,6 @@
     <string id="st_homestead_rival_furniture_purged">
         <text>Подготовка к удалению Homestead завершена. Объекты баз соперников удалены.</text>
     </string>
-    <string id="st_itm_water_pump">
-        <text>Лагерная водяная колонка</text>
-    </string>
-        <string id="st_itm_water_pump_descr">
-        <text>Тяжелый ручной водяной насос. Установите его в лагере для добычи чистой питьевой воды прямо на склад совершенно бесплатно — фильтры и уголь не требуются! Можно приобрести у Сидоровича и торговцев снаряжением.</text>
-    </string>
     <string id="ui_mcm_stalker_camp_builder_defense_cap">
         <text>Лимит рейтинга защиты</text>
     </string>

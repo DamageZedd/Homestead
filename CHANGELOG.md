@@ -71,6 +71,10 @@
 - **Stockpile Surplus Cap for Master Cook Kolbasa (PR #158)**: Included `kolbasa` under food stockpile surplus caps, properly pausing Master-tier cooks once 15 prepared meals are stored.
 - **Technician Dialogue Phrasing & Window Exit Polish (PR #150)**: Defined missing dialogue string `st_manage_camp_close` and ended conversations cleanly prior to opening technician crafting interfaces.
 - **Medic Treatment Affordability Preconditions (PR #151)**: Added actor money preconditions to paid medical treatment options, preventing medics from confirming treatments when the player lacks sufficient funds.
+- **Water Pump Prototype Cleanup & Mod Collisions (Fixes #175)**: Removed defunct `[itm_water_pump]` and `[placeable_water_pump]` definitions, unused localization strings, and colliding binder stub `bind_water_pump_furniture.script`:
+  - Eliminated fatal engine crashes (`CModelPool::Instance_Load`) caused by non-existent 3D model `dynamics\placeable\kolonka.ogf` and undefined UI texture `ui_inGame2_placeable_radio`.
+  - Removed stub `bind_water_pump_furniture.script` which clobbered Fillable Canteens 2.0's real water pump binder wrapper and risked fatal DLTX duplicate section crashes.
+  - Camp water infrastructure continues to be fully and authentically supported through craftable and placeable metal water barrels and sinks (`placeable_barrel_metal`, `placeable_decor_sink`).
 
 ### 🎒 Scavenger Logistics, Stashes & Container Management (Community / devinhorowitz):
 - **Pure Game-Clock Timing for Scavenger Expeditions (PR #128)**: Removed dual-clock real-time fudge factors from scavenger trips, preventing emission/psi-storm time acceleration from instantly completing active expeditions.

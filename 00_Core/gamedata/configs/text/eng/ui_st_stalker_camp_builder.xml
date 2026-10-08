@@ -454,12 +454,6 @@
     <string id="st_homestead_rival_furniture_purged">
         <text>Homestead uninstall prep complete. Rival camp furniture released.</text>
     </string>
-    <string id="st_itm_water_pump">
-        <text>Camp Water Pump</text>
-    </string>
-    <string id="st_itm_water_pump_descr">
-        <text>A heavy, hand-operated water pump. Place it in your camp to generate clean drinking water directly into storage completely for free with zero filters or charcoal required. Available from Sidorovich and tool traders.</text>
-    </string>
     <string id="ui_mcm_stalker_camp_builder_defense_cap">
         <text>Defense Rating Cap</text>
     </string>
