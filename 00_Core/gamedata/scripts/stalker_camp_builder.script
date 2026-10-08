@@ -6975,7 +6975,15 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
     local ini = ini_sys or sys_ini or system_ini()
     if not sec or not ini or not ini:section_exist(sec) then return nil end
     local item_w = (ini and ini:r_float_ex(sec, "inv_weight")) or 0.1
-    local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, false, item_w)
+    -- one frame's deposits share box weights: an online box lists a new item only once the client
+    -- has processed its spawn, so weighing it again would miss the items created before this one
+    local tg = time_global()
+    if sb._deposit_weights_tg ~= tg then
+        sb._deposit_weights_tg = tg
+        sb._deposit_weights = {}
+    end
+    local weights = sb._deposit_weights
+    local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, false, item_w, weights)
     if not target_box_id then return nil end
 
     local box_se = alife_object(target_box_id)
@@ -7127,6 +7135,10 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
             box_id = target_box_id
         }
         camp._cached_storage_metrics_tg = nil
+    end
+
+    if weights[target_box_id] ~= nil then
+        weights[target_box_id] = weights[target_box_id] + item_w
     end
 
     return target_box_id
