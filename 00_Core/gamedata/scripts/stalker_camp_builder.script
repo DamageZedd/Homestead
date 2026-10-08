@@ -7475,13 +7475,10 @@ local function loot_and_clear_stash(s_id, exp)
                 end
             end
         end)
-        local cl_stash = level and level.object_by_id and level.object_by_id(s_id)
-        if cl_stash then
-            for _, rel_se in ipairs(to_release) do
-                pcall(function()
-                    alife_release(rel_se, true)
-                end)
-            end
+        for _, rel_se in ipairs(to_release) do
+            pcall(function()
+                alife_release(rel_se, true)
+            end)
         end
     end
 
