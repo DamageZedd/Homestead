@@ -106,6 +106,12 @@
 - **Telemetry Text Truncation & Colorization Format**: Removed redundant `"Assigned Job: "` string prefix across `RefreshJobProgress` to prevent awkward line breaks and clipping within the compact telemetry card. Standardized all `%c` color formatting codes in `colorize_pda_text` and `RefreshJobProgress` to authentic 4-component ARGB (`%c[255,r,g,b]`), resolving engine color parsing inconsistencies.
 - **Overview Header Layout & Threat Banner Positioning**: Split the region and specialization badge into dedicated lines (`[ REGION: %s ]\n[ SPEC: %s ]`) to eliminate text overflow and name clipping. Dynamically positioned `raid_banner_bg` and `raid_banner_lbl` below the measured badge height and updated Overview module card coordinates in XML to ensure clean vertical spacing.
 
+### ⚙️ Gadget Hardening, Furniture Lifecycle & Shader Optimization (Community / devinhorowitz - Issue #84):
+- **Alarm System PDA Inventory Icon Restored**: Restored the missing 50x50 icon for `[alarm_system_pda]` in `04_HideoutGadgetsGammaPatch/gamedata/textures/ui/ui_icon_pistol_turret.dds` at grid cell (4, 1), resolving the blank item slot in inventory, trader stock, and crafting menus when installing the Hideout Gadgets G.A.M.M.A. patch.
+- **Universal Furniture Pickup Lifecycle Hook**: Wrapped `bind_hf_base.hf_binder_wrapper.pickup` in `stalker_camp_builder.script` to invoke `hf_obj_manager.cleanup_data(obj_id)` before furniture is released by Hideout Furniture. This immediately triggers `hf_on_before_furniture_release` to prune picked-up furniture from `camp.structures`, invalidate the structures cache, clear workstation bindings, erase lingering `hf_data` (preventing persistent `is_on` states on picked-up alarms), and notify external mods (e.g. Interaction Dot Marks).
+- **Structure Existence Verification & Defense Ghosting Prevention**: Updated `get_camp_stats` and `has_active_alarm` to verify that `alife_object(id)` exists before tallying settlement structures or granting alarm raid-defense bonuses. Automatically prunes unreferenced or released entity IDs from `camp.structures`.
+- **Nixie Display Shader State Caching**: Cached `_last_tens`, `_last_ones`, and `_last_powered` in `display_counter_wrapper` (`bind_display_counter.script`) and skipped `self.object:set_shader` when digit values and power states remain unchanged. Eliminates redundant per-frame mesh shader swaps on every placed counter.
+
 ## v1.2.2.1 — Settler Recruitment Idle Animation Hotfix
 
 ### 🐛 Critical Bugfix:

@@ -93,9 +93,6 @@ end
 
 -- Generic 2-digit display path for future channel value mirroring (e.g. ammo).
 function display_counter_wrapper:apply_display_number(value, powered)
-    local tex_tens = TEX_OFF
-    local tex_ones = TEX_OFF
-
     if powered then
         local n = math.floor(tonumber(value) or 0)
         if n < 0 then
@@ -107,16 +104,28 @@ function display_counter_wrapper:apply_display_number(value, powered)
 
         local tens = math.floor(n / 10)
         local ones = n % 10
-        tex_tens = digit_texture(tens)
-        tex_ones = digit_texture(ones)
+        if self._last_tens == tens and self._last_ones == ones and self._last_powered == true then
+            return
+        end
+        self._last_tens = tens
+        self._last_ones = ones
+        self._last_powered = true
+
+        local tex_tens = digit_texture(tens)
+        local tex_ones = digit_texture(ones)
         self.object:set_shader(DIGIT_MESH_TENS, [[models\lightplanes]], tex_tens)
         self.object:set_shader(DIGIT_MESH_ONES, [[models\lightplanes]], tex_ones)
     else
+        if self._last_powered == false then
+            return
+        end
+        self._last_tens = nil
+        self._last_ones = nil
+        self._last_powered = false
+
         self.object:set_shader(DIGIT_MESH_TENS, [[models\model]], TEX_OFF)
         self.object:set_shader(DIGIT_MESH_ONES, [[models\model]], TEX_OFF)
     end
-
-
 end
 
 function display_counter_wrapper:apply_display_for_channel(channel)

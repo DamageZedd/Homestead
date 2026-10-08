@@ -3490,6 +3490,28 @@ function hf_on_before_furniture_release(obj_id)
     end
 end
 
+function init_hf_pickup_hook()
+    if bind_hf_base and bind_hf_base.hf_binder_wrapper and not bind_hf_base._homestead_pickup_wrapped then
+        bind_hf_base._homestead_pickup_wrapped = true
+        local orig_pickup = bind_hf_base.hf_binder_wrapper.pickup
+        bind_hf_base.hf_binder_wrapper.pickup = function(self)
+            if self and self.object then
+                local obj_id = self.object:id()
+                if hf_obj_manager and hf_obj_manager.cleanup_data then
+                    pcall(hf_obj_manager.cleanup_data, obj_id)
+                else
+                    SendScriptCallback("hf_on_before_furniture_release", obj_id)
+                end
+            end
+            if orig_pickup then
+                return orig_pickup(self)
+            end
+            return true
+        end
+    end
+end
+init_hf_pickup_hook()
+
 local function get_time_sec(time_val)
     local type_ = type
     if not time_val then return nil end
@@ -4822,23 +4844,35 @@ function get_camp_stats(camp, hub_obj)
         end
     end
 
+    local dead_structs = nil
     for id, struct_type in pairs(camp.structures or {}) do
-        if struct_type == "bed" then
-            stats.beds = stats.beds + 1
-        elseif struct_type == "barricade" then
-            stats.barricades = stats.barricades + 1
-        elseif struct_type == "water_pump" then
-            stats.water_pumps = stats.water_pumps + 1
-        elseif struct_type == "gadget" then
-            stats.gadgets = stats.gadgets + 1
-        elseif struct_type == "piano" then
-            stats.pianos = stats.pianos + 1
-        elseif struct_type == "radio" then
-            stats.radios = stats.radios + 1
-        elseif struct_type == "alarm" then
-            stats.alarms = stats.alarms + 1
-        elseif struct_type == "decor" then
-            stats.decors = stats.decors + 1
+        local se = alife_object(id)
+        if se then
+            if struct_type == "bed" then
+                stats.beds = stats.beds + 1
+            elseif struct_type == "barricade" then
+                stats.barricades = stats.barricades + 1
+            elseif struct_type == "water_pump" then
+                stats.water_pumps = stats.water_pumps + 1
+            elseif struct_type == "gadget" then
+                stats.gadgets = stats.gadgets + 1
+            elseif struct_type == "piano" then
+                stats.pianos = stats.pianos + 1
+            elseif struct_type == "radio" then
+                stats.radios = stats.radios + 1
+            elseif struct_type == "alarm" then
+                stats.alarms = stats.alarms + 1
+            elseif struct_type == "decor" then
+                stats.decors = stats.decors + 1
+            end
+        else
+            dead_structs = dead_structs or {}
+            dead_structs[#dead_structs + 1] = id
+        end
+    end
+    if dead_structs then
+        for _, dead_id in ipairs(dead_structs) do
+            camp.structures[dead_id] = nil
         end
     end
 
@@ -5301,23 +5335,26 @@ local alarm_detection_rp = nil
 local function has_active_alarm(camp)
     for id, struct_type in pairs(camp.structures or {}) do
         if struct_type == "alarm" then
-            local data = hf_obj_manager.get_data(id)
-            if data and data.is_on then
-                local alarm_obj = level.object_by_id(id)
-                if alarm_obj then
-                    alarm_detection_rp = alarm_detection_rp or ray_pick()
-                    local detect_fn = (bind_alarm_system_pda and bind_alarm_system_pda.alarm_has_targets)
-                        or (bind_alarm_system and bind_alarm_system.alarm_has_targets)
-                    if detect_fn then
-                        local ok, detected = pcall(detect_fn, alarm_obj, 5, alarm_detection_rp)
-                        if ok and detected then
+            local se = alife_object(id)
+            if se then
+                local data = hf_obj_manager and hf_obj_manager.get_data and hf_obj_manager.get_data(id)
+                if data and data.is_on then
+                    local alarm_obj = level.object_by_id(id)
+                    if alarm_obj then
+                        alarm_detection_rp = alarm_detection_rp or ray_pick()
+                        local detect_fn = (bind_alarm_system_pda and bind_alarm_system_pda.alarm_has_targets)
+                            or (bind_alarm_system and bind_alarm_system.alarm_has_targets)
+                        if detect_fn then
+                            local ok, detected = pcall(detect_fn, alarm_obj, 5, alarm_detection_rp)
+                            if ok and detected then
+                                return true
+                            end
+                        else
                             return true
                         end
                     else
                         return true
                     end
-                else
-                    return true
                 end
             end
         end
@@ -6185,6 +6222,7 @@ function on_game_start()
     safe_register_callback("hf_on_furniture_place", hf_on_furniture_place)
     safe_register_callback("hf_on_before_furniture_release", hf_on_before_furniture_release)
     safe_register_callback("server_entity_on_unregister", server_entity_on_unregister)
+    init_hf_pickup_hook()
 
     safe_register_callback("game_object_on_net_spawn", function(obj)
         local pairs_ = pairs
