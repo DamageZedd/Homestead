@@ -3427,7 +3427,6 @@ function hf_on_furniture_place(obj_id)
                 created_time = cur_sec,
                 last_raid_check_time = cur_sec
             }
-            last_raid_game_sec = cur_sec + (cfg.raid_cooldown or 129600)
             refresh_settlement_map_spot(obj_id, stalker_camp_builder.active_camps[obj_id])  -- runtime camp marker, not serialized
 
             local ok_zone, se_zone = pcall(function()
@@ -5417,7 +5416,9 @@ function process_camp_raids()
             end
         end
         local cur_lvl = level.name()
-        if survivor_count > 0 and (not camp.level or camp.level == cur_lvl) then
+        -- a camp gets one raid cooldown of peace after it is founded
+        local is_new = camp.created_time and (current_sec - camp.created_time) < cfg.raid_cooldown
+        if survivor_count > 0 and not is_new and (not camp.level or camp.level == cur_lvl) then
             local hub_obj = alife_object(hub_id)
             if hub_obj and hub_obj.position then
                 local dist = hub_obj.position:distance_to(player_pos)
