@@ -350,6 +350,19 @@ function stalker_camp_builder.can_recruit(p1, p2)
         local is_comp = sb.is_companion and sb.is_companion(npc)
         local is_refugee = sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)])
 
+        -- Task escorts, hostages and story companions stay with their task: the companion "Leave"
+        -- dialog is closed to them (can_dismiss_companion), and recruiting would strip their squad.
+        if is_comp then
+            if npc:has_info("npcx_beh_cannot_dismiss") then return false end
+            local se_npc = alife_object(npc_id)
+            if se_npc and se_load_var(npc_id, se_npc:name(), "companion_cannot_dismiss") then return false end
+            if axr_task_manager and axr_task_manager.hostages_by_id and axr_task_manager.hostages_by_id[npc_id] then
+                return false
+            end
+            local squad = get_object_squad(npc)
+            if get_object_story_id(npc_id) or (squad and get_object_story_id(squad.id)) then return false end
+        end
+
         -- Prevent recruiting story characters and static base vendors (unless already our companion)
         if not is_comp then
             local is_story = false
