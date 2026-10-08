@@ -791,12 +791,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                     end
 
                     if not did_upgrade and not did_hold then
-                        if squad then squad.get_script_target = nil end
-
-                        for k in sb.safe_squad_members(squad) do
-                            if k.id then
-                                sb.camp_npc_released[k.id] = nil
-                            end
+                        release_rival_hold(sb, squad)
+                        for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
+                            release_rival_hold(sb, alife_object(ex_id))
                         end
 
                         local best_base = nil
@@ -953,6 +950,12 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
                                     local squad_pos = v_scratch_pos:set(camp.position.x, camp.position.y, camp.position.z)
                                     local squad_sec = sb.get_dynamic_squad_section_for_faction(enemy_fac)
+                                    -- the old garrison stops guarding the camp it lost
+                                    release_rival_hold(sb, camp.squad_id and alife_object(camp.squad_id))
+                                    for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
+                                        release_rival_hold(sb, alife_object(ex_id))
+                                    end
+                                    camp.extra_squad_ids = nil
                                     local new_squad = sb.create_squad_at_pos(squad_sec, squad_pos, camp.level_vertex_id, camp.game_vertex_id)
                                     if new_squad then
                                         camp.squad_id = new_squad.id
@@ -1076,16 +1079,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
         local next_spawn_sec = next_spawn_time:diffSec(start_time)
         sb.dismantled_levels[lvl] = next_spawn_sec
 
-        if camp.squad_id then
-            local squad = alife_object(camp.squad_id)
-            if squad then
-                squad.get_script_target = nil
-                for k in sb.safe_squad_members(squad) do
-                    if k.id then
-                        sb.camp_npc_released[k.id] = nil
-                    end
-                end
-            end
+        release_rival_hold(sb, camp.squad_id and alife_object(camp.squad_id))
+        for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
+            release_rival_hold(sb, alife_object(ex_id))
         end
 
         if actor then
@@ -1381,6 +1377,10 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                 if camp.squad_id then
                     local squad = sim:object(camp.squad_id)
                     if squad then alife_release(squad) end
+                end
+                for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
+                    local ex_sq = sim:object(ex_id)
+                    if ex_sq then alife_release(ex_sq) end
                 end
                 local se_c = sim:object(camp.chest_id)
                 if se_c then alife_release(se_c) end
@@ -2212,6 +2212,9 @@ function stalker_camp_builder.upgrade_rival_camp_tier(camp, new_tier)
         local reinforce_squad = sb.create_squad_at_pos(squad_sec, chest_pos, lvid, gvid)
         if reinforce_squad then
             sb.setup_rival_squad_positions(reinforce_squad, camp, sim)
+            -- tracked with the garrison, so it is counted, unpinned and released with it
+            camp.extra_squad_ids = camp.extra_squad_ids or {}
+            table.insert(camp.extra_squad_ids, reinforce_squad.id)
         end
 
         if not same_level then
