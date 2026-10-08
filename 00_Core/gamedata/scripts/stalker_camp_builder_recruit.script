@@ -3167,10 +3167,20 @@ function stalker_camp_builder.is_actor_injured_irradiated(actor, npc)
     return ((health < 0.98 or bleed > 0.01) and (rad > 0.01))
 end
 
+-- the treatments' prices. Their dialog options are offered only when the player can pay: the
+-- medic answers "All patched up" to each of them, paid or not.
+local MEDIC_COSTS = { wounds = 1850, rad = 1480, full = 3350 }
+local function can_pay_medic(cost)
+    return db.actor ~= nil and db.actor:money() >= cost
+end
+function stalker_camp_builder.can_pay_medic_wounds() return can_pay_medic(MEDIC_COSTS.wounds) end
+function stalker_camp_builder.can_pay_medic_rad() return can_pay_medic(MEDIC_COSTS.rad) end
+function stalker_camp_builder.can_pay_medic_full() return can_pay_medic(MEDIC_COSTS.full) end
+
 function stalker_camp_builder.medic_heal_wounds(actor, npc)
     local a = db.actor
     if not a then return end
-    local cost = 1850
+    local cost = MEDIC_COSTS.wounds
     if a:money() < cost then
         actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
         return
@@ -3194,7 +3204,7 @@ end
 function stalker_camp_builder.medic_cure_rad(actor, npc)
     local a = db.actor
     if not a then return end
-    local cost = 1480
+    local cost = MEDIC_COSTS.rad
     if a:money() < cost then
         actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
         return
@@ -3210,7 +3220,7 @@ end
 function stalker_camp_builder.medic_full_treat(actor, npc)
     local a = db.actor
     if not a then return end
-    local cost = 3350
+    local cost = MEDIC_COSTS.full
     if a:money() < cost then
         actor_menu.set_msg(1, string.format(game.translate_string("st_medic_no_money") or "Not enough money (%d RU needed)", cost), 4)
         return
