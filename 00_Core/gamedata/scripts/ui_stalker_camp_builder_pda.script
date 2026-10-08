@@ -923,6 +923,24 @@ function SettlementManagerPDA:Update()
     end
 end
 
+-- list rebuilds select the row that was selected before (by an item field), else the first
+local function selected_value(list, field)
+    local it = list:GetSelectedItem()
+    return it and it[field]
+end
+
+local function row_of(list, field, value)
+    if value ~= nil then
+        for i = 0, list:GetSize() - 1 do
+            local it = list:GetItemByIndex(i)
+            if it and it[field] == value then
+                return i
+            end
+        end
+    end
+    return 0
+end
+
 function SettlementManagerPDA:Reset(tab_name)
     self._last_survivors_tick = 0
     self._last_overview_tick = 0
@@ -934,6 +952,9 @@ function SettlementManagerPDA:Reset(tab_name)
     self:UpdateTopStatusBar()
     local pairs_ = pairs
     tab_name = tab_name or "overview"
+    local keep_hub = selected_value(self.settlement_list, "hub_id")
+    local keep_survivor = selected_value(self.survivor_list, "survivor_id")
+    local keep_rival = selected_value(self.rival_list, "smart")
     self.settlement_list:RemoveAll()
     self.survivor_list:RemoveAll()
     self.rival_list:RemoveAll()
@@ -1042,15 +1063,15 @@ function SettlementManagerPDA:Reset(tab_name)
     end
 
     if count > 0 then
-        self.settlement_list:SetSelectedIndex(0)
-        self:OnSettlementSelected()
+        self.settlement_list:SetSelectedIndex(row_of(self.settlement_list, "hub_id", keep_hub))
+        self:OnSettlementSelected(keep_survivor)
     else
         if tab_name == "overview" then
             tab_name = "guide"
         end
     end
     if rival_count > 0 then
-        self.rival_list:SetSelectedIndex(0)
+        self.rival_list:SetSelectedIndex(row_of(self.rival_list, "smart", keep_rival))
         self:OnRivalSelected()
     end
     self:SetTab(tab_name)
@@ -1363,7 +1384,7 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     end
 end
 
-function SettlementManagerPDA:OnSettlementSelected()
+function SettlementManagerPDA:OnSettlementSelected(keep_survivor)
     local sformat = string.format
     local item = self.settlement_list:GetSelectedItem()
     if not item then
@@ -1395,6 +1416,7 @@ function SettlementManagerPDA:OnSettlementSelected()
 
     self:RenderOverviewStats(hub_id, camp, hub_obj)
 
+    keep_survivor = keep_survivor or selected_value(self.survivor_list, "survivor_id")
     self.survivor_list:RemoveAll()
     self.survivor_name_txt:SetText("")
     self.survivor_job_txt:SetText("")
@@ -1438,7 +1460,7 @@ function SettlementManagerPDA:OnSettlementSelected()
     end
 
     if scount > 0 then
-        self.survivor_list:SetSelectedIndex(0)
+        self.survivor_list:SetSelectedIndex(row_of(self.survivor_list, "survivor_id", keep_survivor))
         self:OnSurvivorSelected()
     end
 end
