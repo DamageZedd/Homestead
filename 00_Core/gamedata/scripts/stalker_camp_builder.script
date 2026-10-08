@@ -5111,8 +5111,10 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
         local sec = mutant_sections[mrandom(#mutant_sections)]
         local squad = create_squad_at_pos(sec, spawn_pos, spawn_lvi, spawn_gvi, true)
         if squad then
+            -- a squad can head only for a squad, a smart terrain or the player, and the hub is
+            -- furniture: the pack comes at the player, who is at the camp when this fires
             squad.get_script_target = function(self)
-                return hub_obj.id or AC_ID
+                return AC_ID
             end
             news_manager.send_tip(db.actor, game.translate_string("st_event_mutant_migration"), nil, "red_danger", 15000)
             local has_alarm = false
