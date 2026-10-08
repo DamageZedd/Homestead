@@ -1192,6 +1192,12 @@
     <string id="st_auto_sort_empty">
         <text>В рюкзаке нет материалов для крафта, мяса или запчастей для сортировки.</text>
     </string>
+    <string id="st_auto_sort_skipped">
+        <text>Не разложено: %d шт. остались в рюкзаке, для них нет контейнера со свободным местом.</text>
+    </string>
+    <string id="st_auto_sort_none_fit">
+        <text>СОРТИРОВКА: для ваших предметов (%d шт.) в лагере нет контейнера со свободным местом.</text>
+    </string>
     <string id="st_dialog_auto_sort_ask">
         <text>Рассортируй и сложи все мои материалы для крафта по ящикам лагеря.</text>
     </string>

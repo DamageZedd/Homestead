@@ -7159,7 +7159,7 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
     end
 
     local count_transferred = 0
-    local count_skipped_full = 0
+    local count_skipped = 0
     local weight_cache = {}
 
     local function is_item_equipped(act, itm)
@@ -7205,10 +7205,8 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
                 end
             end
         else
-            local test_box = sb.get_auto_sort_target_box(camp, hub_id, sec, false)
-            if test_box then
-                count_skipped_full = count_skipped_full + 1
-            end
+            -- no box for its kind has room, or the camp has none: it stays in the backpack
+            count_skipped = count_skipped + 1
         end
     end
 
@@ -7218,8 +7216,8 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
         local snd = sound_object([[interface\inv_drop]])
         if snd then snd:play(actor, 0, sound_object.s2d) end
         local msg = string.format(game.translate_string("st_auto_sort_success"), count_transferred)
-        if count_skipped_full > 0 then
-            msg = msg .. " (" .. count_skipped_full .. " items skipped: capacity reached)"
+        if count_skipped > 0 then
+            msg = msg .. " " .. string.format(game.translate_string("st_auto_sort_skipped"), count_skipped)
         end
         news_manager.send_tip(actor, msg, nil, "general_stalker", 6000)
         add_camp_radio_log(hub_id, "work", string.format(game.translate_string("st_radio_autosort_deposited"), count_transferred))
@@ -7227,8 +7225,8 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
             camp._cached_storage_metrics_tg = nil
         end
         return true, count_transferred
-    elseif count_skipped_full > 0 then
-        news_manager.send_tip(actor, "Auto-Sort skipped: settlement storage containers are at full capacity!", nil, "general_stalker", 6000)
+    elseif count_skipped > 0 then
+        news_manager.send_tip(actor, string.format(game.translate_string("st_auto_sort_none_fit"), count_skipped), nil, "general_stalker", 6000)
         return false, 0
     else
         news_manager.send_tip(actor, game.translate_string("st_auto_sort_empty"), nil, "general_stalker", 5000)
