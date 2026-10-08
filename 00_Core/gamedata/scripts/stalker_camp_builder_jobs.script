@@ -1330,6 +1330,11 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         if not has_water then
             return true, "No Water", "Requires clean water in camp storage to distill vodka"
         end
+        -- process_brewer_job burns 10 wood parts a batch
+        local wood = (sb.camp_count_item and sb.camp_count_item(hub_id, camp, is_wood_part, 10)) or 0
+        if wood < 10 then
+            return true, "Need Wood", "Requires 10 wood parts in camp storage to distill vodka"
+        end
         return false, nil, nil
 
     elseif job == "scrapper" then
@@ -1927,6 +1932,13 @@ function stalker_camp_builder.process_brewer_job(npc_id, hub_id, camp, survivor,
         local tmpl = game.translate_string("st_job_brewer_need_still")
         if tmpl == "st_job_brewer_need_still" then tmpl = "%s needs a Milk Can (Bidon) or Stove to distill vodka!" end
         sb.camp_send_tip(actor, sformat(tmpl, name), nil, "general_stalker", 8000)
+        return false
+    end
+
+    -- a batch burns 10 wood parts: count them before the water is taken
+    local wood = (sb.camp_count_item and sb.camp_count_item(hub_id, camp, is_wood_part, 10)) or 0
+    if wood < 10 then
+        if survivor then survivor.shortfall_reason = "Need Wood" end
         return false
     end
 
