@@ -2781,6 +2781,12 @@ function npc_on_update(npc)
                 end
             end
         end
+        if not found and sb.refugee_ids[npc_id] then
+            -- a refugee is in no camp's survivors; the refugee branch below finds its camp
+            sb.settler_lookup[npc_id] = { is_refugee = true }
+            lookup = sb.settler_lookup[npc_id]
+            found = true
+        end
         if not found then
             sb.non_settler_cache = sb.non_settler_cache or {}
             sb.non_settler_cache[npc_id] = time_global() + 5000
