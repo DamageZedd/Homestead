@@ -2823,6 +2823,8 @@ function npc_on_update(npc)
         end)
     end
 
+    -- a settler following the player as a companion belongs to the companion system
+    if my_survivor and (my_survivor.job == "companion" or my_survivor.is_companion) then return end
     if my_survivor and my_survivor.job == "scavenge" and my_survivor.on_expedition then return end
 
     local hub_obj = alife_object(my_hub_id)
