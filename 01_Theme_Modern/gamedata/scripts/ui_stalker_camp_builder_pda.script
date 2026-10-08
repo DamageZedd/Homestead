@@ -2284,6 +2284,7 @@ function SettlementManagerPDA:OnBanishClicked()
     self:OnSettlementSelected()
 end
 
+local RENAME_SURVIVOR_GUI = nil
 -- Rename the selected survivor. Opens a text input dialog.
 function SettlementManagerPDA:OnRenameSurvivorClicked()
     local item = self.survivor_list:GetSelectedItem()
@@ -2293,8 +2294,8 @@ function SettlementManagerPDA:OnRenameSurvivorClicked()
     if not s_item then return end
 
     local name = s_item.name or "Survivor"
-    local dlg = UIRenameSurvivor(self, survivor_id, name)
-    self:AttachChild(dlg)
+    RENAME_SURVIVOR_GUI = UIRenameSurvivor(self, survivor_id, name)
+    RENAME_SURVIVOR_GUI:ShowDialog(true)
 end
 
 function SettlementManagerPDA:FormatSurvivorStatus(survivor, camp, hub_id)
