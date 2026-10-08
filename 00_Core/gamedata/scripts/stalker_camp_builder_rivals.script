@@ -2029,6 +2029,19 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                         if not far_from_rivals then
                             valid_pos = false
                         end
+                        -- the settlement check above is in the same-level branch, which never runs
+                        -- (new outposts go only to other levels): keep clear of the player's camps here
+                        if valid_pos then
+                            local clear_sqr = ((sb.cfg.boundary_dist or 50) + 15) ^ 2
+                            for hub_id, pcamp in pairs_(sb.active_camps) do
+                                local on_level = not pcamp.level or pcamp.level == "unknown" or pcamp.level == target_level
+                                local hub_obj = on_level and alife_object(hub_id)
+                                if hub_obj and hub_obj.position:distance_to_sqr(pos) < clear_sqr then
+                                    valid_pos = false
+                                    break
+                                end
+                            end
+                        end
                     end
                 end
 
