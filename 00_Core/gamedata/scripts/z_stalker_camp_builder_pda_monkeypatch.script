@@ -258,7 +258,10 @@ function on_game_start()
 
     if axr_companions and axr_companions.cycle_companions_move_mode then
         local og_cycle = axr_companions.cycle_companions_move_mode
-        axr_companions.cycle_companions_move_mode = function(key)
+        local function pass_results(ok, ...)
+            if ok then return ... end
+        end
+        axr_companions.cycle_companions_move_mode = function(...)
             if db.storage then
                 pcall(function()
                     for id, s in pairs(db.storage) do
@@ -268,7 +271,7 @@ function on_game_start()
                     end
                 end)
             end
-            pcall(og_cycle, key)
+            return pass_results(pcall(og_cycle, ...))
         end
     end
 
