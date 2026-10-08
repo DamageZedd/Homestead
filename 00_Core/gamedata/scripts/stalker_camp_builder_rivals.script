@@ -1069,16 +1069,10 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
         sb.release_camp_decorations(camp)
 
         local lvl = camp.level or level_name
-        local next_spawn_time = game.get_game_time()
 
+        -- no new camp on this level for 2 to 4 game hours
         local cooldown_hours = mrandom(2, 4)
-        local duration = game.CTime()
-        duration:set(0, 0, 0, cooldown_hours, 0, 0, 0)
-        next_spawn_time:add(duration)
-
-        local start_time = game.CTime()
-        local next_spawn_sec = next_spawn_time:diffSec(start_time)
-        sb.dismantled_levels[lvl] = next_spawn_sec
+        sb.dismantled_levels[lvl] = current_sec + cooldown_hours * 3600
 
         release_rival_hold(sb, camp.squad_id and alife_object(camp.squad_id))
         for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
@@ -1695,6 +1689,11 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
     if camps_here >= max_camps_per_map then return false end
 
     local next_spawn_sec = sb.dismantled_levels[target_level]
+    -- more than 4 game hours away can only be the old CTime:set wrap (~2e8 years): drop it
+    if next_spawn_sec and next_spawn_sec > current_sec + 4 * 3600 then
+        sb.dismantled_levels[target_level] = nil
+        next_spawn_sec = nil
+    end
     if next_spawn_sec and current_sec < next_spawn_sec then return false end
 
     local smarts = sb.get_smart_terrains_on_level(target_level)
