@@ -2784,16 +2784,18 @@ function stalker_camp_builder.actor_has_drugkit(actor, npc)
     return db.actor and (db.actor:object("itm_drugkit") ~= nil or db.actor:object("drugkit") ~= nil)
 end
 
+-- the workbench kits only: toolkit_1..3 are story items (Zaton's zat_b103 spawns toolkit_2, and
+-- Azot's jup_b217 dialog takes all three)
 function stalker_camp_builder.actor_has_toolkit1(actor, npc)
-    return db.actor and (db.actor:object("toolkit_1") ~= nil or db.actor:object("itm_basickit") ~= nil)
+    return db.actor and db.actor:object("itm_basickit") ~= nil
 end
 
 function stalker_camp_builder.actor_has_toolkit2(actor, npc)
-    return db.actor and (db.actor:object("toolkit_2") ~= nil or db.actor:object("itm_advancedkit") ~= nil)
+    return db.actor and db.actor:object("itm_advancedkit") ~= nil
 end
 
 function stalker_camp_builder.actor_has_toolkit3(actor, npc)
-    return db.actor and (db.actor:object("toolkit_3") ~= nil or db.actor:object("itm_expertkit") ~= nil)
+    return db.actor and db.actor:object("itm_expertkit") ~= nil
 end
 
 function stalker_camp_builder.medic_treat_actor(actor, npc)
@@ -2902,13 +2904,7 @@ end
 local function deliver_toolkit(kit_section, tier)
     local actor_alao = db.actor
     if not actor_alao then return end
-    -- Try both naming conventions (toolkit_N and itm_basickit/advancedkit/expertkit)
-    local alt_names = {
-        ["toolkit_1"] = "itm_basickit",
-        ["toolkit_2"] = "itm_advancedkit",
-        ["toolkit_3"] = "itm_expertkit",
-    }
-    local itm = actor_alao:object(kit_section) or (alt_names[kit_section] and actor_alao:object(alt_names[kit_section]))
+    local itm = actor_alao:object(kit_section)
     if not itm then return end
 
     alife_release(alife_object(itm:id()))
@@ -2923,9 +2919,9 @@ local function deliver_toolkit(kit_section, tier)
     news_manager.send_tip(actor_alao, string.format(game.translate_string("st_tech_toolkit_delivered"), tier), nil, "general_stalker", 8000)
 end
 
-function stalker_camp_builder.give_tech_toolkit1(actor, npc) deliver_toolkit("toolkit_1", 1) end
-function stalker_camp_builder.give_tech_toolkit2(actor, npc) deliver_toolkit("toolkit_2", 2) end
-function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("toolkit_3", 3) end
+function stalker_camp_builder.give_tech_toolkit1(actor, npc) deliver_toolkit("itm_basickit", 1) end
+function stalker_camp_builder.give_tech_toolkit2(actor, npc) deliver_toolkit("itm_advancedkit", 2) end
+function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("itm_expertkit", 3) end
 
 function stalker_camp_builder.dialog_auto_sort_supplies(actor, npc)
     stalker_camp_builder.smart_dump_to_camp_storage()
