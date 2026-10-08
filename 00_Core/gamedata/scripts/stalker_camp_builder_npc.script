@@ -237,21 +237,54 @@ function stalker_camp_builder.anchor_settler_to_smart(npc_id, camp_level, target
         if home_squad then
             settler_home_squads[npc_id] = home_squad.id
             home_squad.current_action = nil
+            home_squad.assigned_target_id = nil
             home_squad.assigned_smart_id = nil
             home_squad.scripted_target = nil
-            home_squad.get_script_target = function(self)
-                return nil
-            end
+            home_squad.get_script_target = sb.home_squad_target
             home_squad.stay_time = game.get_game_time()
         end
     else
         home_squad.current_action = nil
+        home_squad.assigned_target_id = nil
         home_squad.assigned_smart_id = nil
         home_squad.scripted_target = nil
-        home_squad.get_script_target = function(self)
-            return nil
-        end
+        home_squad.get_script_target = sb.home_squad_target
     end
+
+    -- An offline squad puts its members at its own position on every update
+    -- (CSE_ALifeOnlineOfflineGroup::update): it has to come along with a settler teleported
+    -- while offline (Recall, a transfer, the level-entry recall)
+    if home_squad and not home_squad.online and home_squad:npc_count() == 1 then
+        sim:teleport_object(home_squad.id, se_obj.m_game_vertex_id, se_obj.m_level_vertex_id, se_obj.position)
+    end
+end
+
+-- get_script_target of a settler's home squad. The squad's own id keeps it where it is:
+-- sim_squad_scripted:specific_update returns at once for it, and get_current_task falls back to the
+-- squad's own position. nil would let generic_update send it to a simulation target. A squad the
+-- vanilla hire dialog turns into a companion squad goes back to the class method, which follows the
+-- player.
+function stalker_camp_builder.home_squad_target(self)
+    if axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[self.id] then
+        self.get_script_target = nil
+        return self:get_script_target()
+    end
+    return self.id
+end
+
+-- A function on a server object is not saved: put the pin back on a settler's home squad after a
+-- load. Companion squads stay with the companion system.
+function stalker_camp_builder.pin_settler_home_squad(npc_id)
+    local se_npc = alife_object(npc_id)
+    local squad = se_npc and get_object_squad(se_npc)
+    if not (squad and squad:section_name() == "online_offline_group" and squad:npc_count() == 1) then return end
+    -- axr_companions.load_state leaves false for each companion squad until its first update
+    if axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id] ~= nil then
+        return
+    end
+    -- a target taken before the pin would still steer its next move (get_current_task)
+    squad.assigned_target_id = nil
+    squad.get_script_target = stalker_camp_builder.home_squad_target
 end
 
 -- ============================================================================
