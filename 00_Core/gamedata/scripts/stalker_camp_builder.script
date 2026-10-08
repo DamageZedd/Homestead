@@ -6249,6 +6249,17 @@ function on_game_start()
         local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
         if m_data and m_data.stalker_camp_builder_freed_settlers and m_data.stalker_camp_builder_freed_settlers[id] then
             m_data.stalker_camp_builder_freed_settlers[id] = nil
+            -- This runs after the binder has loaded the NPC's saved logic and before its net_spawn
+            -- applies it (CGameObject::net_Spawn). Drop a settler or companion beh scheme saved while
+            -- they belonged to the camp, so they start on their own logic.
+            local st = db.storage[id]
+            local saved_ltx = st and st.loaded_ini_filename
+            if saved_ltx == "scripts\\beh_settler.ltx" or saved_ltx == "scripts\\beh_companion.ltx" then
+                st.loaded_ini_filename = nil
+                st.loaded_section_logic = nil
+                st.loaded_active_section = nil
+                st.loaded_gulag_name = ""
+            end
             if stalker_camp_builder.restore_settler_logic then
                 pcall(stalker_camp_builder.restore_settler_logic, obj)
             end
