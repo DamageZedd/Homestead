@@ -3198,7 +3198,7 @@ function npc_on_update(npc)
     local target_lvid
 
     local wander_target_lvid = nil
-    if mrandom(100) <= 30 then
+    if math.random(100) <= 30 then
         for struct_id, struct_type in pairs_(my_camp.structures) do
             if struct_type == "piano" or struct_type == "radio" then
                 local se_struct = alife_object(struct_id)
@@ -3234,9 +3234,9 @@ function npc_on_update(npc)
         local angle_rad = math.rad(slot * 60)
         local wander_dist = 3.0 + (npc_id % 3)
         local scatter_pos = vector():set(
-            hub_obj.position.x + mcos(angle_rad) * wander_dist,
+            hub_obj.position.x + math.cos(angle_rad) * wander_dist,
             hub_obj.position.y,
-            hub_obj.position.z + msin(angle_rad) * wander_dist)
+            hub_obj.position.z + math.sin(angle_rad) * wander_dist)
         local scatter_lvid = level.vertex_id(scatter_pos)
         if scatter_lvid and scatter_lvid < 4294967295 then
             campfire_lvid = scatter_lvid
