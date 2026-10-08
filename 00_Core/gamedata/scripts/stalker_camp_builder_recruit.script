@@ -980,7 +980,7 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
     camp.survivors[npc_id] = {
         name = npc:character_name(),
         job = restored_job,
-        job_start_time = game.get_game_time():diffSec(game.CTime()),
+        job_start_time = sb.game_sec(),
         job_start_realtime = restored_job_start_realtime,
         was_companion = was_comp,
         xp = restored_xp,
@@ -1152,7 +1152,7 @@ function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
     sb.active_camps[source_hub_id].survivors[npc_id] = nil
     survivor_data.assigned_pos = nil
     survivor_data.job = survivor_data.job or "idle"
-    survivor_data.job_start_time = game.get_game_time():diffSec(game.CTime())
+    survivor_data.job_start_time = sb.game_sec()
     survivor_data.job_start_realtime = time_global()
     target_camp.survivors[npc_id] = survivor_data
     -- workstation picks, the cook's fridge trip and npc_on_update's lookup still point at the old camp
@@ -1558,7 +1558,7 @@ function stalker_camp_builder.return_to_settlement(p1, p2)
                 s.job = s.paused_job or "idle"
                 s.paused_job = nil
                 s.is_companion = nil
-                s.job_start_time = game.get_game_time():diffSec(game.CTime())
+                s.job_start_time = sb.game_sec()
                 s.job_start_realtime = time_global()
 
                 sb.set_camp_settler_relations(hub_id, npc_id, true)
@@ -2600,7 +2600,7 @@ function stalker_camp_builder.summon_caravan(hub_id)
         return false, "trader_present"
     end
 
-    local current_sec = game.get_game_time():diffSec(game.CTime())
+    local current_sec = sb.game_sec()
     if camp.last_caravan_summon_sec then
         local elapsed = current_sec - camp.last_caravan_summon_sec
         if elapsed < 14400 then
