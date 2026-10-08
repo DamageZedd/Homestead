@@ -2299,6 +2299,13 @@ function stalker_camp_builder.reassign_freed_settler_to_smart(npc_id)
                 pcall(function() SIMBOARD:assign_squad_to_smart(new_squad, nearest_smart.id) end)
             end
         end
+        -- An online squad is updated only by its commander's binder (xr_motivator update), which keeps
+        -- the first squad it found: for this NPC, the one the purge just emptied. Point it at the new one.
+        local online_npc = level.object_by_id(npc_id)
+        local binder = online_npc and online_npc:binded_object()
+        if binder then
+            binder.squad = new_squad
+        end
     end
 end
 
