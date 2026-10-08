@@ -3528,6 +3528,45 @@ function init_hf_pickup_hook()
 end
 init_hf_pickup_hook()
 
+-- server_object_on_unregister -- sent by the modded exes for every server object they release.
+-- Physic objects (most furniture) have no Lua server class and never send
+-- server_entity_on_unregister, and pickups through binder classes declared before
+-- init_hf_pickup_hook skip hf_on_before_furniture_release: drop such a piece here.
+function server_object_on_unregister(se_obj)
+    local obj_id = se_obj and se_obj.id
+    if not obj_id then return end
+    local in_teardown_grace = homestead_is_disconnecting
+        or (stalker_camp_builder.homestead_is_disconnecting)
+        or (time_global and homestead_teardown_grace_until and time_global() < homestead_teardown_grace_until)
+        or (time_global and stalker_camp_builder.homestead_teardown_grace_until and time_global() < stalker_camp_builder.homestead_teardown_grace_until)
+    if in_teardown_grace then return end
+
+    for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
+        if camp.structures and camp.structures[obj_id] then
+            camp.structures[obj_id] = nil
+            invalidate_scan_camp_structures_cache(hub_id)
+            for _, survivor in pairs(camp.survivors or {}) do
+                for stype, aid in pairs(survivor.assigned_furniture or {}) do
+                    if aid == obj_id then
+                        survivor.assigned_furniture[stype] = nil
+                    end
+                end
+            end
+        end
+    end
+    for _, rcamp in pairs(stalker_camp_builder.rival_camps or {}) do
+        if type(rcamp) == "table" and rcamp.decorations then
+            for i = #rcamp.decorations, 1, -1 do
+                if rcamp.decorations[i] == obj_id then
+                    table.remove(rcamp.decorations, i)
+                    if rcamp.decor_sections then rcamp.decor_sections[obj_id] = nil end
+                    break
+                end
+            end
+        end
+    end
+end
+
 local function get_time_sec(time_val)
     local type_ = type
     if not time_val then return nil end
@@ -6263,6 +6302,8 @@ function on_game_start()
     safe_register_callback("hf_on_furniture_place", hf_on_furniture_place)
     safe_register_callback("hf_on_before_furniture_release", hf_on_before_furniture_release)
     safe_register_callback("server_entity_on_unregister", server_entity_on_unregister)
+    -- the modded exes add this callback; elsewhere safe_register_callback registers nothing
+    safe_register_callback("server_object_on_unregister", server_object_on_unregister)
     init_hf_pickup_hook()
 
     safe_register_callback("game_object_on_net_spawn", function(obj)
