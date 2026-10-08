@@ -37,13 +37,14 @@
         </btn_tab_guide>
 
         <btn_refresh_survivors x="0" y="224" width="148" height="36" stretch="1">
-            <texture>ui_inGame2_pda_taskboard_custom_refresh</texture>
+            <texture>ui_homestead_btn_primary</texture>
+            <text font="letterica18" align="c" vert_align="c" r="238" g="196" b="112">st_pda_btn_refresh_survivors</text>
         </btn_refresh_survivors>
     </left_container>
 
         <!-- Top Status Bar: Signal, Weather, Clock, Active Settlement -->
     <top_status_bar x="212" y="108" width="564" height="24" stretch="1">
-        <texture>ui_inGame2_pda_taskboard_custom_background</texture>
+        <texture>ui_inGame2_pda_buttons_background</texture>
     </top_status_bar>
     <status_signal x="216" y="112" width="135" height="16">
         <text font="letterica16" r="144" g="238" b="144" align="l">SIGNAL: 100% (LOCAL)</text>
@@ -60,7 +61,7 @@
 
     <!-- Column 1: Settlements List (Left portion of the panel, visible in Overview & Survivors) -->
     <list_header_bg x="212" y="136" width="180" height="24" stretch="1">
-        <texture>ui_inGame2_pda_taskboard_custom_background</texture>
+        <texture>ui_inGame2_pda_buttons_background</texture>
     </list_header_bg>
     <settlement_header x="217" y="140" width="170" height="15">
         <text font="letterica16" r="140" g="140" b="140" align="c">st_pda_settlements_title</text>

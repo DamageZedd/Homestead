@@ -84,6 +84,7 @@
 - **Turret Interface Icon Rect Dimension Normalization (PR #170)**: Corrected the icon rect dimensions in `ui_placeable_pistol_turret.xml` from 300x300 to match the 256x256 texture, eliminating UV distortion and centering the turret display.
 
 ### 📱 PDA Interface, Theme Parity, Controls & Localization (Community / devinhorowitz):
+- **Modern PDA Self-Contained Texture & Taskboard Decoupling (Fixes #114)**: Replaced external PDA Taskboard texture references (`ui\taskboard_icons`) on `list_header_bg` and `top_status_bar` in Modern theme with base Anomaly 9-slice frame `ui_inGame2_pda_buttons_background`, mapped `btn_refresh_survivors` to Homestead's native `ui_homestead_btn_primary` with localized label `st_pda_btn_refresh_survivors`, and removed unused legacy taskboard texture blocks across all themes to eliminate missing-texture placeholders and log warnings on standard Anomaly installs.
 - **Modern Theme Guide Separator Crash Fix (PR #104)**: Removed `stretch="1"` from `guide_separator_line` in the Modern PDA theme, resolving fatal crashes when opening the Settlements page.
 - **Modern Theme Overview Header Card Dimensions (PR #113)**: Increased header card height in the Modern theme to 52 units, cleanly accommodating the two-line region and specialization badge.
 - **Rivals Tab Section Header Draw Order Parity (PR #111)**: Corrected draw layering for Rivals tab section headers ("FACTION ALIGNMENT", "STRATEGIC LOCATION", "TACTICAL INTEL"), rendering them visibly above background panels across all themes.
