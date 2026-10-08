@@ -2118,33 +2118,16 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
             sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, cid, cl_item)
                 if bullets_needed <= 0 then return true end
                 if spent_ammo_boxes[item_id] then return end
+                -- a pack without a game object is a cse_alife_item_ammo, which exports no round
+                -- count: its rounds can be neither read nor taken
+                if not cl_item then return end
                 if sec and (sec:find("^ammo_9x19") or sec:find("^ammo_9x18")) then
                     local box_bullets = 0
-                    if cl_item then
-                        pcall(function() box_bullets = cl_item:ammo_get_count() end)
-                    elseif se_obj then
-                        local ok_b, b = pcall(function() return se_obj.elapsed end)
-                        if ok_b and b and b > 0 then
-                            box_bullets = b
-                        else
-                            local ok_cnt, cnt = pcall(function() return se_obj:ammo_get_count() end)
-                            if ok_cnt and cnt and cnt > 0 then
-                                box_bullets = cnt
-                            else
-                                box_bullets = (ini_sys and ini_sys:r_u32(sec, "box_size")) or 20
-                            end
-                        end
-                    end
+                    pcall(function() box_bullets = cl_item:ammo_get_count() end)
                     if box_bullets > 0 then
                         local take = math.min(bullets_needed, box_bullets)
                         local rem = box_bullets - take
-                        if cl_item then
-                            pcall(function() cl_item:ammo_set_count(rem) end)
-                        end
-                        if se_obj then
-                            pcall(function() se_obj.elapsed = rem end)
-                            pcall(function() se_obj:ammo_set_count(rem) end)
-                        end
+                        pcall(function() cl_item:ammo_set_count(rem) end)
                         bullets_needed = bullets_needed - take
                         sb.feed_turret(turret_id, sec, take)
                         refilled_any = true
