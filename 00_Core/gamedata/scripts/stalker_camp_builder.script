@@ -5372,15 +5372,10 @@ function check_camp_sleep_bonus()
         local elapsed = current_sec - last_sleep_check_sec
         if elapsed >= 10800 and last_sleep_in_camp_hub and stalker_camp_builder.active_camps[last_sleep_in_camp_hub] then
             if current_hub_id then
-                if actor.set_satiety then
-                    pcall(function() db.actor:set_satiety(1.0) end)
-                end
-                if actor.set_power then
-                    pcall(function() db.actor:set_power(1.0) end)
-                end
-                if actor_state and actor_state.set_thirst then
-                    pcall(function() actor_state.set_thirst(0) end)
-                end
+                -- change_satiety and change_power clamp at full; actor_status_thirst keeps its
+                -- counter in a local and has no setter, so thirst is left alone
+                pcall(function() actor:change_satiety(1.0) end)
+                pcall(function() actor:change_power(1.0) end)
                 news_manager.send_tip(actor, game.translate_string("st_camp_rest_bonus_msg"), nil, "general_stalker", 10000)
                 -- DANZY EDIT: sleeping at a happy settlement also grants the hospitality buff
                 if stalker_camp_builder.check_hospitality_on_sleep then
