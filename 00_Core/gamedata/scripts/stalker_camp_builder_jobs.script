@@ -2558,11 +2558,9 @@ function stalker_camp_builder.update_camp_jobs()
                                 if survivor.shortfall_reason == nil then
                                     survivor.shortfall_reason = "Job Error"
                                 end
-                                if not survivor._dispatch_err_logged then
+                                if not survivor._dispatch_err_logged and sb.cfg and sb.cfg.debug_logging then
                                     survivor._dispatch_err_logged = true
-                                    if sb.cfg and sb.cfg.debug_logging then
-                                        printf("[Homestead] job dispatch error (job=%s, npc=%s): %s", tostring(job), tostring(npc_id), tostring(dispatch_err))
-                                    end
+                                    printf("[Homestead] job dispatch error (job=%s, npc=%s): %s", tostring(job), tostring(npc_id), tostring(dispatch_err))
                                 end
                                 break
                             end
