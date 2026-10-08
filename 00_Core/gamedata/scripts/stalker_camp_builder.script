@@ -992,11 +992,8 @@ function play_job_complete_sound()
 end
 
 function get_time_of_day_mult(job)
-    local g_time = game.get_game_time()
-    local hour = 12
-    if g_time and g_time.getH then
-        hour = g_time:getH()
-    end
+    -- the hour of the game clock (CTime has no getH)
+    local hour = (level and level.get_time_hours and level.get_time_hours()) or 12
     local is_night = (hour >= 22 or hour < 5)
     if not is_night then return 1.0 end
     if job == "scavenge" then return 1.2 end
