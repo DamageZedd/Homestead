@@ -278,7 +278,8 @@ function stalker_camp_builder.release_camp_decorations(camp)
     if camp and camp.decorations then
         for _, id in ipairs(camp.decorations) do
             local ok, se_decor = pcall(alife_object, id)
-            if ok and se_decor then
+            -- a freed id may name another object by now: release only outpost furniture
+            if ok and se_decor and stalker_camp_builder.is_rival_decor(se_decor) then
                 pcall(alife_release, se_decor)
             end
         end
@@ -673,12 +674,12 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
             sb.release_camp_decorations(camp)
             if camp.squad_id and sim then
                 local squad = sim:object(camp.squad_id)
-                if squad then alife_release(squad) end
+                if squad and squad.squad_members then alife_release(squad) end
             end
             if camp.extra_squad_ids and sim then
                 for _, ex_id in ipairs_(camp.extra_squad_ids) do
                     local ex_sq = sim:object(ex_id)
-                    if ex_sq then alife_release(ex_sq) end
+                    if ex_sq and ex_sq.squad_members then alife_release(ex_sq) end
                 end
                 camp.extra_squad_ids = nil
             end
@@ -689,6 +690,11 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
         if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) then
             local squad = camp.squad_id and alife_object(camp.squad_id)
+            -- a dead squad is released and its id handed to a later object: forget an id that
+            -- no longer names a squad (here and for the extra squads below)
+            if not (squad and squad.squad_members) then
+                squad, camp.squad_id = nil, nil
+            end
             -- a squad the player recruited as companions is no longer the garrison
             if squad and is_companion_squad(camp.squad_id) then
                 release_rival_hold(sb, squad)
@@ -697,10 +703,18 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
             if camp.extra_squad_ids then
                 for i = #camp.extra_squad_ids, 1, -1 do
                     local ex_id = camp.extra_squad_ids[i]
-                    if is_companion_squad(ex_id) then
-                        release_rival_hold(sb, alife_object(ex_id))
+                    local ex_sq = alife_object(ex_id)
+                    if not (ex_sq and ex_sq.squad_members) then
+                        table.remove(camp.extra_squad_ids, i)
+                    elseif is_companion_squad(ex_id) then
+                        release_rival_hold(sb, ex_sq)
                         table.remove(camp.extra_squad_ids, i)
                     end
+                end
+                -- with the main squad gone, a surviving extra squad becomes the garrison
+                if not camp.squad_id and #camp.extra_squad_ids > 0 then
+                    camp.squad_id = table.remove(camp.extra_squad_ids, 1)
+                    squad = alife_object(camp.squad_id)
                 end
             end
             local has_alive = false
@@ -1377,11 +1391,11 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                 sb.release_camp_decorations(camp)
                 if camp.squad_id then
                     local squad = sim:object(camp.squad_id)
-                    if squad then alife_release(squad) end
+                    if squad and squad.squad_members then alife_release(squad) end
                 end
                 for _, ex_id in ipairs_(camp.extra_squad_ids or {}) do
                     local ex_sq = sim:object(ex_id)
-                    if ex_sq then alife_release(ex_sq) end
+                    if ex_sq and ex_sq.squad_members then alife_release(ex_sq) end
                 end
                 local se_c = sim:object(camp.chest_id)
                 if se_c then alife_release(se_c) end
@@ -1435,7 +1449,8 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                         local surviving = {}
                         for _, dec_id in ipairs(camp.decorations) do
                             local se_decor = sim:object(dec_id)
-                            if se_decor then
+                            -- an id that no longer names outpost furniture is dropped, not moved
+                            if se_decor and sb.is_rival_decor(se_decor) then
                                 local dpos = se_decor.position
                                 local dlvid, dvpos, d_surface_y, d_has_vis = find_ground_anchor(dpos.x, dpos.z, dpos.y, target_chest_y)
                                 if not d_has_vis then
@@ -1572,6 +1587,23 @@ local function get_rival_camp_theme_sections(faction)
         lamp = pick_existing({"placeable_gas_lamp", "placeable_metal_torch", "placeable_lamp1"}, "placeable_gas_lamp"),
         barrier_plate = pick_existing({"placeable_metal_plate", "placeable_wooden_board", "placeable_wooden_plank"}, "placeable_wooden_board"),
     }
+end
+
+-- is_rival_decor -- whether a server object is outpost furniture, i.e. its section is one the
+-- themes above can spawn. Released ids are reused, so a stored decoration id is acted on only
+-- while it still names one of these.
+local rival_decor_sections = nil
+function stalker_camp_builder.is_rival_decor(se_obj)
+    if not rival_decor_sections then
+        rival_decor_sections = {}
+        for _, fac in ipairs({"stalker", "bandit", "renegade", "greh", "army", "dolg", "killer", "monolith",
+                              "isg", "csky", "freedom", "ecolog", "zombied", "monster"}) do
+            for _, sec in pairs(get_rival_camp_theme_sections(fac)) do
+                rival_decor_sections[sec] = true
+            end
+        end
+    end
+    return se_obj ~= nil and rival_decor_sections[se_obj:section_name()] == true
 end
 
 local function spawn_rival_camp_defenses_and_decor(camp_pos, lvid, gvid, target_level, occupant_faction)
@@ -1967,7 +1999,7 @@ function stalker_camp_builder.force_respawn_all_rival_camps()
 
             if camp.squad_id then
                 local squad = sim:object(camp.squad_id)
-                if squad then
+                if squad and squad.squad_members then
                     squad.get_script_target = nil
                     for k in sb.safe_squad_members(squad) do
                         if k.id then
@@ -1982,7 +2014,7 @@ function stalker_camp_builder.force_respawn_all_rival_camps()
             if camp.extra_squad_ids then
                 for _, ex_id in ipairs(camp.extra_squad_ids) do
                     local ex_sq = sim:object(ex_id)
-                    if ex_sq then
+                    if ex_sq and ex_sq.squad_members then
                         ex_sq.get_script_target = nil
                         for k in sb.safe_squad_members(ex_sq) do
                             if k.id then
@@ -2324,9 +2356,10 @@ function stalker_camp_builder.zombify_rival_camp(camp)
     local sim = alife()
     if not sim or not camp or not camp.chest_id then return end
 
+    -- only what is still a squad: a freed id may name another object by now
     if camp.squad_id then
         local old_squad = sim:object(camp.squad_id)
-        if old_squad then
+        if old_squad and old_squad.squad_members then
             for k in sb.safe_squad_members(old_squad) do
                 if k.id then
                     local se_obj = sim:object(k.id)
@@ -2339,7 +2372,7 @@ function stalker_camp_builder.zombify_rival_camp(camp)
     if camp.extra_squad_ids then
         for _, ex_id in ipairs(camp.extra_squad_ids) do
             local ex_sq = sim:object(ex_id)
-            if ex_sq then
+            if ex_sq and ex_sq.squad_members then
                 for k in sb.safe_squad_members(ex_sq) do
                     if k.id then
                         local se_obj = sim:object(k.id)
@@ -2383,7 +2416,7 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
 
     if camp.squad_id then
         local old_squad = sim:object(camp.squad_id)
-        if old_squad then
+        if old_squad and old_squad.squad_members then
             for k in sb.safe_squad_members(old_squad) do
                 if k.id then
                     local se_obj = sim:object(k.id)
@@ -2396,7 +2429,7 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
     if camp.extra_squad_ids then
         for _, ex_id in ipairs(camp.extra_squad_ids) do
             local ex_sq = sim:object(ex_id)
-            if ex_sq then
+            if ex_sq and ex_sq.squad_members then
                 for k in sb.safe_squad_members(ex_sq) do
                     if k.id then
                         local se_obj = sim:object(k.id)
