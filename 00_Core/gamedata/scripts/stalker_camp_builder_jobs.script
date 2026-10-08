@@ -381,10 +381,11 @@ function stalker_camp_builder.is_camp_supply_capped(hub_id, camp, category, surv
             if s:find("_cooked") or (s:sub(1, 5) == "meat_" and (s:sub(-2) == "_b" or s:sub(-2) == "_a")) then
                 return true
             end
+            -- kolbasa is the tier 3 meal (get_cooked_version)
             if s == "meat_tushkano" or s == "meat_dog" or s == "meat_pseudodog"
                or s == "meat_flesh" or s == "meat_boar" or s == "meat_bloodsucker"
                or s == "meat_snork" or s == "meat_chimera" or s == "meat_lurker"
-               or s == "meat_psysucker" then
+               or s == "meat_psysucker" or s == "kolbasa" then
                 return true
             end
             return false
