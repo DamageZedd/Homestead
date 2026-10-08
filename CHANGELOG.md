@@ -37,6 +37,19 @@
 - **Persistent Banished Settler Tracking (`record_banished_companion`)**: Recorded banished and dismissed settler IDs in persistent storage (`m_data.stalker_camp_builder_banished_companions`), enabling safe, positive verification of former Homestead companions.
 - **Accurate Ghost Squad Purge**: Safely targets and releases only confirmed banished Homestead settler companion squads, settlers reassigned away from companion duties, and legacy orphaned `online_offline_group` companion squads.
 
+### 🛠️ Settlement & Outpost Bugfixes & Polish (Community / devinhorowitz):
+- **Outpost Map Spot Churn Prevention (PR #24)**: Re-adds an outpost's tactical mapspot only when its status or faction marker actually changes, preventing redundant engine spot churn.
+- **Multi-Squad Stronghold & Outpost Lifecycles (PR #21, #23)**: Extra outpost/stronghold garrison squads are now cleanly released whenever their primary squad is cleared or dismissed, or when individual squad members are recruited as player companions.
+- **Settler Companion Hand-off (PR #8)**: Prevents Homestead from overriding the companion scheme when a settler is actively following the player as a companion.
+- **Offline Banish in Custom UI Themes (PR #9)**: Extended v1.2.1's offline settler banishment cleanup across Vanilla and Modern PDA theme dialogs.
+- **Map Spot Refresh before Locate (PR #18)**: Refreshes outpost markers before triggering "Locate on Map" navigation across all theme pages.
+- **Container Sanitizer Optimization (PR #19)**: Stopped running the container sanitizer unconditionally on every routine level load.
+- **Looted Stash Entity Release (PR #10)**: Correctly releases scavenged/looted items regardless of whether the target stash container is online.
+- **System INI Lookups (PR #11, #12)**: Ensured `ini_sys` is properly read during quest stash verification and auto-sort weapon/armor type checks.
+- **Settler Idle State & Animations (PR #14)**: Switched from undefined `"smoke"` state to authentic `"smoking_stand"`.
+- **MCM Map Marker Labels (PR #15)**: Restored descriptive UI text strings for custom map marker styles in the MCM menu.
+- **Math & Patrol Optimizations (PR #7, #17)**: Hoisted trigonometric math calls in `npc_on_update` and streamlined outpost patrol distance-to-chest calculations.
+
 ### ⚡ Performance Optimization & Engine Hardening (ALAO & Codex Audit):
 - **Lua 5.1 Prototype Local Limit Resolution (`update_rival_camps`)**: Eliminated an engine prototype limit issue where `update_rival_camps` accumulated 236 locals (exceeding Lua 5.1's 200-local prototype ceiling). Modularized the lifecycle loop into `process_single_rival_camp` (dropping locals to 92) and hoisted `spawn_rival_camp_defenses_and_decor` to module scope (reducing `spawn_single_rival_camp` locals to 134).
 - **Hot-Path Closure Allocation Elimination**: Replaced anonymous function heap allocations inside `pcall` (e.g. `pcall(function() return pos:distance_to(pos2) end)`) with direct method invocations `pcall(pos.distance_to, pos, pos2)` in `safe_distance` and `is_squad_alive`, eliminating garbage collection stutter during distance scans.
