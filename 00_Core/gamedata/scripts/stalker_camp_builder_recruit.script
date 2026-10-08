@@ -2801,18 +2801,144 @@ function stalker_camp_builder.actor_has_drugkit(actor, npc)
     return db.actor and (db.actor:object("itm_drugkit") ~= nil or db.actor:object("drugkit") ~= nil)
 end
 
+local function get_upgrade_tier(section)
+    if not section then return 1 end
+    if #section >= 14 then
+        local indx = section:sub(14, 14):lower()
+        if indx == "a" or indx == "b" then return 1 end
+        if indx == "c" or indx == "d" then return 2 end
+        if indx == "e" or indx == "f" then return 3 end
+        if indx == "1" then return 1 end
+        if indx == "2" then return 2 end
+        if indx == "3" then return 3 end
+    end
+    local m = section:match("tier_?(%d)")
+    if m then return tonumber(m) end
+    return 1
+end
+
+local function get_technician_camp(victim)
+    if not victim then
+        if get_speaker then
+            victim = get_speaker()
+        end
+        if not victim and inventory_upgrades and inventory_upgrades.victim_id then
+            victim = level.object_by_id(inventory_upgrades.victim_id)
+        end
+    end
+    if not victim then return nil end
+    local v_id = victim:id()
+    local sb = stalker_camp_builder
+    if not sb then return nil end
+    local lookup = sb.settler_lookup and (sb.settler_lookup[v_id] or sb.settler_lookup[tostring(v_id)])
+    if lookup and lookup.camp and lookup.survivor and lookup.survivor.job == "repair" then
+        return lookup.camp
+    end
+    if sb.active_camps then
+        for hub_id, camp in pairs(sb.active_camps) do
+            if camp.survivors then
+                local surv = camp.survivors[v_id] or camp.survivors[tostring(v_id)]
+                if surv and surv.job == "repair" then
+                    return camp
+                end
+            end
+        end
+    end
+    return nil
+end
+
+local function hook_inventory_upgrades()
+    if inventory_upgrades and inventory_upgrades.get_global_precondition_functor and not inventory_upgrades._homestead_precond_wrapped then
+        inventory_upgrades._homestead_precond_wrapped = true
+        local orig_global_precond = inventory_upgrades.get_global_precondition_functor
+        inventory_upgrades.get_global_precondition_functor = function(victim, section)
+            local camp = get_technician_camp(victim)
+            if camp then
+                local req_tier = get_upgrade_tier(section)
+                local camp_tech_tier = camp.tech_toolkit_tier or 0
+                if camp.toolkits then
+                    if camp.toolkits[3] then camp_tech_tier = math.max(camp_tech_tier, 3)
+                    elseif camp.toolkits[2] then camp_tech_tier = math.max(camp_tech_tier, 2)
+                    elseif camp.toolkits[1] then camp_tech_tier = math.max(camp_tech_tier, 1)
+                    end
+                end
+                local has_tier = (camp.toolkits and camp.toolkits[req_tier]) or (camp_tech_tier >= req_tier)
+                if not has_tier then
+                    return 2 -- unavailable due to precondition (requires tools)
+                end
+            end
+            return orig_global_precond(victim, section)
+        end
+    end
+
+    if inventory_upgrades and inventory_upgrades.prereq_functor_a and not inventory_upgrades._homestead_prereq_wrapped then
+        inventory_upgrades._homestead_prereq_wrapped = true
+        local orig_prereq = inventory_upgrades.prereq_functor_a
+        inventory_upgrades.prereq_functor_a = function(param3, section)
+            local str = orig_prereq(param3, section) or ""
+            local victim = get_speaker and get_speaker()
+            local camp = get_technician_camp(victim)
+            if camp then
+                local req_tier = get_upgrade_tier(section)
+                local camp_tech_tier = camp.tech_toolkit_tier or 0
+                if camp.toolkits then
+                    if camp.toolkits[3] then camp_tech_tier = math.max(camp_tech_tier, 3)
+                    elseif camp.toolkits[2] then camp_tech_tier = math.max(camp_tech_tier, 2)
+                    elseif camp.toolkits[1] then camp_tech_tier = math.max(camp_tech_tier, 1)
+                    end
+                end
+                local has_tier = (camp.toolkits and camp.toolkits[req_tier]) or (camp_tech_tier >= req_tier)
+                if not has_tier then
+                    str = str .. "\\n - " .. game.translate_string("st_upgr_condlist")
+                end
+            end
+            return str
+        end
+    end
+end
+
 -- the workbench kits only: toolkit_1..3 are story items (Zaton's zat_b103 spawns toolkit_2, and
 -- Azot's jup_b217 dialog takes all three)
 function stalker_camp_builder.actor_has_toolkit1(actor, npc)
-    return db.actor and db.actor:object("itm_basickit") ~= nil
+    if not (db.actor and db.actor:object("itm_basickit")) then return false end
+    local a, n = resolve_speakers(actor, npc)
+    local camp = get_technician_camp(n)
+    if not camp and db.actor and stalker_camp_builder.get_active_camp_near then
+        local _, c = stalker_camp_builder.get_active_camp_near(db.actor:position())
+        camp = c
+    end
+    if camp and ((camp.toolkits and camp.toolkits[1]) or ((camp.tech_toolkit_tier or 0) >= 1)) then
+        return false
+    end
+    return true
 end
 
 function stalker_camp_builder.actor_has_toolkit2(actor, npc)
-    return db.actor and db.actor:object("itm_advancedkit") ~= nil
+    if not (db.actor and db.actor:object("itm_advancedkit")) then return false end
+    local a, n = resolve_speakers(actor, npc)
+    local camp = get_technician_camp(n)
+    if not camp and db.actor and stalker_camp_builder.get_active_camp_near then
+        local _, c = stalker_camp_builder.get_active_camp_near(db.actor:position())
+        camp = c
+    end
+    if camp and ((camp.toolkits and camp.toolkits[2]) or ((camp.tech_toolkit_tier or 0) >= 2)) then
+        return false
+    end
+    return true
 end
 
 function stalker_camp_builder.actor_has_toolkit3(actor, npc)
-    return db.actor and db.actor:object("itm_expertkit") ~= nil
+    if not (db.actor and db.actor:object("itm_expertkit")) then return false end
+    local a, n = resolve_speakers(actor, npc)
+    local camp = get_technician_camp(n)
+    if not camp and db.actor and stalker_camp_builder.get_active_camp_near then
+        local _, c = stalker_camp_builder.get_active_camp_near(db.actor:position())
+        camp = c
+    end
+    if camp and ((camp.toolkits and camp.toolkits[3]) or ((camp.tech_toolkit_tier or 0) >= 3)) then
+        return false
+    end
+    return true
 end
 
 function stalker_camp_builder.medic_treat_actor(actor, npc)
@@ -2875,8 +3001,18 @@ function stalker_camp_builder.open_technician_upgrade_ui(actor, npc)
     if not n then n = npc or (dialogs and dialogs.who_is_npc and dialogs.who_is_npc(actor, npc)) end
     if not n then return end
 
+    hook_inventory_upgrades()
+
     if inventory_upgrades then
         inventory_upgrades.victim_id = n:id()
+        if inventory_upgrades.mech_discount then
+            local hub_id, camp = stalker_camp_builder.get_active_camp_near(n:position())
+            local disc = 2.0
+            if camp and camp.morale and camp.morale >= 80 then
+                disc = 1.8
+            end
+            inventory_upgrades.mech_discount(disc)
+        end
     end
     if dialogs and dialogs.hide_hud_inventory then
         dialogs.hide_hud_inventory()
@@ -2927,8 +3063,16 @@ local function deliver_toolkit(kit_section, tier)
     alife_release(alife_object(itm:id()))
 
     local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
+    if not camp and inventory_upgrades and inventory_upgrades.victim_id then
+        local se_npc = alife_object(inventory_upgrades.victim_id)
+        if se_npc then
+            hub_id, camp = stalker_camp_builder.get_active_camp_near(se_npc.position)
+        end
+    end
     if camp then
         camp.tech_toolkit_tier = math.max(camp.tech_toolkit_tier or 0, tier)
+        camp.toolkits = camp.toolkits or {}
+        camp.toolkits[tier] = true
         camp.morale = math.min(100, (camp.morale or 50) + 10)
     end
 
@@ -3332,6 +3476,7 @@ function stalker_camp_builder.mark_settler_companion(npc_id)
 end
 
 function on_game_start()
+    hook_inventory_upgrades()
     -- dialogs_axr_companion.become_actor_companion calls add_to_actor_squad for each member
     if axr_companions and axr_companions.add_to_actor_squad and not axr_companions._homestead_hire_wrapped then
         axr_companions._homestead_hire_wrapped = true

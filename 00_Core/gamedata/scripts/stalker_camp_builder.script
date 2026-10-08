@@ -6583,7 +6583,7 @@ function stalker_camp_builder.get_camp_morale(camp, hub_obj)
     if has_radio then morale = morale + 15 end
 
     if camp.has_drugkit then morale = morale + 10 end
-    if camp.toolkits and (camp.toolkits[1] or camp.toolkits[2] or camp.toolkits[3]) then
+    if (camp.toolkits and (camp.toolkits[1] or camp.toolkits[2] or camp.toolkits[3])) or ((camp.tech_toolkit_tier or 0) > 0) then
         morale = morale + 10
     end
 
