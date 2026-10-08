@@ -1180,7 +1180,8 @@ function stalker_camp_builder.update_rival_camps()
 
     local base_interval_hours = sb.cfg.rival_camp_spawn_interval_hours or 3
     local spawn_interval_game_sec = sb.next_rival_spawn_interval_sec
-    local spawn_chance = sb.cfg.rival_camp_spawn_chance or 33
+    -- picked with the interval below and kept for the attempt it belongs to
+    local spawn_chance = sb.next_rival_spawn_chance or sb.cfg.rival_camp_spawn_chance or 33
 
     if not spawn_interval_game_sec then
         if total_rival_camps == 0 then
@@ -1210,6 +1211,7 @@ function stalker_camp_builder.update_rival_camps()
             end
         end
         sb.next_rival_spawn_interval_sec = spawn_interval_game_sec
+        sb.next_rival_spawn_chance = spawn_chance
     end
 
     local last_attempt_sec = sb.last_rival_spawn_attempt_sec or 0
@@ -1222,6 +1224,7 @@ function stalker_camp_builder.update_rival_camps()
         last_rival_spawn_scan_tg = now_tg_spawn
         sb.last_rival_spawn_attempt_sec = current_sec
         sb.next_rival_spawn_interval_sec = nil
+        sb.next_rival_spawn_chance = nil
 
         local roll = mrandom(100)
         if sb.cfg.debug_logging then
