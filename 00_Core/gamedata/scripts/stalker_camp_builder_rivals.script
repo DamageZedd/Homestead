@@ -2309,10 +2309,19 @@ function stalker_camp_builder.process_rival_camp_surge(is_peak)
 
     local current_sec = game.get_game_time():diffSec(game.CTime())
 
+    local actor = db.actor
+    local actor_level = level.name()
     for key, camp in pairs(sb.rival_camps) do
         if type(camp) == "table" and camp.chest_id and camp.squad_id and camp.status ~= "unoccupied" and camp.status ~= "mutant_nest" and camp.faction ~= "zombied"
             and not is_companion_squad(camp.squad_id) then
-            if math.random(100) <= 25 then
+            -- not in plain sight: the garrison is released and a zombie squad spawned at the chest
+            local near = false
+            if actor and camp.level == actor_level and camp.position then
+                local p = actor:position()
+                local dx, dy, dz = p.x - camp.position.x, p.y - camp.position.y, p.z - camp.position.z
+                near = (dx * dx + dy * dy + dz * dz) <= 22500
+            end
+            if not near and math.random(100) <= 25 then
                 sb.zombify_rival_camp(camp)
             end
         end

@@ -2300,10 +2300,14 @@ local function run_periodic_actor_tasks(in_teardown_grace, first, last)
 end
 
 local function process_surge_reaction()
-    if not (surge_manager and surge_manager.is_killing_all and surge_manager.is_killing_all()) then
-        return
-    end
-    if stalker_camp_builder.process_rival_camp_surge then
+    -- one roll per emission or psi-storm, as it starts (is_killing_all only turns true once the
+    -- wave has killed the player); unset until the first check, so a load mid-storm doesn't roll
+    local storm = (surge_manager and surge_manager.is_started and surge_manager.is_started())
+        or (psi_storm_manager and psi_storm_manager.is_started and psi_storm_manager.is_started())
+        or false
+    local was = stalker_camp_builder.rival_storm_active
+    stalker_camp_builder.rival_storm_active = storm
+    if storm and was == false and stalker_camp_builder.process_rival_camp_surge then
         pcall(stalker_camp_builder.process_rival_camp_surge, true)
     end
 end
