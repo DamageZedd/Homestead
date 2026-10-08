@@ -1756,9 +1756,26 @@ function stalker_camp_builder.process_electrician_job(npc_id, hub_id, camp, surv
         return
     end
 
-    local consumed = sb.find_and_consume_item(hub_id, camp, is_lamp_battery, nil)
     local npc = level.object_by_id(npc_id)
     local name = npc and npc:character_name() or "Survivor"
+
+    -- a lamp burns fuel only while it is online and switched on (its binder's update), so a
+    -- battery goes only to lamps under half their fuel
+    local low = {}
+    if hf_obj_manager and hf_obj_manager.get_data and hf_obj_manager.update_data then
+        for _, light_id in ipairs(lights) do
+            local data = hf_obj_manager.get_data(light_id)
+            if data and (tonumber(data.condition) or 1) < 0.5 then
+                low[#low+1] = light_id
+            end
+        end
+    end
+    if #low == 0 then
+        sb.camp_send_tip(actor, string.format(game.translate_string("st_job_electrician_all_powered"), name), nil, "general_stalker", 8000)
+        return
+    end
+
+    local consumed = sb.find_and_consume_item(hub_id, camp, is_lamp_battery, nil)
 
     -- Fix: the recharge loop used to run UNCONDITIONALLY regardless of
     if not consumed then
@@ -1767,7 +1784,7 @@ function stalker_camp_builder.process_electrician_job(npc_id, hub_id, camp, surv
     end
 
     local recharged = 0
-    for _, light_id in ipairs(lights) do
+    for _, light_id in ipairs(low) do
         if hf_obj_manager and hf_obj_manager.get_data and hf_obj_manager.update_data then
             local data = hf_obj_manager.get_data(light_id)
             if data then
