@@ -77,6 +77,50 @@ local function is_squad_alive(squad)
     return false
 end
 
+local function cleanup_camp_convoys(chest_id)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not (sb and chest_id and sim) then return end
+    if sb.active_convoys then
+        for c_sq_id, conv in pairs(sb.active_convoys) do
+            if conv and conv.target_camp_chest == chest_id then
+                local c_sq = sim:object(c_sq_id)
+                if c_sq then
+                    c_sq.get_script_target = nil
+                    for k in sb.safe_squad_members(c_sq) do
+                        if k.id then
+                            local se_npc = sim:object(k.id)
+                            if se_npc then alife_release(se_npc) end
+                        end
+                    end
+                    alife_release(c_sq)
+                end
+                sb.active_convoys[c_sq_id] = nil
+            end
+        end
+    end
+    if sb.rival_camps then
+        for _, c in pairs(sb.rival_camps) do
+            if type(c) == "table" and c.chest_id == chest_id and c.heat_mutant_squad_id then
+                local m_sq = sim:object(c.heat_mutant_squad_id)
+                if m_sq then
+                    m_sq.get_script_target = nil
+                    for k in sb.safe_squad_members(m_sq) do
+                        if k.id then
+                            local se_npc = sim:object(k.id)
+                            if se_npc then alife_release(se_npc) end
+                        end
+                    end
+                    alife_release(m_sq)
+                end
+                c.heat_mutant_squad_id = nil
+                break
+            end
+        end
+    end
+end
+stalker_camp_builder.cleanup_camp_convoys = cleanup_camp_convoys
+
 local function safe_teleport_object(id, gvid, lvid, pos, sim_override)
     if not id or not gvid or not lvid or not pos then return end
     local s = sim_override or sim or alife()
@@ -271,13 +315,15 @@ function stalker_camp_builder.restrain_rival_squads()
 end
 
 -- create_squad_at_pos -- spawn a squad at the given position
-function stalker_camp_builder.create_squad_at_pos(section, pos, lvid, gvid)
+function stalker_camp_builder.create_squad_at_pos(section, pos, lvid, gvid, no_pin)
     local sb = stalker_camp_builder
     local squad = alife():create(section, pos, lvid, gvid)
     if squad then
         squad:create_npc(nil, pos, lvid, gvid)
-        squad.get_script_target = function(self)
-            return self.id
+        if not no_pin then
+            squad.get_script_target = function(self)
+                return self.id
+            end
         end
         local sim = alife()
         for k in sb.safe_squad_members(squad) do
@@ -699,6 +745,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
         if (camp.level and sb.is_underground_level(camp.level)) or (camp.smart_name and sb.is_underground_smart(camp.smart_name)) then
             sb.remove_all_rival_map_spots(camp.chest_id)
             sb.release_camp_decorations(camp)
+            cleanup_camp_convoys(camp.chest_id)
             if camp.squad_id and sim then
                 local squad = sim:object(camp.squad_id)
                 if squad and is_valid_camp_squad(camp, squad) then alife_release(squad) end
@@ -901,18 +948,46 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         end
                     end
 
-                    camp.heat = (camp.heat or 0) + 1
-                    if camp.heat >= 25 then
-                        camp.heat = 5
-                        if mrandom(100) <= 20 and same_level then
-                            local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
-                            local msec = mutant_types[mrandom(#mutant_types)]
-                            local m_dist = mrandom(40, 75)
-                            local m_ang = mrandom() * math.pi * 2
-                            v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
-                            local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
-                            if mlvid and mgpos then
-                                sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id)
+                    if camp.status ~= "mutant_nest" and camp.faction ~= "monster" and camp.squad_id then
+                        camp.heat = (camp.heat or 0) + 1
+                        if camp.heat >= 25 then
+                            camp.heat = 5
+                            local has_active_heat_mutants = false
+                            if camp.heat_mutant_squad_id then
+                                local existing_m = sim:object(camp.heat_mutant_squad_id)
+                                if existing_m and is_squad_alive(existing_m) then
+                                    has_active_heat_mutants = true
+                                else
+                                    camp.heat_mutant_squad_id = nil
+                                end
+                            end
+
+                            local player_near = false
+                            if actor and same_level and camp.position then
+                                local apos = actor:position()
+                                local dx = apos.x - camp.position.x
+                                local dy = apos.y - camp.position.y
+                                local dz = apos.z - camp.position.z
+                                if (dx * dx + dy * dy + dz * dz) < 22500 then
+                                    player_near = true
+                                end
+                            end
+                            if not has_active_heat_mutants and not player_near and same_level and mrandom(100) <= 20 then
+                                local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
+                                local msec = mutant_types[mrandom(#mutant_types)]
+                                local m_dist = mrandom(45, 80)
+                                local m_ang = mrandom() * math.pi * 2
+                                v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
+                                local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
+                                if mlvid and mgpos then
+                                    local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
+                                    if m_squad and camp.squad_id then
+                                        camp.heat_mutant_squad_id = m_squad.id
+                                        m_squad.get_script_target = function(self)
+                                            return camp.squad_id
+                                        end
+                                    end
+                                end
                             end
                         end
                     end
@@ -1123,6 +1198,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                 if player_far and ((box_obj and is_empty) or time_expired) then
                     sb.remove_all_rival_map_spots(camp.chest_id)
                     sb.release_camp_decorations(camp)
+                    cleanup_camp_convoys(camp.chest_id)
                     local lvl = camp.level or level_name
                     local cooldown_hours = mrandom(2, 4)
                     sb.dismantled_levels[lvl] = current_sec + cooldown_hours * 3600
@@ -1146,6 +1222,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
     else
         sb.remove_all_rival_map_spots(camp.chest_id)
         sb.release_camp_decorations(camp)
+        cleanup_camp_convoys(camp.chest_id)
 
         local lvl = camp.level or level_name
 
@@ -1455,6 +1532,7 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
             then
                 sb.remove_all_rival_map_spots(camp.chest_id)
                 sb.release_camp_decorations(camp)
+                cleanup_camp_convoys(camp.chest_id)
                 if camp.squad_id then
                     local squad = sim:object(camp.squad_id)
                     if squad and is_valid_camp_squad(camp, squad) then alife_release(squad) end
@@ -2128,6 +2206,7 @@ function stalker_camp_builder.force_respawn_all_rival_camps()
             end
 
             sb.release_camp_decorations(camp)
+            cleanup_camp_convoys(camp.chest_id)
         end
     end
 
@@ -2367,11 +2446,49 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     local sb = stalker_camp_builder
     local sim = alife()
     if not sim or not camp or not camp.chest_id or not camp.level then return end
+    if camp.status == "unoccupied" or camp.status == "mutant_nest" or camp.faction == "monster" then return end
 
     local smarts = sb.get_smart_terrains_on_level(camp.level)
     if not smarts or #smarts == 0 then return end
 
-    local start_smart = smarts[math.random(#smarts)].obj
+    local dest_smart = nil
+    if camp.smart_name and SIMBOARD and SIMBOARD.smarts_by_names then
+        dest_smart = SIMBOARD.smarts_by_names[camp.smart_name]
+    end
+    local cx = camp.position and camp.position.x or 0
+    local cy = camp.position and camp.position.y or 0
+    local cz = camp.position and camp.position.z or 0
+    if not dest_smart then
+        local min_d = math.huge
+        for _, sm_entry in ipairs(smarts) do
+            local sm = sm_entry.obj
+            if sm and sm.position then
+                local dx = sm.position.x - cx
+                local dy = sm.position.y - cy
+                local dz = sm.position.z - cz
+                local d = dx*dx + dy*dy + dz*dz
+                if d < min_d then
+                    min_d = d
+                    dest_smart = sm
+                end
+            end
+        end
+    end
+
+    local candidates = {}
+    for _, sm_entry in ipairs(smarts) do
+        local sm = sm_entry.obj
+        if sm and sm.position and (not dest_smart or sm.id ~= dest_smart.id) then
+            local dx = sm.position.x - cx
+            local dy = sm.position.y - cy
+            local dz = sm.position.z - cz
+            if (dx*dx + dy*dy + dz*dz) >= 3600 then
+                candidates[#candidates + 1] = sm
+            end
+        end
+    end
+
+    local start_smart = (#candidates > 0) and candidates[math.random(#candidates)] or smarts[math.random(#smarts)].obj
     if not start_smart then return end
 
     local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
@@ -2379,12 +2496,23 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     local start_lvid = start_smart.m_level_vertex_id
     local start_gvid = start_smart.m_game_vertex_id
 
-    local courier_squad = sb.create_squad_at_pos(squad_sec, start_pos, start_lvid, start_gvid)
+    local courier_squad = sb.create_squad_at_pos(squad_sec, start_pos, start_lvid, start_gvid, true)
     if courier_squad then
+        local target_smart_id = dest_smart and dest_smart.id
+        if target_smart_id then
+            courier_squad.get_script_target = function(self)
+                return target_smart_id
+            end
+            if SIMBOARD and SIMBOARD.assign_squad_to_smart then
+                pcall(function() SIMBOARD:assign_squad_to_smart(courier_squad, target_smart_id) end)
+            end
+        end
+
         sb.active_convoys[courier_squad.id] = {
             squad_id = courier_squad.id,
             target_camp_chest = camp.chest_id,
-            target_pos = {x = camp.position.x, y = camp.position.y, z = camp.position.z},
+            target_smart_id = target_smart_id,
+            target_pos = {x = cx, y = cy, z = cz},
             target_lvid = camp.level_vertex_id,
             target_gvid = camp.game_vertex_id,
             faction = camp.faction,
@@ -2406,25 +2534,50 @@ function stalker_camp_builder.update_active_convoys()
         if not squad or not is_squad_alive(squad) then
             sb.active_convoys[squad_id] = nil
         else
-            local dx = squad.position.x - convoy.target_pos.x
-            local dy = squad.position.y - convoy.target_pos.y
-            local dz = squad.position.z - convoy.target_pos.z
-            local dist_sqr = dx*dx + dy*dy + dz*dz
-
-            if dist_sqr <= 400.0 or (current_sec - convoy.dispatch_time > 7200) then
-                local box_obj = level.object_by_id(convoy.target_camp_chest)
-                if box_obj then
-                    local delivery_items = {"conserva", "kolbasa", "vodka", "bandage", "medkit", "ammo_5.45x39_fmj", "ammo_5.56x45_fmj"}
-                    for _ = 1, math.random(3, 5) do
-                        local itm = delivery_items[math.random(#delivery_items)]
-                        if ini_sys:section_exist(itm) then
-                            pcall(alife_create_item, itm, box_obj)
-                        end
+            local se_chest = sim:object(convoy.target_camp_chest)
+            if not se_chest then
+                -- Destination outpost was dismantled or destroyed; release courier
+                squad.get_script_target = nil
+                for k in sb.safe_squad_members(squad) do
+                    if k.id then
+                        local se_npc = sim:object(k.id)
+                        if se_npc then alife_release(se_npc) end
                     end
                 end
-
-                squad.get_script_target = nil
+                alife_release(squad)
                 sb.active_convoys[squad_id] = nil
+            else
+                if convoy.target_smart_id and squad.get_script_target == nil then
+                    squad.get_script_target = function(self) return convoy.target_smart_id end
+                end
+
+                local dx = squad.position.x - convoy.target_pos.x
+                local dy = squad.position.y - convoy.target_pos.y
+                local dz = squad.position.z - convoy.target_pos.z
+                local dist_sqr = dx*dx + dy*dy + dz*dz
+
+                if dist_sqr <= 625.0 or (current_sec - (convoy.dispatch_time or current_sec) > 7200) then
+                    local target_chest = (level and level.object_by_id(convoy.target_camp_chest)) or se_chest
+                    if target_chest then
+                        local delivery_items = {"conserva", "kolbasa", "vodka", "bandage", "medkit", "ammo_5.45x39_fmj", "ammo_5.56x45_fmj"}
+                        for _ = 1, math.random(3, 5) do
+                            local itm = delivery_items[math.random(#delivery_items)]
+                            if ini_sys:section_exist(itm) then
+                                pcall(alife_create_item, itm, target_chest)
+                            end
+                        end
+                    end
+
+                    squad.get_script_target = nil
+                    for k in sb.safe_squad_members(squad) do
+                        if k.id then
+                            local se_npc = sim:object(k.id)
+                            if se_npc then alife_release(se_npc) end
+                        end
+                    end
+                    alife_release(squad)
+                    sb.active_convoys[squad_id] = nil
+                end
             end
         end
     end

@@ -2097,8 +2097,8 @@ function restrain_rival_squads()
     return stalker_camp_builder.restrain_rival_squads()
 end
 
-function create_squad_at_pos(section, pos, lvid, gvid)
-    return stalker_camp_builder.create_squad_at_pos(section, pos, lvid, gvid)
+function create_squad_at_pos(section, pos, lvid, gvid, no_pin)
+    return stalker_camp_builder.create_squad_at_pos(section, pos, lvid, gvid, no_pin)
 end
 
 function release_camp_decorations(camp)
@@ -2132,6 +2132,14 @@ end
 -- update_rival_camps() -- Master rival-camp lifecycle manager.
 function update_rival_camps()
     return stalker_camp_builder.update_rival_camps()
+end
+
+function update_active_convoys()
+    return stalker_camp_builder.update_active_convoys and stalker_camp_builder.update_active_convoys()
+end
+
+function cleanup_camp_convoys(chest_id)
+    return stalker_camp_builder.cleanup_camp_convoys and stalker_camp_builder.cleanup_camp_convoys(chest_id)
 end
 
 local level_start_time = nil
@@ -3537,6 +3545,7 @@ function save_state(m_data)
         m_data.stalker_camp_builder_last_rival_spawn_sec = stalker_camp_builder.last_rival_spawn_attempt_sec
         m_data.stalker_camp_builder_radio_logs = stalker_camp_builder.radio_logs or {}
         m_data.stalker_camp_builder_active_stash_expeditions = pack_table_vectors(stalker_camp_builder.active_stash_expeditions or {})
+        m_data.stalker_camp_builder_active_convoys = pack_table_vectors(stalker_camp_builder.active_convoys or {})
         m_data.stalker_camp_builder_hospitality_end_sec = stalker_camp_builder.hospitality_buff_end_sec
     end)
 end
@@ -3624,6 +3633,18 @@ function load_state(m_data)
     stalker_camp_builder.dismantled_levels = keys_to_numbers(m_data.stalker_camp_builder_dismantled_levels or {})
     stalker_camp_builder.last_rival_spawn_attempt_sec = m_data.stalker_camp_builder_last_rival_spawn_sec or 0
     stalker_camp_builder.active_stash_expeditions = keys_to_numbers(unpack_table_vectors(m_data.stalker_camp_builder_active_stash_expeditions or {}))
+    stalker_camp_builder.active_convoys = keys_to_numbers(unpack_table_vectors(m_data.stalker_camp_builder_active_convoys or {}))
+    local sim_ld = alife()
+    if sim_ld and stalker_camp_builder.active_convoys then
+        for sq_id, conv in pairs_(stalker_camp_builder.active_convoys) do
+            if conv and conv.target_smart_id then
+                local sq = sim_ld:object(sq_id)
+                if sq then
+                    sq.get_script_target = function(self) return conv.target_smart_id end
+                end
+            end
+        end
+    end
     local raw_hosp = m_data.stalker_camp_builder_hospitality_end_sec
     stalker_camp_builder.hospitality_buff_end_sec = (type_(raw_hosp) == "number") and raw_hosp or nil
 
@@ -5049,8 +5070,11 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
 
         local mutant_sections = {"simulation_dog", "simulation_boar", "simulation_tushkano"}
         local sec = mutant_sections[mrandom(#mutant_sections)]
-        local squad = create_squad_at_pos(sec, spawn_pos, spawn_lvi, spawn_gvi)
+        local squad = create_squad_at_pos(sec, spawn_pos, spawn_lvi, spawn_gvi, true)
         if squad then
+            squad.get_script_target = function(self)
+                return hub_obj.id or AC_ID
+            end
             news_manager.send_tip(db.actor, game.translate_string("st_event_mutant_migration"), nil, "red_danger", 15000)
             local has_alarm = false
             local alarm_pos = hub_obj.position
@@ -5195,7 +5219,7 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
         end
     end
 
-    local squad = create_squad_at_pos(section, spawn_pos, spawn_lvi, spawn_gvi)
+    local squad = create_squad_at_pos(section, spawn_pos, spawn_lvi, spawn_gvi, true)
     if squad then
         squad.get_script_target = function(self)
             return AC_ID
@@ -5716,6 +5740,9 @@ function server_entity_on_unregister(se_obj, type_name)
                     end
                     if stalker_camp_builder.release_camp_decorations then
                         pcall(stalker_camp_builder.release_camp_decorations, rcamp)
+                    end
+                    if stalker_camp_builder.cleanup_camp_convoys then
+                        pcall(stalker_camp_builder.cleanup_camp_convoys, obj_id)
                     end
                     if stalker_camp_builder.release_rival_hold then
                         if rcamp.squad_id then
