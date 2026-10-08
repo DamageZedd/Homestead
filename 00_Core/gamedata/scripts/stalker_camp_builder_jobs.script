@@ -113,6 +113,11 @@ function stalker_camp_builder.set_survivor_job(npc_id, job)
                     end
                 end
 
+                -- taken off scavenging while away: end the expedition now (it brings home what it
+                -- has looted), or it keeps looting and paying out and the settler can be sent again
+                if job ~= "scavenge" and sb.recall_scavenger_expedition_by_npc then
+                    sb.recall_scavenger_expedition_by_npc(matched_id)
+                end
                 local active_exp = sb.get_scavenger_expedition_for_survivor and sb.get_scavenger_expedition_for_survivor(surv, matched_id)
                 if surv.job ~= "scavenge" or not active_exp then
                     surv.on_expedition = nil
