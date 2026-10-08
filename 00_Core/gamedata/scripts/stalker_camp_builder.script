@@ -403,9 +403,8 @@ function is_actual_container(box_id)
         return true
     end
 
-    if s:find("box") or s:find("stash") or s:find("fridge") or s:find("safe") or s:find("chest") or s:find("shkaf") or s:find("cabinet") or s:find("wardrobe") or s:find("container") or s:find("bag") or s:find("backpack") or s:find("crate") or s:find("locker") or s:find("inv_") then
-        return true
-    end
+    -- only an inventory box holds items: a prop with a box's name ignores an item handed to it,
+    -- and an item (a sleeping bag, a lead box, a decor kit) holds none
     known_bad_inventory_boxes[box_id] = true
     return false
 end
@@ -6773,10 +6772,8 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     end
 
     if not any_box and hub_id and hub_obj and alife() then
-        local sec_box = (ini_sys and ini_sys:section_exist("decor_box_wood") and "decor_box_wood")
-                     or (ini_sys and ini_sys:section_exist("hideout_furniture_stash") and "hideout_furniture_stash")
-                     or "inventory_box"
-        local new_box = alife():create(sec_box, hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
+        -- the engine's own box: decor_box_wood is Even More Hideout Furnitures' wooden box kit, an item
+        local new_box = alife():create("inventory_box", hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
         if new_box then
             camp.structures = camp.structures or {}
             camp.structures[new_box.id] = "stash"
