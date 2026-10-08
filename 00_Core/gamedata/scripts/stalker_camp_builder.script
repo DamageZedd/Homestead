@@ -223,7 +223,7 @@ function stalker_camp_builder.iterate_server_container(box_id_or_se, callback)
     local stopped = false
 
     if sim.get_children then
-        pcall(function()
+        local listed = pcall(function()
             for child_id in sim:get_children(se_box) do
                 if child_id and child_id < 65535 then
                     local se_item = sim:object(child_id)
@@ -238,7 +238,9 @@ function stalker_camp_builder.iterate_server_container(box_id_or_se, callback)
                 end
             end
         end)
-        if stopped or items_found > 0 then return end
+        -- a completed pass lists the whole box, even an empty one (falling through would
+        -- sweep every id up to 65534 in get_server_container_items)
+        if listed or stopped or items_found > 0 then return end
     end
 
     if type_(se_box.children) == "table" then
