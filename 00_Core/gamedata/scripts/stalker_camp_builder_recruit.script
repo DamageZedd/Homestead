@@ -2288,8 +2288,16 @@ function stalker_camp_builder.reassign_freed_settler_to_smart(npc_id)
         end
     end
 
+    -- The section sets the squad's faction (player_id), which the simulation picks targets by.
+    -- online_offline_group has none and runs as a Loner squad: use the community's own sim squad
+    -- section when there is one (its members spawn only through create_npc, not called here).
+    local squad_sec = "online_offline_group"
+    local fac_sec = sb.get_dynamic_squad_section_for_faction and sb.get_dynamic_squad_section_for_faction(comm, "_novice")
+    if fac_sec and ini_sys:r_string_ex(fac_sec, "faction") == comm then
+        squad_sec = fac_sec
+    end
     local ok_create, new_squad = pcall(function()
-        return sim:create("online_offline_group", spos, lvid, gvid)
+        return sim:create(squad_sec, spos, lvid, gvid)
     end)
     if ok_create and new_squad then
         pcall(function() new_squad:register_member(npc_id) end)
