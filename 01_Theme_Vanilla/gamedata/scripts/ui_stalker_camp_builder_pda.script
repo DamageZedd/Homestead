@@ -1281,7 +1281,9 @@ function SettlementManagerPDA:OnRivalSelected()
 end
 
 function SettlementManagerPDA:OnRefreshClicked()
-    stalker_camp_builder.update_rival_camps()
+    -- protected like the periodic run (run_periodic_actor_tasks): an error in a UI
+    -- callback ends the game
+    pcall(stalker_camp_builder.update_rival_camps)
     self:Reset("rivals")
 end
 
@@ -2407,7 +2409,7 @@ function SettlementManagerPDA:OnManualRefresh()
     actor_menu.set_msg(1, "REFRESHING JOB PROGRESS...", 2)
 
     if stalker_camp_builder and stalker_camp_builder.update_camp_jobs then
-        stalker_camp_builder.update_camp_jobs()
+        pcall(stalker_camp_builder.update_camp_jobs)
     end
 
     local si = self.settlement_list and self.settlement_list:GetSelectedItem()
