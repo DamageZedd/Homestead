@@ -3196,7 +3196,7 @@ function npc_on_update(npc)
     local target_lvid
 
     local wander_target_lvid = nil
-    if mrandom(100) <= 30 then
+    if math.random(100) <= 30 then
         for struct_id, struct_type in pairs_(my_camp.structures) do
             if struct_type == "piano" or struct_type == "radio" then
                 local se_struct = alife_object(struct_id)
@@ -3232,9 +3232,9 @@ function npc_on_update(npc)
         local angle_rad = math.rad(slot * 60)
         local wander_dist = 3.0 + (npc_id % 3)
         local scatter_pos = vector():set(
-            hub_obj.position.x + mcos(angle_rad) * wander_dist,
+            hub_obj.position.x + math.cos(angle_rad) * wander_dist,
             hub_obj.position.y,
-            hub_obj.position.z + msin(angle_rad) * wander_dist)
+            hub_obj.position.z + math.sin(angle_rad) * wander_dist)
         local scatter_lvid = level.vertex_id(scatter_pos)
         if scatter_lvid and scatter_lvid < 4294967295 then
             campfire_lvid = scatter_lvid
@@ -3264,9 +3264,9 @@ function npc_on_update(npc)
         }
         local need_new_anim = (not safe_idle_states[cur_state]) or (now_tg > (cache.idle_anim_tg or 0))
         if need_new_anim then
-            cache.idle_anim_tg = now_tg + mrandom(20000, 35000)
+            cache.idle_anim_tg = now_tg + math.random(20000, 35000)
             local idle_choices = { "wait_na", "guard", "caution", "smoke", "sit_knee", "threat_na", "ward" }
-            local chosen_idle = idle_choices[mrandom(#idle_choices)]
+            local chosen_idle = idle_choices[math.random(#idle_choices)]
             local look_pos = vector():set(
                 target_pos.x + (target_pos.x - hub_obj.position.x) * 2.0,
                 target_pos.y,
