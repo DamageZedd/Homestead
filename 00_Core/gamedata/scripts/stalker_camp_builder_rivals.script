@@ -22,6 +22,34 @@ local mcos = math.cos
 local msin = math.sin
 local msqrt = math.sqrt
 
+-- Safe switch distance threshold: In vanilla Anomaly, switch distance is 150m,
+-- but in G.A.M.M.A. (and mods with ALife optimization), switch_distance is 450m.
+-- Checking against dynamic switch distance ensures squads and events do not
+-- spawn, transform, or despawn within the player's online sphere / visible range.
+local function get_safe_switch_distance()
+    local sim = alife()
+    local sd = sim and sim.switch_distance and sim:switch_distance()
+    return mmax(150, sd or 150)
+end
+
+local function get_safe_switch_distance_sqr()
+    local d = get_safe_switch_distance()
+    return d * d
+end
+
+-- whether the player is on level lvl within online switch distance of pos, close enough to see a squad appear or vanish
+local function is_player_near(lvl, pos)
+    local actor = db.actor
+    if not (actor and pos and level and level.name and lvl == level.name()) then return false end
+    local ap = actor:position()
+    local dx, dy, dz = ap.x - pos.x, ap.y - pos.y, ap.z - pos.z
+    return (dx * dx + dy * dy + dz * dz) <= get_safe_switch_distance_sqr()
+end
+stalker_camp_builder.get_safe_switch_distance = get_safe_switch_distance
+stalker_camp_builder.get_safe_switch_distance_sqr = get_safe_switch_distance_sqr
+stalker_camp_builder.is_player_near = is_player_near
+
+
 -- whether the player has taken this squad as companions (axr_companions keeps them by squad id)
 local function is_companion_squad(id)
     local cs = id and axr_companions and axr_companions.companion_squads
@@ -987,16 +1015,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 end
                             end
 
-                            local player_near = false
-                            if actor and same_level and camp.position then
-                                local apos = actor:position()
-                                local dx = apos.x - camp.position.x
-                                local dy = apos.y - camp.position.y
-                                local dz = apos.z - camp.position.z
-                                if (dx * dx + dy * dy + dz * dz) < 22500 then
-                                    player_near = true
-                                end
-                            end
+                            local player_near = is_player_near(camp.level or level_name, camp.position)
                             if not has_active_heat_mutants and not player_near and same_level and mrandom(100) <= 20 then
                                 local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
                                 local msec = mutant_types[mrandom(#mutant_types)]
@@ -1004,7 +1023,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 local m_ang = mrandom() * math.pi * 2
                                 v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
                                 local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
-                                if mlvid and mgpos and not (actor and actor:position():distance_to_sqr(mgpos) <= 22500) then
+                                if mlvid and mgpos and not is_player_near(camp.level or level_name, mgpos) then
                                     local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
@@ -1072,7 +1091,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                             sb.trigger_allied_reinforcement(camp)
                         end
 
-                        if not same_level or actor_dist > 150 then
+                        local safe_dist = get_safe_switch_distance()
+                        if not same_level or actor_dist > safe_dist then
                             local is_mutant_attack = (mrandom(100) <= 20)
                             if is_mutant_attack and camp.status ~= "mutant_nest" then
                                 sb.transform_to_mutant_nest(camp, "simulation_bloodsucker")
@@ -1145,21 +1165,14 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
             local occupant_squad = nil
             local occupant_faction = nil
             -- one takeover roll per abandonment; a won roll brings the new garrison 1 to 3 game
-            -- hours later, and not while the player is within 150 m
+            -- hours later, and not while the player is within online switch distance
             if camp.takeover_at == nil then
                 camp.takeover_at = false
                 if mrandom(100) <= (sb.cfg.rival_friendly_takeover or 25) then
                     camp.takeover_at = current_sec + mrandom(3600, 10800)
                 end
             end
-            local player_near = false
-            if actor and same_level and camp.position then
-                local apos = actor:position()
-                local dx = apos.x - camp.position.x
-                local dy = apos.y - camp.position.y
-                local dz = apos.z - camp.position.z
-                player_near = (dx * dx + dy * dy + dz * dz) <= 22500
-            end
+            local player_near = is_player_near(camp.level or level_name, camp.position)
             if camp.takeover_at and current_sec >= camp.takeover_at and not player_near then
                 local level_facs = sb.get_level_factions(camp.level or level_name)
                 occupant_faction = level_facs[mrandom(#level_facs)]
@@ -2490,14 +2503,7 @@ end
 -- 2. SUPPLY CONVOYS & COURIER RUNS
 stalker_camp_builder.active_convoys = stalker_camp_builder.active_convoys or {}
 
--- whether the player is on level lvl within 150 m of pos, close enough to see a squad appear or vanish
-local function is_player_near(lvl, pos)
-    local actor = db.actor
-    if not (actor and pos and lvl == level.name()) then return false end
-    local ap = actor:position()
-    local dx, dy, dz = ap.x - pos.x, ap.y - pos.y, ap.z - pos.z
-    return dx * dx + dy * dy + dz * dz <= 22500
-end
+-- Note: is_player_near() is defined at top of file, dynamically respecting alife():switch_distance()
 
 function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     local sb = stalker_camp_builder
@@ -2657,12 +2663,7 @@ function stalker_camp_builder.process_rival_camp_surge(is_peak)
         if type(camp) == "table" and camp.chest_id and camp.squad_id and camp.status ~= "unoccupied" and camp.status ~= "mutant_nest" and camp.faction ~= "zombied"
             and not is_companion_squad(camp.squad_id) then
             -- not in plain sight: the garrison is released and a zombie squad spawned at the chest
-            local near = false
-            if actor and camp.level == actor_level and camp.position then
-                local p = actor:position()
-                local dx, dy, dz = p.x - camp.position.x, p.y - camp.position.y, p.z - camp.position.z
-                near = (dx * dx + dy * dy + dz * dz) <= 22500
-            end
+            local near = is_player_near(camp.level or actor_level, camp.position)
             if not near and math.random(100) <= 25 then
                 sb.zombify_rival_camp(camp)
             end
