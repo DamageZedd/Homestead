@@ -275,6 +275,7 @@ local dialogues = [[
 
         <!-- 2: Actor selects: "Patch wounds & stop bleeding (1,850 RU)" -->
         <phrase id="2">
+            <precondition>stalker_camp_builder.can_pay_medic_wounds</precondition>
             <text>st_camp_medic_heal_wounds_text</text>
             <action>stalker_camp_builder.medic_heal_wounds</action>
             <next>20</next>
@@ -282,6 +283,7 @@ local dialogues = [[
 
         <!-- 3: Actor selects: "Cure radiation poisoning (1,480 RU)" -->
         <phrase id="3">
+            <precondition>stalker_camp_builder.can_pay_medic_rad</precondition>
             <text>st_camp_medic_cure_rad_text</text>
             <action>stalker_camp_builder.medic_cure_rad</action>
             <next>20</next>
@@ -289,6 +291,7 @@ local dialogues = [[
 
         <!-- 4: Actor selects: "Full medical treatment (3,350 RU)" -->
         <phrase id="4">
+            <precondition>stalker_camp_builder.can_pay_medic_full</precondition>
             <text>st_camp_medic_full_treat_text</text>
             <action>stalker_camp_builder.medic_full_treat</action>
             <next>20</next>
