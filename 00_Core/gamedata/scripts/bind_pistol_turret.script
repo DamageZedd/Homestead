@@ -1199,10 +1199,9 @@ function pistol_turret_wrapper:fire_once(aim_pos)
     end
 end
 
-function pistol_turret_wrapper:net_destroy()
-    if self.snd_move and self.snd_move:playing() then self.snd_move:stop() end
-    if self.snd_out_of_ammo and self.snd_out_of_ammo:playing() then self.snd_out_of_ammo:stop() end
-
+-- The magazine goes back to the player here and not in net_destroy, which also runs every time
+-- the turret switches offline (the player leaving switch range, a load, a sleep).
+function pistol_turret_wrapper:pickup()
     turret_sync_mag(self)
 
     if self.mag and #self.mag > 0 then
@@ -1219,9 +1218,21 @@ function pistol_turret_wrapper:net_destroy()
             alife_create_item(sec, db.actor, { ammo = n })
         end
 
-        actor_menu.set_msg(1, string.format(game.translate_string("st_turret_recovered_rounds"), total), 3)
+        -- shown from net_destroy, after Hideout Furniture's own "Picked up object"
+        self.recovered_rounds = total
 
         turret_set_mag(self, {})
+    end
+
+    return bind_hf_base.hf_binder_wrapper.pickup(self)
+end
+
+function pistol_turret_wrapper:net_destroy()
+    if self.snd_move and self.snd_move:playing() then self.snd_move:stop() end
+    if self.snd_out_of_ammo and self.snd_out_of_ammo:playing() then self.snd_out_of_ammo:stop() end
+
+    if self.recovered_rounds then
+        actor_menu.set_msg(1, string.format(game.translate_string("st_turret_recovered_rounds"), self.recovered_rounds), 3)
     end
 
     turret_clear_channel(self, self.published_channel or self:get_channel())
