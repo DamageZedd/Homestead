@@ -1,5 +1,105 @@
 # Homestead (Stalker Settlement Builder) - Changelog
 
+## v1.2.4 — Comprehensive Simulation Stability, Precision Game Clock, ALife Hardening & Full UI/PDA Polish
+
+### ⏱️ Engine Simulation Clock, Save State Integrity & ALife Scheduling (Community / devinhorowitz):
+- **Precision Game Clock to the Second (PR #127)**: Replaced floating-point `game.get_game_time():diffSec(game.CTime())` (which suffered 4,096-second precision quantization, freezing Homestead's clock for ~70 game minutes before leaping ahead) with `game_sec()`, calculating exact whole elapsed seconds from Year 1. Completely normalizes job cycle calculations, sleep bonus detection, and morale timers.
+- **Legacy Camp Backup Purge on Load (PR #115)**: Dropped frozen pre-1.1.7 `m_data.homestead_backup` tables from older saves upon load instead of erroneously restoring them, eliminating phantom outpost respawns, duplicate furniture accumulation, and null-pointer crashes during member registration.
+- **Primary Camp Chest Persistence (PR #140)**: Deferred container validation in `normalize_camps` until ALife server objects are fully loaded, ensuring player-designated main storage boxes (`camp.primary_chest_id`) are preserved across save loads and level transitions rather than being reset.
+- **Modded Exes Physics Furniture Unregister Hook (PR #126)**: Added a listener for `server_object_on_unregister` (provided by xray-monolith modded exes) to immediately prune picked-up or destroyed physics objects (O_PHYSIC) from settlement structures, settler workstation claims, and outpost decor records.
+- **Engine Squad Group ID Preservation (PR #87)**: Removed erroneous Lua assignments of `group_id = 65535` across settler transfer, dismissal, and recruitment routines, preventing script desynchronization from the underlying engine squad member hierarchy.
+- **Settler Home Squad Simulation Pinning (PR #131)**: Fixed an issue where settler home squads drifted away from settlements across the Zone by having `get_script_target` return `self.id`, restoring squad anchor pins on game load, and synchronizing offline squad coordinates with settlers during teleports and recalls.
+- **Individual Settlement Raid Cooldown Grace (PR #153)**: Made settlement founding grace periods local to the newly established camp rather than pushing global raid timers forward Zone-wide, ensuring existing established settlements remain subject to normal raid schedules.
+
+### 👥 Settler Management, AI Navigation, Dialogue & Companion Interop (Community / devinhorowitz):
+- **Vanilla Companion Hire Dialogue Integration (PR #132)**: Intercepted `axr_companions.add_to_actor_squad` so settlers recruited through standard game companion dialogue cleanly pause their settlement duties (`job = "companion"`), preventing camp soft-leash logic from fighting companion following orders.
+- **Vanilla-Hired Settler Companion Sweep Protection (PR #97)**: Extended ghost companion migration sweep protection (Protection B) to companion settlers recruited via vanilla dialogue, preventing them from being unlinked from the player party during level transitions.
+- **Station Post Preservation for Companions (PR #134)**: Prevented the PDA "Position Here" command from forcing stationary `beh@settler` logic onto active companions, storing their assigned post for settlement return while allowing them to continue following the player freely.
+- **Companion-Only Banishment Tracking (PR #133)**: Ensured `banish_npc` only places active companions on the banished companions list, preventing standard settlers who were dismissed or reassigned from being permanently blacklisted from future companion recruitment.
+- **Settlement Dismantling Banishment Scope (PR #110)**: Limited banished list recording during `dismantle_camp` strictly to active companion settlers, allowing non-companion settlers to freely integrate into Zone simulation squads.
+- **Low-Morale Deserter Simulation Reassignment (PR #105)**: Replaced restrictive offline switch locks on low-morale camp deserters with clean settler logic purges and smart terrain reassignments via `reassign_freed_settler_to_smart`.
+- **Freed Settler Native Faction Squad Assignment (PR #107)**: Corrected `reassign_freed_settler_to_smart` to spawn simulation squads matching the freed settler's native faction rather than defaulting everyone to Loner stalkers.
+- **Online Binder Squad Hand-off for Freed Settlers (PR #108)**: Updated the engine binder squad cache for settlers freed while online in front of the player, allowing them to depart immediately with their new simulation squads without waiting for a reload.
+- **Freed Settler Behavior Logic Restoration on Net Spawn (PR #109)**: Purged persistent `beh@settler` logic and infoportions from freed stalkers during net spawn, ensuring they resume authentic ALife behaviors upon re-entering the simulation.
+- **Banished Record Name Validation Guard (PR #98)**: Guarded ghost companion checks against legacy boolean `true` records in `banished_companions`, preventing recycled ALife IDs from inadvertently stripping companion status from unrelated stalkers.
+- **Settler Identity & Profile Preservation on Restoration (PR #156)**: Preserved original character names, visual profiles, and faction communities when restoring lost or invincible settlers via `restore_missing_settler` and death respawn callbacks.
+- **Survivor Cap Enforcement on Settlement Transfers (PR #157)**: Enforced the configured MCM "Max Survivors" population ceiling during cross-settlement transfers in the PDA, closing an exploit that bypassed recruitment limits.
+- **Combat & Danger State Leash Suppression (PR #94)**: Prevented `enforce_settler_leash` from overriding combat pathing and danger reactions, stopping settlers from nonchalantly walking toward the hub while engaged in active firefights.
+- **Assigned Guard Post Priority over Soft Leash (PR #95)**: Prevented soft-leash tethering from pulling settlers away from custom guard and workstation posts located between 25m and the 50m camp boundary.
+- **Settler Idle Wander Stabilization (PR #96)**: Throttled idle activity destination rolls so settlers pick a camp activity (stove, radio, instrument, or relaxation spot) and remain there for the idle period rather than twitching between targets every second.
+- **Refugee Navigation Endpoint Adjustment (PR #100)**: Routed incoming refugees to stand and wait in front of the settlement hub rather than walking directly into the collision boundary of the workshop table.
+- **Refugee Lifecycle & Despawn Cleanup (PR #116)**: Properly despawned departing refugees via `safe_release_manager`, pruned dead refugees from tracking tables, and prevented recycled ALife IDs from triggering phantom releases or zero-cost recruitment.
+- **Restored Settler Stationing Dialogue Commands (PR #161)**: Reconnected missing dialogue phrases in `manage_camp_dialog`, allowing players to command any settler to hold their current position as a permanent station or resume standard workstation duties directly through conversation.
+
+### 🏕️ Outposts, Convoys, Dynamic Events & Raids (Community / devinhorowitz):
+- **Zone-Wide Settlement Clearance for Outposts (PR #138)**: Enforced minimum distance checks against player settlements across all Zone levels when generating dynamic outposts, preventing rival camps from spawning on top of remote player bases.
+- **Immediate Outpost Abandonment on Garrison Elimination (PR #91)**: Marked outposts as abandoned immediately when their last garrison squad unregisters in `server_entity_on_unregister`, eliminating delayed or ghost occupied states.
+- **Outpost Fortification Tier Retention on Skirmish (PR #154)**: Preserved upgraded outpost tiers and existing barricade structures when an outpost changes faction ownership following a skirmish takeover.
+- **Garrison Squad Spawn Alignment at Guard Posts (PR #155)**: Initialized new garrison squads directly at their designated guard stations rather than spawning them stacked on top of the blue chest container.
+- **Zombified Outpost Progression & Convoy Freezes (PR #136)**: Suspended tier upgrades, resupply deliveries, courier dispatches, and PDA broadcast announcements for outposts overtaken by zombified stalkers, treating them consistently with mutant nests.
+- **Outpost Heat Pack Smart Terrain Assault Targeting (PR #135)**: Routed mutant heat packs directly toward the outpost's smart terrain rather than the garrison squad ID, allowing the ALife simulation to actively march mutant packs into outposts to assault the defenders.
+- **Teardown Cleanup for Dead Convoys & Heat Packs (PR #89)**: Cleaned up recycled squad IDs for destroyed couriers and heat packs in `server_entity_on_unregister`, preventing outpost dismantlement from releasing unrelated ALife objects.
+- **Persistent Script Targets for Convoys & Heat Squads (PR #90)**: Stored `scripted_target` properties in saved squad state, ensuring supply couriers and mutant heat packs retain their destinations after saving and loading.
+- **Recruited Courier Convoy Decoupling (PR #88)**: Unlinked friendly couriers from active convoy tracking upon recruitment as companions, preventing them from being automatically despawned upon arrival at their destination.
+- **Proximity Distance Guards for Convoys & Heat Packs (PR #101)**: Prevented supply couriers and mutant heat packs from abruptly spawning or despawning within view of the player.
+- **Safe Outpost Furniture Teardown Array Iteration (PR #92)**: Isolated decoration release loops from in-place unregister array modifications in `camp.decorations`, preventing skipped furniture pieces during outpost removal.
+- **Exact Section Validation for Stored Outpost Decor (PR #99)**: Verified recorded section strings before acting on stored outpost furniture IDs during release and ground-snapping passes, protecting unrelated player objects from accidental deletion.
+- **Rival Squad Script Hold Release on Companion Recruitment (PR #93)**: Properly invoked `release_rival_hold` before validating garrison squads, ensuring recruited outpost guards have their rival AI locks cleared cleanly.
+- **Persistent Raid Targets & Abandonment Resolution (PR #139)**: Persisted attacker squad targets across save loads and automatically repelled/resolved active raids when the player departs the level.
+- **Mutant Migration Event Direct Actor Targeting (PR #85)**: Re-routed mutant migration hordes to target the player directly rather than the physical workshop hub object, resolving fatal nil-value engine crashes in `on_reach_target`.
+- **AI Mesh Validation for Mutant Migration Spawns (PR #137)**: Validated candidate spawn coordinates against the level AI graph, preventing mutant migration hordes from defaulting to the settlement hub and spawning inside camp workbenches.
+- **Authentic Trade Caravan Departure Lifecycle (PR #117)**: Routed departing caravan traders through `safe_release_manager`, ensuring traveling merchants actually pack up and leave when their stay concludes.
+- **Automated Caravan Departure on Settlement Teardown (PR #118)**: Automatically dismissed active caravan traders when a settlement is dismantled or its hub workbench picked up.
+
+### 🛠️ Settlement Jobs, Workbenches & Resource Automation (Community / devinhorowitz):
+- **Settler Work Clock Reset on Resumption (PR #129)**: Reset job start timestamps when settlers resume duties after expeditions or companion service, preventing massive backlogs of accumulated cycles from paying out instantly.
+- **Functional Level-Based Night Shift Modifiers (PR #130)**: Corrected hour retrieval in `get_time_of_day_mult` to query `level.get_time_hours()`, activating intended night-shift modifiers (+20% scavenge/medic speed, -20% cook speed between 22:00 and 05:00).
+- **Online-Only Gear Repairs for Settlement Technicians (PR #120)**: Restricted technician repair cycles to online weapons and armor with valid game objects, preventing away camps from draining repair fees without restoring gear condition.
+- **Technician Repair Compatibility with Workshops (PR #121)**: Keyed technician repair checks to the linked `workshop_stash` container, allowing settlers to repair damaged equipment placed inside Hideout Furniture Workshop stations.
+- **Workbench Upgrade Toolkit Turn-in Protection (PR #123)**: Restricted technician toolkit turn-ins strictly to workbench upgrade kits (`itm_basickit`, `itm_advancedkit`, `itm_expertkit`), protecting vanilla story and quest toolkits from accidental consumption.
+- **Workstation Claim Validation Against Settlement Structures (PR #125)**: Verified settler workstation assignments against active entries in `camp.structures`, clearing stale workstation claims when furniture is removed.
+- **Conditional Battery Usage for Electricians (PR #142)**: Updated electrician maintenance logic to only consume batteries when camp lamps actually require refueling, eliminating battery waste on fully powered lighting.
+- **Stockpile Surplus Cap for Master Cook Kolbasa (PR #158)**: Included `kolbasa` under food stockpile surplus caps, properly pausing Master-tier cooks once 15 prepared meals are stored.
+- **Technician Dialogue Phrasing & Window Exit Polish (PR #150)**: Defined missing dialogue string `st_manage_camp_close` and ended conversations cleanly prior to opening technician crafting interfaces.
+- **Medic Treatment Affordability Preconditions (PR #151)**: Added actor money preconditions to paid medical treatment options, preventing medics from confirming treatments when the player lacks sufficient funds.
+
+### 🎒 Scavenger Logistics, Stashes & Container Management (Community / devinhorowitz):
+- **Pure Game-Clock Timing for Scavenger Expeditions (PR #128)**: Removed dual-clock real-time fudge factors from scavenger trips, preventing emission/psi-storm time acceleration from instantly completing active expeditions.
+- **Automatic Scavenger Recall on Camp Dismantle (PR #106)**: Automatically terminated and recalled active scavenger expeditions when a settlement is dismantled, preventing orphaned expedition loops.
+- **Multi-Use Item Use Retention During Online Stash Scans (PR #119)**: Preserved tracked remaining uses for items stored in offline containers when scanning settlements with online workshop stashes, preventing multi-use rations and fuel from being deleted on single use.
+- **Player Backpack Exclusion from Settlement Storage (PR #122)**: Excluded player-deployed backpacks (`inv_backpack`) from camp storage registration, protecting personal stash bags from settler consumption and auto-sorting.
+- **Player-Created Stash Tracking Retention (PR #86)**: Preserved `m_data.player_created_stashes` entries during entity unregistration, allowing external stash pickup scripts to correctly return deployed backpacks.
+- **Treasure Cache Deregistration on Outpost Chest Release (PR #124)**: Cleared G.A.M.M.A. `treasure_manager.caches` records when outpost chests are released or decayed, preventing recycled ALife IDs from generating invalid quest stash locations.
+- **Primary Camp Container Persistence (PR #140)**: Retained player-designated primary chests across game sessions by deferring container validity checks until ALife storage initialization finishes.
+- **Fallback Stash & Outpost Loot Table Sanitization (PR #159)**: Replaced nonexistent item section entries (`prt_i_resistor`, `prt_i_transist`, `toolkit_r`, `elite_detector`, etc.) in fallback loot and outpost chest tables with authentic items.
+
+### 🛡️ Defense Turrets, Audio & Gadgets Hardening (Community / devinhorowitz):
+- **Universal Suppressed Firing & MP7 Reload Audio for Turrets (PR #112)**: Ensured defense turrets utilize authentic suppressed gunfire audio and MP7 reload sounds across all installations, including Standard Anomaly.
+- **Online-Only Ammo Refilling for Turrets (PR #141)**: Restricted automated turret maintenance to ammunition boxes with online game objects, preventing infinite ammo loops and inaccurate round deductions.
+- **Native Game Audio Fallbacks for Alarms & Consumables (PR #143)**: Replaced missing sound paths for sirens and drinks with authentic engine-shipped audio assets, restoring audible raid alarms and medic consumption sounds.
+- **Universal Pickup Protection for Outpost Radios & Lamps (PR #144)**: Extended furniture pickup prevention monkeypatches to `placeable_radio_wrapper` and `placeable_light_wrapper`, preventing players from dismantling outpost lights and radios.
+- **Core String Definitions for Turret Radio Channels (PR #160)**: Added missing turret channel status strings (`st_turret_channel`, `st_channel_off`) to core string tables, eliminating raw text IDs on Standard Anomaly installs.
+- **Turret Interface Icon Rect Dimension Normalization (PR #170)**: Corrected the icon rect dimensions in `ui_placeable_pistol_turret.xml` from 300x300 to match the 256x256 texture, eliminating UV distortion and centering the turret display.
+
+### 📱 PDA Interface, Theme Parity, Controls & Localization (Community / devinhorowitz):
+- **Modern Theme Guide Separator Crash Fix (PR #104)**: Removed `stretch="1"` from `guide_separator_line` in the Modern PDA theme, resolving fatal crashes when opening the Settlements page.
+- **Modern Theme Overview Header Card Dimensions (PR #113)**: Increased header card height in the Modern theme to 52 units, cleanly accommodating the two-line region and specialization badge.
+- **Rivals Tab Section Header Draw Order Parity (PR #111)**: Corrected draw layering for Rivals tab section headers ("FACTION ALIGNMENT", "STRATEGIC LOCATION", "TACTICAL INTEL"), rendering them visibly above background panels across all themes.
+- **Non-Mutating Data Refresh for Rivals Tab (PR #145)**: Separated UI list reloading from ALife outpost update ticks on the Rivals tab, preventing manual list refreshes from artificially accelerating Zone events.
+- **Remote Outpost Distance Metric Concealment (PR #164)**: Hid misleading distance numbers for outposts situated on other maps, displaying distances only when the outpost shares the player's current level.
+- **Authentic Happiness-Driven Morale Display (PR #146)**: Switched Overview tab morale indicators and radio telemetry to display authentic settlement happiness (`stats.happiness`), matching desertion thresholds and map marker alerts.
+- **Threat Level Gauge Defense Cap Scaling (PR #165)**: Scaled the Overview tab Threat Level assessment against the configured MCM defense cap rather than a hardcoded value.
+- **Functional PDA Window Closure on Exit & Fast Travel (PR #147)**: Resolved an issue where clicking Close or initiating Fast Travel failed to dismiss the PDA by properly handling window closure through PDA menu controllers.
+- **Localized Fallback Naming for Unnamed Settlements (PR #148)**: Assigned clean, localized level-based names (e.g. "Cordon Settlement") to unnamed camps and prevented save loading from blanking settlement names.
+- **Hostile Filtering & Snapshot Replacement for Radio Scan (PR #149)**: Fixed Radio Scan to report only genuinely hostile outposts rather than labeling friendly camps as enemies, and replaced previous scans cleanly to prevent radio log overflow.
+- **Thematic Log Filtering for Camp Radio Feeds (PR #168)**: Assigned proper category tags (`work`, `expedition`, `combat`) to camp radio announcements, ensuring logs appear under their respective filter tabs.
+- **Dossier XP Threshold Scale Parity (PR #152)**: Aligned settler dossier progress bars with actual work-cycle promotion tiers (10/25/50 XP) rather than expedition thresholds.
+- **Dynamic Vertical Refitting for Expanding Roster Cards (PR #162)**: Dynamically adjusted roster card heights when multi-line status or telemetry expands, preventing text overlap between adjacent settler cards.
+- **Scroll Offset Retention Across Roster Refreshes (PR #163)**: Maintained scroll positions when rebuilding settlement roster lists, preventing the view from snapping back to the top during updates.
+- **Single Percent Sign Normalization in PDA Guide (PR #166)**: Replaced unescaped double percent signs (`%%`) in PDA guide string tables with clean single percent signs.
+- **MCM Tooltip Default Value Corrections (PR #167)**: Corrected inaccurate default values in English and Russian MCM tooltips for Medic Job Cycle (25 min), Electrician Interval (15 min), and Rival Spawn Distance (250m).
+- **Russian Recall Button Label Fit (PR #169)**: Shortened the Russian text label for the cross-level recall button, fitting the text within the button frame and preventing overlap with adjacent controls.
+
 ## v1.2.3 — Comprehensive Community Bugfixes, Settlement Automation, Outpost Lifecycles & Engine Hardening
 
 ### 🛠️ Settlement Systems & Job Automation Hardening (Community / devinhorowitz):
