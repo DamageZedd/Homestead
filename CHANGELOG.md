@@ -1,5 +1,75 @@
 # Homestead (Stalker Settlement Builder) - Changelog
 
+## v1.2.3 — Comprehensive Community Bugfixes, Settlement Automation, Outpost Lifecycles & Engine Hardening
+
+### 🛠️ Settlement Systems & Job Automation Hardening (Community / devinhorowitz):
+- **Exact Material Section Matching for Jobs (PR #31)**: Replaced loose substring section matching in job material consumption with exact item section lookups across `stalker_camp_builder_jobs.script`. Prevents jobs from consuming unintended items (e.g. woodcutters/brewers consuming wooden exoskeletons or weapon furniture, water pumps consuming gas mask filters, ammo crafters consuming poltergeist powder, and stove cooks consuming empty gas jerrycans or decor kits). Cleaned up food stockpile caps to only count `meat_` items.
+- **Offline Multi-Use Item Consumption (PR #36)**: Fixed an engine limitation where offline containers had no access to remaining uses on multi-use consumables (rations, water flasks, alcohol, medical supplies). Homestead now tracks remaining uses via `camp.stored_items` and queues partial consumptions through `pending_item_cond`, deducting single uses rather than deleting whole multi-use items while the player is remote.
+- **Job Pause Checks & Requirements Synchronization (PR #57)**: Aligned `get_job_paused_status` checks with actual job execution logic:
+  - **Medic**: Correctly requires 4 ethanol uses and 1 bandage for medkit orders instead of checking for 2 ethanol uses and throwing repeated "needs materials" alerts.
+  - **Technician**: Properly checks both damage status and repair fees (`camp_has_repairable_gear`), utilizing the exact repair fee item list rather than failing silently with "No Gear to Repair".
+  - **Cook**: Checks for raw meat before consuming stove fuel or water/vodka, eliminating fuel loss on empty cycles.
+  - **Job Selection Idempotency**: `set_survivor_job` now returns early when clicking a settler's current job in the PDA or dialog, preventing unnecessary timer resets and cycle restarts.
+- **Electrician Lamp Maintenance & Switch Preservation (PR #54)**: Fixed camp lamp refueling so condition/fuel values are updated directly on the active binder wrapper (`binded_object().wrapper`). Stopped forcing `is_on = true`, ensuring lamps manually switched off by the player remain switched off.
+- **Empty Container ALife Sweep Optimization (PR #65)**: Optimized `iterate_server_container` when querying empty camp storage boxes. Previously, an empty box fell through to `get_server_container_items` which scanned all 65,534 ALife IDs across the Zone every 10 seconds. Homestead now terminates iteration cleanly after the server object's child pass completes.
+- **Hospitality Buff Duration Persistence (PR #63)**: Saved `hospitality_buff_end_sec` in game seconds within persistent camp state, ensuring the well-fed / well-rested hospitality buff carries across save loads and level transitions.
+- **Camp Rest Bonus Restoration (PR #50)**: Fixed `check_camp_sleep_bonus` to properly restore satiety and stamina using the engine's `change_satiety` and `change_power` methods rather than nonexistent actor setters. Removed false promises of thirst restoration from English and Russian UI messages.
+- **Session Clock Stamp Normalization on Load (PR #64)**: Purged session-relative `time_global()` timestamps (`_cached_storage_metrics_tg`, `_last_periodic_scan`, `temp_target_time`) during `load_state`, preventing hours-long storage UI caching freezes and cook pathing stalls after loading saves created late in long sessions.
+
+### 🎒 Scavenger Expeditions & Settlement Logistics (Community / devinhorowitz):
+- **Same-Level Scavenger Expedition Return (PR #32)**: Replaced a nonexistent engine call `level.valid_vertex_id` with a graph-valid vertex ID check (`u32(-1)`) in `reposition_survivor_at_camp`. Scavengers returning from expeditions while the player is on the same map now finish properly, deposit their haul, receive bonus salvage/XP, and return to their camp wait schemes rather than remaining stranded offline.
+- **Scavenger Recall Haul Preservation & Safety (PR #33)**: Recalling a scavenger via the PDA or map now secures whatever loot was scavenged up to that point and deposits it into camp storage. Furthermore, changing jobs, transferring, banishing, or repositioning an active scavenger automatically recalls them first, preventing orphaned expedition loops and duplicate deployments.
+- **Player-Created Stash Protection (PR #34)**: Excluded player-created backpacks (`treasure_player`, `inv_backpack`, `itm_actor_backpack`) and custom markers from scavenger target lists and automated level sweeps. Scavengers will no longer loot or dismantle the player's personal stash stashes.
+- **Caravan Trader Restocking & Despawn Validation (PR #44)**: Stored `trader_stock_pending` in session-level tables to ensure caravans summoned remotely restock reliably upon player arrival even after saving/loading. Hardened trader despawn logic to verify the entity is a living trader before releasing, preventing accidental release of recycled ALife IDs.
+- **Overlapping Caravan Prevention (PR #45)**: Excluded random caravan events while a camp trader is actively stationed at the settlement, preventing duplicate merchant spawns and stranded NPCs.
+
+### 👥 Settler Management, Recruitment & Companion Integrations (Community / devinhorowitz):
+- **Task Escort & Story Companion Recruitment Protection (PR #48)**: Prevented task companions, hostages, rescue targets (`npcx_beh_cannot_dismiss`, `companion_cannot_dismiss`), and story NPCs from appearing in camp recruitment dialogs, eliminating broken quest states and orphaned task squads.
+- **Dual-Camp Settler Assignment Prevention (PR #47)**: Automatically unregisters a companion settler from their previous settlement roster when they are recruited into a new camp, preventing dual-bed reservation and roster duplication.
+- **Settler Transfer State & Workstation Re-anchoring (PR #46)**: Cleanly clears sticky workstation assignments (`assigned_furniture`), temporary navigation targets, and cached furniture bindings during settler transfers, correctly pointing `settler_lookup` to the new camp and preventing teleport leash snapping back to the old base.
+- **Dismissed Companion Job Restoration (PR #49)**: Fixed `heal_stuck_companion_settlers` and load-time sweeps so settlers dismissed from the player party via standard companion dialogue cleanly resume their previous assigned settlement duties rather than being forcefully re-added to the party.
+- **Invincible Settler Engine Healing (PR #51)**: Switched health replenishment from nonexistent `npc:set_health` to the authentic engine method `npc:set_health_ex(1.0)` in `npc_on_update` and hit callbacks, ensuring the Invincible Settlers MCM setting works reliably in combat.
+- **Recruitment Fee Charge Ordering (PR #39)**: Deferred recruitment fee deduction until after `recruit_npc_to_camp` successfully admits the settler, ensuring players are not charged when recruitment is blocked by camp population caps or faction restrictions.
+- **Refugee Behavior Activation (PR #53)**: Registered refugee event NPCs in `settler_lookup`, enabling `handle_refugee_ai` to route refugees to camp hubs rather than idling indefinitely without camp logic.
+- **Companion Move Mode Wrapper Varargs (PR #73)**: Updated the `axr_companions.cycle_companions_move_mode` monkeypatch to forward all arguments and return values through `pcall`, maintaining compatibility with companion command scripts.
+- **Simulator Info Portion Cleanup (PR #30)**: Restored `sim:disable_info` in `purge_settler_companion_and_squad_state` and `heal_ghost_companion_squads`, ensuring companion and behavior infoportions are properly stripped when settlers are banished offline.
+
+### 🏕️ Outposts, Raids & Dynamic Zone Events (Community / devinhorowitz):
+- **Outpost Cooldown Arithmetic Overflow Fix (PR #41)**: Resolved a major bug in `process_single_rival_camp` where `xrTime:set` with year/day 0 caused an unsigned integer underflow, locking cleared outpost levels out of respawns for 200 million years. Cooldowns are now calculated with plain second offsets, and legacy barred levels are automatically restored on load.
+- **Single-Roll Outpost Takeovers & Spawn Distance Guard (PR #55)**: Outpost takeovers are now rolled exactly once upon abandonment and saved in `camp.takeover_at`. New hostile/friendly garrisons arrive after a realistic 1–3 hour delay and only when the player is at least 150m away, preventing enemy squads from spawning on top of looting players and allowing abandoned ruins to properly decay and despawn.
+- **Surge & Psi-Storm Outpost Zombification (PR #52)**: Enabled outpost surge zombification to trigger at the onset of emissions and psi-storms (`surge_manager.is_started`, `psi_storm_manager.is_started`) rather than waiting for actor death, skipping outposts within 150m of the player.
+- **Mutant Nest Lifespan & Fortification Sanity (PR #56)**: Prevented mutant-infested outposts from receiving human fortification upgrades, loner squad reinforcements, or loner theme crates when their lifespan expires. Mutants now naturally disperse and convert to abandoned outposts when their timer concludes.
+- **Outpost SOS Distress Call Hardening (PR #61)**: Recorded the calling faction in `sos_faction` and enforced a strict 2-hour Zone-wide expiration. Prevents distress calls from paying rewards to rival factions or mutant packs that overtook the outpost.
+- **Outpost Furniture Theft Protection (PR #43)**: Updated `is_rival_camp_object` to check `camp.decorations`, properly protecting outpost barricades, workbenches, and decor from being picked up and pocketed by the player.
+- **Outpost Entity Release Safety (PR #42)**: Hardened `release_camp_decorations` and squad teardowns to verify object section and squad validity before calling `alife_release`, preventing accidental deletion of unrelated entities sharing recycled ALife IDs.
+- **Raid Faction Resolution (PR #58)**: Stripped the `"actor_"` prefix from community names before evaluating enemy raid types, ensuring bandit, renegade, and military player camps are raided by their true faction adversaries rather than default bandits.
+- **Accurate Raid Summary Statistics (PR #59)**: Corrected casualty calculations in raid summaries ("Raid repelled! Raiders killed: %d, guards lost: %d"), accurately tracking fallen raiders after squad deletion and settlers killed while on guard duty.
+- **Rival Camp Spawn Chance Persistence (PR #62)**: Cached the rolled spawn probability alongside `next_rival_spawn_interval_sec`, ensuring dynamic outpost density chances are preserved across updates.
+
+### 🛡️ Defense Turrets & Gadgets Stability (Community / devinhorowitz):
+- **Turret Aim Vector Normalization & Ammo Waste Prevention (PR #60)**: Normalized target direction vectors before evaluating steer angle in `pistol_turret_wrapper:fire_once`. Prevents turrets from failing close-range shots against point-blank targets, corrects extreme off-barrel firing angles, and ensures ammunition is only deducted when a valid shot actually fires.
+- **Turret Ammo Recovery on Deliberate Pickup (PR #35)**: Moved turret magazine recovery into a dedicated `pickup` override. Turrets no longer dump their magazines into player inventory and beep for ammo whenever they cycle offline due to distance or level transitions.
+- **Standard Install Turret Dialog Crash Fix (PR #28)**: Added `NodeExist("btn_channel")` validation before initializing the channel button in `UIPistolTurret:InitControls`, eliminating fatal "XML node not found" crashes on standard installs lacking the Hideout Gadgets GAMMA patch.
+- **Turret String Table & Bullet Encoding Fix (PR #75)**: Corrected double-encoded UTF-8 bullet points (`0x95` cp1251) across `st_gun_turret.xml`, resolving corrupt character display ("Гўв‚¬Вў") on turret descriptions. Deduplicated shared gadget strings across `st_gun_turret.xml` and `st_alarm_system.xml`.
+
+### 📱 PDA Interface, Controls & Localization Polish (Community / devinhorowitz):
+- **Interactive PDA Button Flags (PR #29)**: Respected `homestead_no_pda_tab_flag` and Mod App Creator (`z_stalker_camp_builder_pda_mac`) module flags in `z_stalker_camp_builder_pda_monkeypatch`, eliminating crashes and preventing duplicate rail buttons.
+- **PDA List Selection Retention (PR #68)**: Preserved selected camp (`hub_id`), settler (`survivor_id`), and outpost (`smart`) across list rebuilds, preventing unwanted UI resets back to the first item after renaming, sorting, assigning jobs, or filtering.
+- **Settlement Roster Polling Optimization (PR #66)**: Throttled `UpdateSurvivorsProgress` in `homestead_pda_actor_on_update` so roster and container scanning only runs while the PDA window is actively open and visible.
+- **UI Callback Crash Protection (PR #67)**: Wrapped Rivals tab and Left Rail manual refresh button callbacks in `pcall`, preventing unhandled script errors from crashing the game.
+- **Radio Feed Clear Log Fix (PR #71)**: Prevented `PopulateRadioFeed` from immediately re-seeding telemetry entries after clicking Clear Log, allowing the empty log status message to display properly.
+- **Modern Theme Survivor Rename Dialog (PR #72)**: Corrected `OnRenameSurvivorClicked` in `01_Theme_Modern` to open `UIRenameSurvivor` via `ShowDialog(true)`, allowing survivors to be renamed in the Modern theme.
+- **Overview Security Rating Defense Cap Scaling (PR #69)**: Scaled the Overview tab security rating gauge against the configured MCM `defense_cap` rather than a hardcoded value of 150.
+- **Settlement Map Spot Morale & Text Updates (PR #70)**: Implemented `refresh_settlement_map_spot` to dynamically write settlement names and low morale warnings (`[LOW MORALE: <40%]`) directly to active hub map spots.
+- **Save Game Map Spot Synchronization (PR #40)**: Forced map spot synchronization on first update after level load, ensuring legacy serialized map spots from earlier versions are purged and replaced with non-serialized runtime spots.
+- **Fast Travel Fee Deduction (PR #38)**: Deducted fast travel fees using `db.actor:give_money(-cost)` instead of nonexistent `set_money`.
+- **Mechanic Armor/Helmet Repair Pricing Chain Preservation (PR #37)**: Preserved `inventory_upgrades_mp.how_much_repair` calculation chains for outfits and helmets, ensuring Homestead's weapon repair pricing override does not unintentionally alter armor repair costs in G.A.M.M.A.
+- **String Table & Localization Fixes (PR #74)**:
+  - Fixed Russian `st_dismantle_camp_done` to correctly indicate that workbenches and storage containers remain in place.
+  - Added missing `st_pda_settlement_job_hunter` translation for English and Russian.
+  - Fixed Russian radio text `st_pda_radio_no_logs` ("no radio traffic recorded" instead of radioactivity).
+  - Deduplicated `st_camp_medic_heal_done` string IDs and replaced broken 3-byte UTF-8 em dashes with standard hyphens in English MCM text.
+
 ## v1.2.2.1 — Settler Recruitment Idle Animation Hotfix
 
 ### 🐛 Critical Bugfix:
