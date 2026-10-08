@@ -1476,7 +1476,7 @@ function SettlementManagerPDA:OnSettlementSelected(keep_survivor)
             end
             local icon_sec = survivor.icon or (npc_obj and npc_obj.character_icon and npc_obj:character_icon()) or "ui\\ui_noise"
             local cur_tier = survivor.tier or 0
-            local tier_names = { [0] = "Novice", [1] = "Trainee", [2] = "Veteran", [3] = "Master" }
+            local tier_names = { [0] = "Novice", [1] = "Skilled", [2] = "Expert", [3] = "Master" }
             local rank_str = sformat("Tier %d (%s)", cur_tier, tier_names[cur_tier] or "Novice")
             local s_item = SurvivorListItem(survivor_id, sname, status_str, icon_sec, rank_str, self.xml)
             if status_color and s_item.status_wnd then
@@ -1544,11 +1544,14 @@ function SettlementManagerPDA:OnSurvivorSelected()
 
     local cur_tier = s_item.tier or 0
     local xp = s_item.xp or 0
-    local tier_names = { [0] = "Novice", [1] = "Trainee", [2] = "Veteran", [3] = "Master" }
-    local tier_caps = { [0] = 300, [1] = 700, [2] = 1500, [3] = 1500 }
-    local cur_cap = tier_caps[cur_tier] or 1500
+    -- the ranks award_survivor_xp promotes to: one XP per completed work cycle, tiers at 10, 25
+    -- and 50. Expedition XP goes into the same count and can run past the next threshold until
+    -- the next cycle promotes.
+    local tier_names = { [0] = "Novice", [1] = "Skilled", [2] = "Expert", [3] = "Master" }
+    local tier_caps = { [0] = 10, [1] = 25, [2] = 50, [3] = 50 }
+    local cur_cap = tier_caps[cur_tier] or 50
     local prev_cap = (cur_tier > 0) and (tier_caps[cur_tier - 1] or 0) or 0
-    local progress_pct = (cur_tier >= 3) and 100 or math.min(100, math.floor(((xp - prev_cap) / mmax(1, cur_cap - prev_cap)) * 100))
+    local progress_pct = (cur_tier >= 3) and 100 or mmax(0, math.min(100, math.floor(((xp - prev_cap) / mmax(1, cur_cap - prev_cap)) * 100)))
 
     self.survivor_name_txt:SetWndPos(vector2():set(52, 4))
     self.survivor_name_txt:SetText(s_item.name or "Survivor")
