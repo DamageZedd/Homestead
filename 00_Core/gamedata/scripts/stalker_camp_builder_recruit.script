@@ -1075,6 +1075,7 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
         local cur_pos = (recruited_online and recruited_online:position()) or (se_after and se_after.position)
         pcall(function() sb.anchor_settler_to_smart(npc_id, camp.level, cur_pos) end)
     end
+    return true
 end
 
 function stalker_camp_builder.recruit_npc(actor, npc)
@@ -1187,13 +1188,12 @@ local function recruit_to_camp_slot(actor, npc, n)
             return
         end
 
-        if val1 and val1 > 0 and db.actor then
+        -- recruit_npc_to_camp can still refuse (the survivor cap, the faction checks): charge on success
+        if sb.recruit_npc_to_camp(actor, target_npc, entry.hub_id) and val1 and val1 > 0 and db.actor then
             db.actor:give_money(-val1)
             -- GAMMA test stack may not ship interface\inv_money. Avoid forcing
             -- a missing sound lookup during recruitment; the fee itself is unchanged.
         end
-
-        sb.recruit_npc_to_camp(actor, target_npc, entry.hub_id)
     end
 end
 
