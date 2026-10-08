@@ -2139,6 +2139,22 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
     end
 end
 
+-- hub_id -> true while this session's restock event waits for the camp's caravan trader. Not
+-- saved, like the time event it stands for.
+local trader_stock_pending = {}
+
+-- Is the camp's trader id still the live stalker spawned as its caravan trader? A dead
+-- trader's id goes back into use once the body is released.
+local function is_camp_trader(camp)
+    local se = alife_object(camp.active_trader_id)
+    if not (se and IsStalker(se) and se:alive()) then return false end
+    if camp.trader_section_of ~= camp.active_trader_id then  -- a newly arrived trader
+        camp.trader_section_of = camp.active_trader_id
+        camp.trader_section = se:section_name()
+    end
+    return se:section_name() == camp.trader_section
+end
+
 -- update_camp_jobs -- master per-tick job driver. Runs every 10 real seconds
 function stalker_camp_builder.update_camp_jobs()
     local mmin = math.min
@@ -2170,11 +2186,19 @@ function stalker_camp_builder.update_camp_jobs()
                 pcall(function() level.map_change_spot_hint(hub_id, "ui_pda2_actor_sleep_location", spot_hint) end)
             end
 
+            if camp.active_trader_id and not is_camp_trader(camp) then
+                camp.active_trader_id = nil
+                camp.trader_spawn_time = nil
+                camp.trader_needs_stock = nil
+                camp.trader_section = nil
+                camp.trader_section_of = nil
+            end
             if camp.active_trader_id then
                 camp.trader_spawn_time = camp.trader_spawn_time or current_sec
 
-                if camp.trader_needs_stock and not camp.trader_stock_pending then
-                    camp.trader_stock_pending = true
+                if camp.trader_needs_stock and not trader_stock_pending[hub_id] then
+                    trader_stock_pending[hub_id] = true
+                    camp.trader_stock_pending = nil  -- saved by older versions
                     local trader_id = camp.active_trader_id
                     local hub_id_ref = hub_id
 
@@ -2213,13 +2237,13 @@ function stalker_camp_builder.update_camp_jobs()
                             local c = sb.active_camps[hub_id_ref]
                             if c then
                                 c.trader_needs_stock = nil
-                                c.trader_stock_pending = nil
                             end
+                            trader_stock_pending[hub_id_ref] = nil
                             return true  -- one-shot: event complete
                         end
                         local c = sb.active_camps[hub_id_ref]
                         if not c or not c.trader_needs_stock then
-                            if c then c.trader_stock_pending = nil end
+                            trader_stock_pending[hub_id_ref] = nil
                             return true  -- camp removed or stock already handled, stop
                         end
                         return false  -- keep retrying
@@ -2236,6 +2260,8 @@ function stalker_camp_builder.update_camp_jobs()
                     camp.active_trader_id = nil
                     camp.trader_spawn_time = nil
                     camp.trader_needs_stock = nil
+                    camp.trader_section = nil
+                    camp.trader_section_of = nil
                 end
             end
 
