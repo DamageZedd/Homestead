@@ -4549,7 +4549,12 @@ function actor_on_first_update()
 
     level_start_time = time_global()
     snap_done = true
-    sync_all_camp_map_spots()
+    -- forced once per load: strips markers older versions saved with map_add_object_spot_ser
+    -- from the hubs and, with the remembered keys cleared, from the outpost chests
+    for _, rcamp in pairs(stalker_camp_builder.rival_camps) do
+        if type(rcamp) == "table" then rcamp.map_spot_key = nil end
+    end
+    sync_all_camp_map_spots(true)
 
     local cur_tg = time_global()
     local cur_gsec = game.get_game_time():diffSec(game.CTime())
