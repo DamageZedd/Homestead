@@ -6914,7 +6914,7 @@ function stalker_camp_builder.is_quest_or_task_stash(id)
     local is_quest = false
     stalker_camp_builder.iterate_server_container(id, function(child_id, child_se)
         local sec = child_se:section_name()
-        if sec and (sys_ini:line_exist(sec, "quest_item") and sys_ini:r_bool(sec, "quest_item")) then
+        if sec and (ini_sys:line_exist(sec, "quest_item") and ini_sys:r_bool(sec, "quest_item")) then
             is_quest = true
             return true
         end
