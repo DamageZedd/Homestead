@@ -59,6 +59,19 @@ end
 local function play_pda_ui_sound(snd_path)
 end
 
+-- closes the PDA the way its key does (actor_effects). The page is the PDA's subdialog, attached
+-- by CUIPdaWnd::SetActiveSubdialog without a dialog holder, so its own HideDialog does nothing.
+local function close_pda()
+    if get_console_cmd(1, "g_3d_pda") then
+        db.actor:activate_slot(0)
+    else
+        local pda_menu = ActorMenu.get_pda_menu()
+        if pda_menu and pda_menu:IsShown() then
+            pda_menu:HideDialog()
+        end
+    end
+end
+
 local SINGLETON = nil
 
 function get_singleton() return SINGLETON end
@@ -622,7 +635,7 @@ function SettlementManagerPDA:InitControls()
 
     self.close_btn = xml:Init3tButton("close_button", self)
     self:Register(self.close_btn, "close_btn")
-    self:AddCallback("close_btn", ui_events.BUTTON_CLICKED, self.HideDialog, self)
+    self:AddCallback("close_btn", ui_events.BUTTON_CLICKED, close_pda, self)
 
     self.radio_panel = xml:InitStatic("radio_panel", self)
     xml:InitStatic("radio_panel:radio_header_bg", self.radio_panel)
@@ -2146,7 +2159,7 @@ function SettlementManagerPDA:OnFastTravelClicked()
             actor_menu.set_msg(1, string.format(game.translate_string("st_pda_fast_travel_failed"), tostring(reason)), 3)
         end
     else
-        self:HideDialog()
+        close_pda()
     end
 end
 
