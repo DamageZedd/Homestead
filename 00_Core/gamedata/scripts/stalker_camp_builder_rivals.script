@@ -768,7 +768,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                     local did_upgrade = false
                     local did_hold = false
 
-                    if camp.tier == 1 then
+                    if camp.status == "mutant_nest" then
+                        -- a mutant pack doesn't fortify or resupply; when its time is up it moves on
+                    elseif camp.tier == 1 then
                         if roll <= 70 and sb.cfg.rival_camp_progression ~= false then
                             sb.upgrade_rival_camp_tier(camp, 2)
                             camp.setup_sec = current_sec
@@ -2439,6 +2441,9 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
     camp.cleared = false
     camp.unoccupied_time = nil
     camp.despawn_chest_when_empty = nil
+    -- the pack's stay starts now; the lost garrison's timer doesn't carry over
+    camp.setup_sec = game.get_game_time():diffSec(game.CTime())
+    camp.setup_duration = mrandom(21600, 64800) -- 6 to 18 in-game hours
 
     if camp.squad_id then
         local old_squad = sim:object(camp.squad_id)
