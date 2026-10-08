@@ -2778,7 +2778,7 @@ function npc_on_update(npc)
     settler_next_tick[npc_id] = tg + 1000 + (npc_id % 200)  -- DANZY EDIT: about once a second (was 150ms, ~6x/sec)
 
     if cfg.settler_invincible and not lookup.is_rival then
-        pcall(function() npc:set_health(1.0) end)
+        pcall(function() npc:set_health_ex(1.0) end)
     end
 
     if lookup.is_rival then
@@ -5707,7 +5707,7 @@ function npc_on_hit_callback(npc, amount, local_direction, who, bone_index)
     local npc_id = npc:id()
     local lookup = stalker_camp_builder.settler_lookup[npc_id]
     if not lookup or lookup.is_rival then return end
-    pcall(function() npc:set_health(1.0) end)
+    pcall(function() npc:set_health_ex(1.0) end)
 end
 
 local function safe_register_callback(name, func)
