@@ -1327,10 +1327,11 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
         self.camp_pop_gauge:SetText(sformat("Occupancy Rate: %d%%   [%s]   %s", pop_pct, pop_gauge, cap_str))
     end
 
-    local def_pct = math.floor(mmin(100, (stats.defense / 150) * 100))
+    local def_cap = stalker_camp_builder.cfg and stalker_camp_builder.cfg.defense_cap or 150
+    local def_pct = math.floor(mmin(100, (stats.defense / def_cap) * 100))
     local def_gauge = make_gauge(def_pct, 10)
     local def_rating_str = def_pct >= 66 and "High Defense" or (def_pct >= 33 and "Defended" or "Vulnerable")
-    self.camp_def:SetText(sformat("Security Rating: %d / 150   [%s]   %d%%  (%s)", stats.defense, def_gauge, def_pct, def_rating_str))
+    self.camp_def:SetText(sformat("Security Rating: %d / %d   [%s]   %d%%  (%s)", stats.defense, def_cap, def_gauge, def_pct, def_rating_str))
     self.camp_def_breakdown:SetText(sformat("Perimeter Grid: %d Barricades   |   %d Guards   |   %d Turrets", stats.barricades, stats.guards, stats.gadgets))
     if self.camp_threat_lvl then
         local threat_str = (camp.under_attack or camp.raid_active) and "CRITICAL (Active Raid)" or (stats.defense >= 60 and "LOW (Sector Fortified)" or "MODERATE (Standard Patrols)")
