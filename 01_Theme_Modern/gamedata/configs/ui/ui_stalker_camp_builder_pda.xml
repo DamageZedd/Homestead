@@ -87,7 +87,7 @@
 
                 <overview_content x="0" y="0" width="350" height="510" stretch="1">
         <!-- Top Header Card (y=0 to y=68) -->
-        <camp_header_bg x="0" y="0" width="350" height="40" stretch="1">
+        <camp_header_bg x="0" y="0" width="350" height="52" stretch="1">
             <texture>ui_homestead_module_bg</texture>
         </camp_header_bg>
         <camp_name x="0" y="2" width="350" height="20">
