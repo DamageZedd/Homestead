@@ -22,14 +22,15 @@ local mcos = math.cos
 local msin = math.sin
 local msqrt = math.sqrt
 
--- Safe switch distance threshold: In vanilla Anomaly, switch distance is 150m,
--- but in G.A.M.M.A. (and mods with ALife optimization), switch_distance is 450m.
--- Checking against dynamic switch distance ensures squads and events do not
--- spawn, transform, or despawn within the player's online sphere / visible range.
+-- Safe switch distance threshold: Anomaly's alife.ltx sets a switch distance of 750m,
+-- G.A.M.M.A.'s 450m. An object that came online goes offline only beyond
+-- switch_distance * (1 + switch_factor), so squads and events do not spawn, transform, or
+-- despawn within that radius. The engine doesn't export the factor; it is in alife.ltx.
 local function get_safe_switch_distance()
     local sim = alife()
     local sd = sim and sim.switch_distance and sim:switch_distance()
-    return mmax(150, sd or 150)
+    local factor = ini_sys and ini_sys.r_float_ex and ini_sys:r_float_ex("alife", "switch_factor") or 0.1
+    return mmax(150, sd or 150) * (1 + factor)
 end
 
 local function get_safe_switch_distance_sqr()
