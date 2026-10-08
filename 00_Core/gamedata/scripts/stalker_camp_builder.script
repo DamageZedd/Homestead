@@ -5814,7 +5814,10 @@ function on_game_start()
             end
         end
 
-        local orig_how_much_repair = inventory_upgrades and inventory_upgrades.how_much_repair
+        -- G.A.M.M.A. prices repairs with inventory_upgrades_mp.how_much_repair, which addons wrap
+        -- when they load; anything that isn't a weapon keeps that chain
+        local orig_how_much_repair = (inventory_upgrades_mp and inventory_upgrades_mp.how_much_repair)
+            or (inventory_upgrades and inventory_upgrades.how_much_repair)
         local function calc_wpo_repair_cost(item_name, item_condition)
             local mfloor = math.floor
             local mmax = math.max
