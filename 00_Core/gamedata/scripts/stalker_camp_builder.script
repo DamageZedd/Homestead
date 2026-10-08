@@ -680,10 +680,12 @@ local get_camp_containers = stalker_camp_builder.get_camp_containers
 function stalker_camp_builder.consume_one_use(item_id)
     if not item_id then return false end
     local sb = stalker_camp_builder
+    local known_uses = nil
     if sb and sb.active_camps then
         for _, c in pairs(sb.active_camps) do
             if c.stored_items and c.stored_items[item_id] then
                 local it = c.stored_items[item_id]
+                known_uses = it.uses
                 if it.uses and it.uses > 1 then
                     it.uses = it.uses - 1
                 else
@@ -708,19 +710,24 @@ function stalker_camp_builder.consume_one_use(item_id)
 
     local se_item = alife_object(item_id)
     if se_item then
-        if utils_item and utils_item.get_uses and utils_item.set_uses then
-            local ok_u, u = pcall(function() return utils_item.get_uses(se_item) end)
-            if ok_u and u and u > 1 then
-                pcall(function() utils_item.set_uses(se_item, u - 1) end)
-                return true
+        -- Server objects have no uses API, so for an offline item the camp's record holds the
+        -- uses left. While it says more than one, keep the item and owe the use:
+        -- apply_pending_cond takes it off when the item is next online.
+        if not cl_item and known_uses and known_uses > 1 then
+            local pend = sb.pending_item_cond or {}
+            sb.pending_item_cond = pend
+            local e = pend[item_id]
+            if type(e) ~= "table" then
+                e = { c = e }
+                pend[item_id] = e
             end
-        end
-        local ok_se_u, se_u = pcall(function() return se_item:get_remaining_uses() end)
-        if ok_se_u and se_u and se_u > 1 then
-            pcall(function() se_item:set_remaining_uses(se_u - 1) end)
+            e.s = e.s or se_item:section_name()
+            e.u = (e.u or 0) + 1
+            sb.save_pending_cond()
+            sb.start_pending_cond_timer()
             return true
         end
-
+        if sb.pending_item_cond then sb.pending_item_cond[item_id] = nil end
         alife_release(se_item)
     end
     return true
@@ -775,6 +782,10 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                 sb.safe_iterate_inventory_box(box_obj, function(temp, cl_item)
                     if not cl_item then return end
                     local iid = cl_item:id()
+                    -- uses owed from offline consumption come off before the uses are read
+                    if type(cl_item) == "userdata" and sb.pending_item_cond and sb.pending_item_cond[iid] then
+                        sb.apply_pending_cond(cl_item)
+                    end
                     local sec = cl_item:section()
                     local cond = 1.0
                     local ok_c, c = pcall(function() return cl_item:condition() end)
@@ -6438,6 +6449,16 @@ function stalker_camp_builder.apply_pending_cond(obj)
             se_save_var(id, obj:name(), "parts", p_data)
         end
     end)
+    -- uses the camp spent while the item was offline (consume_one_use); if the record
+    -- overstated what was left, the rest stays
+    if e.u then
+        pcall(function()
+            local left = obj:get_remaining_uses() - e.u
+            if left >= 1 then
+                obj:set_remaining_uses(left)
+            end
+        end)
+    end
 end
 
 function stalker_camp_builder.pending_cond_tick()
@@ -6461,7 +6482,7 @@ function stalker_camp_builder.pending_cond_tick()
             elseif data and cur_sec > 0 then
                 if not data.t then
                     data.t = cur_sec
-                elseif (cur_sec - data.t) > MAX_PENDING_AGE_SEC then
+                elseif (cur_sec - data.t) > MAX_PENDING_AGE_SEC and not data.u then  -- owed uses wait
                     pend[id] = nil
                 end
             end
@@ -6644,7 +6665,7 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
         camp.stored_items[se_item.id] = {
             sec = sec,
             cond = cond or 1.0,
-            uses = 1,
+            uses = ini:r_float_ex(sec, "max_uses") or 1,  -- a new item has all its uses
             box_id = target_box_id
         }
         camp._cached_storage_metrics_tg = nil
