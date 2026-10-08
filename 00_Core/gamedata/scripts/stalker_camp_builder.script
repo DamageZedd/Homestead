@@ -2489,9 +2489,9 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
     end
     p_data.wait_until = p_data.wait_until or 0
 
-    local dist_to_chest = safe_distance(npc, chest_pos) or math.huge
     local npc_pos = npc:position()
     if not npc_pos then return end
+    local dist_to_chest = npc_pos:distance_to(chest_pos)
     local npc_lvid = npc:level_vertex_id()
     if not (npc_lvid and level.valid_vertex_id and level.valid_vertex_id(npc_lvid)) then
         return
