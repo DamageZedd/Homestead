@@ -2265,7 +2265,8 @@ function stalker_camp_builder.update_camp_jobs()
                 if trader_elapsed >= sb.cfg.trader_despawn_time then
                     local se_trader = alife_object(camp.active_trader_id)
                     if se_trader then
-                        alife_release(se_trader)
+                        -- the trader is in no squad, and alife_release removes stalkers only through their squad
+                        safe_release_manager.release(se_trader)
                         sb.camp_send_tip(actor, game.translate_string("st_job_caravan_departed"), nil, "general_stalker", 10000)
                     end
                     camp.active_trader_id = nil
