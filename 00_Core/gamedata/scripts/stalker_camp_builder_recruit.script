@@ -2352,7 +2352,7 @@ function stalker_camp_builder.fast_travel_to_camp(hub_id, cost)
         if money < cost then
             return false, "insufficient_funds"
         end
-        pcall(function() actor_alao:set_money(money - cost) end)
+        actor_alao:give_money(-cost)
     end
 
     local actor = actor_alao
