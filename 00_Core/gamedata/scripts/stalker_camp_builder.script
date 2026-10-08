@@ -1764,8 +1764,8 @@ end
 function get_camp_label(camp)
     local name = camp.name
     if not name or name == "" then
-        local level_name = camp.level or "Unknown"
-        name = level_name .. " Settlement"
+        -- the level's name, as the PDA's Overview header shows it ("Cordon Settlement"), not its id
+        name = game.translate_string(camp.level or "unknown") .. " Settlement"
     end
     return name
 end
@@ -3761,7 +3761,9 @@ function normalize_camps()
         if type_(camp) ~= "table" then
             stalker_camp_builder.active_camps[hub_id] = nil
         else
-            camp.name = camp.name or ""
+            -- an unnamed camp keeps no name, as when it was placed: "" would defeat the
+            -- camp.name or "Camp" fallbacks in the messages
+            if camp.name == "" then camp.name = nil end
             camp.level = camp.level or "unknown"
             camp.survivors = camp.survivors or {}
             camp.structures = camp.structures or {}
