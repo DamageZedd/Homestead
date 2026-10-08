@@ -340,7 +340,11 @@ end
 -- release_camp_decorations -- alife_release all decoration ids on a camp
 function stalker_camp_builder.release_camp_decorations(camp)
     if camp and camp.decorations then
-        for _, id in ipairs(camp.decorations) do
+        -- off the camp first: a release can run server_entity_on_unregister, which removes the id
+        -- from camp.decorations and would make this loop skip the next piece
+        local list = camp.decorations
+        camp.decorations = {}
+        for _, id in ipairs(list) do
             local ok, se_decor = pcall(alife_object, id)
             -- a freed id may name another object by now: release only outpost furniture
             if ok and se_decor then
@@ -350,7 +354,6 @@ function stalker_camp_builder.release_camp_decorations(camp)
                 end
             end
         end
-        camp.decorations = {}
         camp.decor_sections = {}
     end
 end
