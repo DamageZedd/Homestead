@@ -3987,8 +3987,11 @@ function sync_rival_camp_map_spot(camp)
     if not (camp and camp.chest_id) then return end
     local sb = stalker_camp_builder
     local show_rival = (sb.cfg.show_rival_camp_map_spots ~= false)
-    remove_all_rival_map_spots(camp.chest_id)
-    if not show_rival then return end
+    if not show_rival then
+        remove_all_rival_map_spots(camp.chest_id)
+        camp.map_spot_key = nil
+        return
+    end
 
     local actor = db.actor
     local actor_comm = actor and actor:character_community() or "stalker"
@@ -4005,9 +4008,14 @@ function sync_rival_camp_map_spot(camp)
         target_label = (is_hostile and "Hostile Outpost (" or "Occupied Outpost (") .. fac_name .. "): " .. (camp.name or "Outpost")
     end
 
+    -- unchanged and still on the map: leave it (every add fires map_location_added hooks)
+    local key = spot_type .. "|" .. target_label
+    if camp.map_spot_key == key and level.map_has_object_spot(camp.chest_id, spot_type) ~= 0 then return end
+    remove_all_rival_map_spots(camp.chest_id)
     pcall(function()
         level.map_add_object_spot_ser(camp.chest_id, spot_type, target_label)
     end)
+    camp.map_spot_key = key
 end
 stalker_camp_builder.sync_rival_camp_map_spot = sync_rival_camp_map_spot
 
