@@ -3272,3 +3272,53 @@ function stalker_camp_builder.survivor_has_custom_position(actor, npc)
     end
     return false
 end
+
+-- A settler who joins the player through the vanilla companion dialog keeps their camp job, so
+-- npc_on_update kept sending them back to their station: pause the job as recruit_back does
+function stalker_camp_builder.mark_settler_companion(npc_id)
+    local sb = stalker_camp_builder
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        local survivor = camp.survivors and camp.survivors[npc_id]
+        if survivor then
+            if survivor.job ~= "companion" then
+                survivor.paused_job = survivor.job or "idle"
+                survivor.paused_xp = survivor.xp or 0
+                survivor.paused_tier = survivor.tier or 0
+                survivor.paused_job_progress = sb.get_job_progress and sb.get_job_progress(survivor) or 0
+                survivor.job = "companion"
+                survivor.is_companion = true
+                -- the station the settler beh scheme held them at
+                local st = db.storage[npc_id]
+                if st then
+                    st.beh_homestead_active = nil
+                    if type(st.beh) == "table" then
+                        st.beh.rally_lvid = nil
+                        st.beh.am_i_reached = nil
+                    end
+                end
+                -- anchor_settler_to_smart's override on the squad would keep it from following
+                local se_npc = alife_object(npc_id)
+                local squad = se_npc and get_object_squad(se_npc)
+                if squad then
+                    squad.get_script_target = nil
+                end
+            end
+            return
+        end
+    end
+end
+
+function on_game_start()
+    -- dialogs_axr_companion.become_actor_companion calls add_to_actor_squad for each member
+    if axr_companions and axr_companions.add_to_actor_squad and not axr_companions._homestead_hire_wrapped then
+        axr_companions._homestead_hire_wrapped = true
+        local add_to_actor_squad = axr_companions.add_to_actor_squad
+        axr_companions.add_to_actor_squad = function(npc, ...)
+            local ret = add_to_actor_squad(npc, ...)
+            if npc and npc.id then
+                stalker_camp_builder.mark_settler_companion(npc:id())
+            end
+            return ret
+        end
+    end
+end
