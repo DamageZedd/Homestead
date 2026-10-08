@@ -22,6 +22,38 @@ function on_game_start()
         end
     end
 
+    -- Binders that subclass hf_binder_wrapper got their own copy of is_pickupable when they were
+    -- declared (luabind copies a base's members into a subclass), before the override above ran;
+    -- and the radio and lamp dialogs pick the piece up without asking. Outposts place both.
+    local function outpost_piece(id)
+        return id and stalker_camp_builder and stalker_camp_builder.is_rival_camp_object
+            and stalker_camp_builder.is_rival_camp_object(id) or false
+    end
+    local function keep_outpost_piece(wrapper_class)
+        local og = wrapper_class and wrapper_class.is_pickupable
+        if not og then return end
+        wrapper_class.is_pickupable = function(self, ...)
+            if self and self.object and outpost_piece(self.object:id()) then return false end
+            return og(self, ...)
+        end
+    end
+    keep_outpost_piece(placeable_radio and placeable_radio.placeable_radio_wrapper)
+    keep_outpost_piece(bind_light_furniture and bind_light_furniture.placeable_light_wrapper)
+    local function keep_outpost_piece_in_dialog(dialog, id_field)
+        if not (dialog and dialog.Pickup and dialog.TestAndShow) then return end
+        local og_pickup, og_show = dialog.Pickup, dialog.TestAndShow
+        dialog.Pickup = function(self, ...)
+            if outpost_piece(self[id_field]) then return end
+            return og_pickup(self, ...)
+        end
+        dialog.TestAndShow = function(self, obj_id, ...)
+            if self.btn_pickup then self.btn_pickup:Enable(not outpost_piece(obj_id)) end
+            return og_show(self, obj_id, ...)
+        end
+    end
+    keep_outpost_piece_in_dialog(placeable_radio and placeable_radio.UIFurnitureRadio, "obj_id")
+    keep_outpost_piece_in_dialog(ui_furniture_light and ui_furniture_light.UIFurnitureLight, "light_id")
+
     -- Protect player settlements and settlers from Surge and Psi-Storm fatalities
     if surge_manager and surge_manager.CSurgeManager then
         local og_pos_in_cover = surge_manager.CSurgeManager.pos_in_cover
