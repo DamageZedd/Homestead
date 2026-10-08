@@ -94,7 +94,10 @@ local function cleanup_camp_convoys(chest_id)
                 sb.active_convoys[c_sq_id] = nil
             elseif conv and conv.target_camp_chest == chest_id then
                 local c_sq = sim:object(c_sq_id)
-                if c_sq then
+                if c_sq and is_companion_squad(c_sq_id) then
+                    -- recruited by the player: theirs now, handed back rather than released
+                    c_sq.get_script_target = nil
+                elseif c_sq then
                     c_sq.get_script_target = nil
                     for k in sb.safe_squad_members(c_sq) do
                         if k.id then
@@ -2561,6 +2564,10 @@ function stalker_camp_builder.update_active_convoys()
         local squad = sim:object(squad_id)
         if squad and courier_id_reused(sim, squad_id, convoy) then squad = nil end
         if not squad or not is_squad_alive(squad) then
+            sb.active_convoys[squad_id] = nil
+        elseif is_companion_squad(squad_id) then
+            -- recruited by the player: theirs now, handed back rather than released
+            squad.get_script_target = nil
             sb.active_convoys[squad_id] = nil
         else
             local se_chest = sim:object(convoy.target_camp_chest)
