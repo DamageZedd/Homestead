@@ -2328,10 +2328,13 @@ function stalker_camp_builder.dismantle_camp(hub_id)
     if camp.survivors then
         for npc_id, survivor in pairs(camp.survivors) do
             local id_num = tonumber(npc_id) or npc_id
-            if sb.record_banished_companion then sb.record_banished_companion(id_num) end
+            -- Only a companion goes on the banished list (the purge records the settler unless
+            -- is_banish is false): the ghost-companion sweep takes anyone on it out of a companion
+            -- squad, even a former settler the player later hires with the vanilla dialog.
+            local is_comp = (survivor.job == "companion" or survivor.is_companion) and true or false
             local on_npc = level.object_by_id(id_num)
             if sb.purge_settler_companion_and_squad_state then
-                sb.purge_settler_companion_and_squad_state(id_num, on_npc, true)
+                sb.purge_settler_companion_and_squad_state(id_num, on_npc, is_comp)
             end
             sb.camp_npc_released[id_num] = nil
             sb.refugee_ids[id_num] = nil
