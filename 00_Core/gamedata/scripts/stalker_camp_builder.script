@@ -5849,10 +5849,6 @@ function server_entity_on_unregister(se_obj, type_name)
             end
         end
     end
-
-    if m_data and m_data.player_created_stashes and m_data.player_created_stashes[obj_id] then
-        m_data.player_created_stashes[obj_id] = nil
-    end
 end
 
 function npc_on_death_callback(npc, who)
