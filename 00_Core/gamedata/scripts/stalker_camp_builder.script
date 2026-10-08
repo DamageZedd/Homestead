@@ -5365,6 +5365,9 @@ function check_completed_raids()
                     if is_alive then alive_count = alive_count + 1 end
                 end
                 raid.remaining_count = alive_count
+            else
+                -- the engine releases a squad as soon as its last member dies
+                raid.remaining_count = 0
             end
 
             if not squad_alive then
@@ -5718,6 +5721,9 @@ function npc_on_death_callback(npc, who)
                     return true
                 end)
             else
+                if camp.active_raid and job == "guard" then
+                    camp.active_raid.guards_lost = (camp.active_raid.guards_lost or 0) + 1
+                end
                 set_camp_settler_relations(hub_id, npc_id, false)
                 camp.survivors[npc_id] = nil
                 stalker_camp_builder.settler_lookup[npc_id] = nil
