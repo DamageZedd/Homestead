@@ -83,6 +83,8 @@ local dialogues = [[
             <next>10</next>
             <next>17</next>
             <next>50</next>
+            <next>60</next>
+            <next>62</next>
             <next>5</next>
         </phrase>
         <phrase id="1">
