@@ -2464,15 +2464,19 @@ function process_refugee_despawns()
             end
         end
     end
+    local departed = 0
     for _, npc_id in ipairs(to_despawn) do
         local se_obj = alife_object(npc_id)
-        if se_obj then
-            alife_release(se_obj)
+        -- only the refugee itself: once a dead refugee's body is released, its id goes to a later object
+        if se_obj and IsStalker(se_obj) and se_obj:alive() and se_obj:section_name() == "stalker_regular" then
+            -- a refugee is in no squad, and alife_release removes stalkers only through their squad
+            safe_release_manager.release(se_obj)
+            departed = departed + 1
         end
         stalker_camp_builder.refugee_ids[npc_id] = nil
     end
-    if #to_despawn > 0 and db.actor then
-        camp_send_tip(db.actor, string.format(game.translate_string("st_event_refugees_departed"), #to_despawn), nil, "general_stalker", 8000)
+    if departed > 0 and db.actor then
+        camp_send_tip(db.actor, string.format(game.translate_string("st_event_refugees_departed"), departed), nil, "general_stalker", 8000)
     end
 end
 
@@ -5805,6 +5809,10 @@ function server_entity_on_unregister(se_obj, type_name)
     if stalker_camp_builder.active_convoys then
         stalker_camp_builder.active_convoys[obj_id] = nil
     end
+    -- the same for a refugee whose body is gone
+    if stalker_camp_builder.refugee_ids then
+        stalker_camp_builder.refugee_ids[obj_id] = nil
+    end
 
     if stalker_camp_builder.rival_camps then
         for key, rcamp in pairs(stalker_camp_builder.rival_camps) do
@@ -5880,6 +5888,10 @@ end
 function npc_on_death_callback(npc, who)
     if not npc then return end
     local npc_id = npc:id()
+    -- a dead refugee doesn't move on: its entry would pass to whatever gets the id next
+    if stalker_camp_builder.refugee_ids then
+        stalker_camp_builder.refugee_ids[npc_id] = nil
+    end
     for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
         if camp.survivors and camp.survivors[npc_id] then
             local survivor = camp.survivors[npc_id]
