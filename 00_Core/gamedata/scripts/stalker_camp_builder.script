@@ -5873,6 +5873,11 @@ function server_entity_on_unregister(se_obj, type_name)
                     if m_data and m_data.player_created_stashes then
                         m_data.player_created_stashes[obj_id] = nil
                     end
+                    -- the outpost registered its chest as a treasure cache (G.A.M.M.A. mode keeps the
+                    -- entry): a later object with this id must not read as a stash
+                    if treasure_manager and treasure_manager.caches then
+                        treasure_manager.caches[obj_id] = nil
+                    end
                     stalker_camp_builder.rival_camps[key] = nil
                     break
                 else
