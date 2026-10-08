@@ -1373,6 +1373,11 @@ setmetatable(cfg, {
                 if val ~= nil then return val end
                 val = get_mcm_setting("max_survivors_per_camp")
                 return val or defaults.max_survivors_player_camp
+            elseif key == "craft_output_multiplier" then
+                -- the slider stops at 3; a value saved under its old maximum of 5 stays saved until
+                -- the slider is moved, and ui_mcm.get returns it as it is
+                local val = get_mcm_setting("craft_output_multiplier")
+                return val and mmin(3, val) or defaults.craft_output_multiplier
             elseif key == "scavenge_ambush_chance" or key == "scavenger_ambush_chance" then
                 local val = get_mcm_setting("scavenger_ambush_chance")
                 if val ~= nil then return val end
