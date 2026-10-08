@@ -2489,9 +2489,9 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
     end
     p_data.wait_until = p_data.wait_until or 0
 
-    local dist_to_chest = safe_distance(npc, chest_pos) or math.huge
     local npc_pos = npc:position()
     if not npc_pos then return end
+    local dist_to_chest = npc_pos:distance_to(chest_pos)
     local npc_lvid = npc:level_vertex_id()
     if not (npc_lvid and level.valid_vertex_id and level.valid_vertex_id(npc_lvid)) then
         return
@@ -2624,11 +2624,11 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                 ["threat_na"] = true,
                 ["wait_na"] = true,
                 ["caution"] = true,
-                ["smoke"] = true,
+                ["smoking_stand"] = true,
                 ["sit_knee"] = true,
             }
             if not valid_states[cur_state] then
-                local idles = { "guard", "threat_na", "wait_na", "caution", "smoke", "sit_knee" }
+                local idles = { "guard", "threat_na", "wait_na", "caution", "smoking_stand", "sit_knee" }
                 local chosen_idle = idles[mrandom(#idles)]
                 local look_pos = vector():set(
                     npc_pos.x + (npc_pos.x - chest_pos.x) * 2.0,
@@ -2823,6 +2823,8 @@ function npc_on_update(npc)
         end)
     end
 
+    -- a settler following the player as a companion belongs to the companion system
+    if my_survivor and (my_survivor.job == "companion" or my_survivor.is_companion) then return end
     if my_survivor and my_survivor.job == "scavenge" and my_survivor.on_expedition then return end
 
     local hub_obj = alife_object(my_hub_id)
@@ -3257,16 +3259,16 @@ function npc_on_update(npc)
             ["wait_na"] = true,
             ["guard"] = true,
             ["caution"] = true,
-            ["smoke"] = true,
+            ["smoking_stand"] = true,
             ["sit_knee"] = true,
             ["threat_na"] = true,
             ["ward"] = true,
         }
         local need_new_anim = (not safe_idle_states[cur_state]) or (now_tg > (cache.idle_anim_tg or 0))
         if need_new_anim then
-            cache.idle_anim_tg = now_tg + math.random(20000, 35000)
-            local idle_choices = { "wait_na", "guard", "caution", "smoke", "sit_knee", "threat_na", "ward" }
-            local chosen_idle = idle_choices[math.random(#idle_choices)]
+            cache.idle_anim_tg = now_tg + mrandom(20000, 35000)
+            local idle_choices = { "wait_na", "guard", "caution", "smoking_stand", "sit_knee", "threat_na", "ward" }
+            local chosen_idle = idle_choices[mrandom(#idle_choices)]
             local look_pos = vector():set(
                 target_pos.x + (target_pos.x - hub_obj.position.x) * 2.0,
                 target_pos.y,
@@ -3897,8 +3899,18 @@ local KNOWN_CAMP_MAP_SPOTS = {
     "green_location", "homestead_camp_hub", "paw_pin_stalker32", "homestead_paw_pin_stalker", "treasure_player",
 }
 
+-- the test modxml_stalker_camp_builder uses to inject the homestead_paw_* spots: Catspaw's
+-- shared utils_catspaw_mapspots ships in mods without PAW, and without PAW's
+-- map_spots_paw_pins.xml those spot types are never defined
+local paw_pins_present = nil
 local function has_paw_pins()
-    return (_G.utils_catspaw_mapspots ~= nil or _G.catsy_paw_mcm ~= nil)
+    if paw_pins_present == nil then
+        local ok, found = pcall(function()
+            return getFS():exist("$game_config$", "ui\\map_spots_paw_pins.xml")
+        end)
+        paw_pins_present = (ok and found) and true or false
+    end
+    return paw_pins_present
 end
 stalker_camp_builder.has_paw_pins = has_paw_pins
 
@@ -3987,8 +3999,11 @@ function sync_rival_camp_map_spot(camp)
     if not (camp and camp.chest_id) then return end
     local sb = stalker_camp_builder
     local show_rival = (sb.cfg.show_rival_camp_map_spots ~= false)
-    remove_all_rival_map_spots(camp.chest_id)
-    if not show_rival then return end
+    if not show_rival then
+        remove_all_rival_map_spots(camp.chest_id)
+        camp.map_spot_key = nil
+        return
+    end
 
     local actor = db.actor
     local actor_comm = actor and actor:character_community() or "stalker"
@@ -4005,9 +4020,14 @@ function sync_rival_camp_map_spot(camp)
         target_label = (is_hostile and "Hostile Outpost (" or "Occupied Outpost (") .. fac_name .. "): " .. (camp.name or "Outpost")
     end
 
+    -- unchanged and still on the map: leave it (every add fires map_location_added hooks)
+    local key = spot_type .. "|" .. target_label
+    if camp.map_spot_key == key and level.map_has_object_spot(camp.chest_id, spot_type) ~= 0 then return end
+    remove_all_rival_map_spots(camp.chest_id)
     pcall(function()
         level.map_add_object_spot_ser(camp.chest_id, spot_type, target_label)
     end)
+    camp.map_spot_key = key
 end
 stalker_camp_builder.sync_rival_camp_map_spot = sync_rival_camp_map_spot
 
@@ -4519,7 +4539,6 @@ function actor_on_first_update()
 
     clean_orphaned_camps(current_level)
     reestablish_settler_relations()
-    pcall(stalker_camp_builder.sanitize_orphan_container_children)
 
     if hf_furniture_types then
         hf_furniture_types.add_type("camp_hub", function(obj_id) end)
@@ -6311,13 +6330,13 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     end
 
     -- Firearms and weapons route to dedicated Gun Cases / Weapon Racks
-    local is_wpn = (ini and ini:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
+    local is_wpn = (ini_sys:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)
     if is_wpn then
         return weapon_box or fallback_chest
     end
 
     -- Armor and suits route to Wardrobes / Lockers
-    local is_outfit = (ini and ini:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
+    local is_outfit = (ini_sys:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")
     if is_outfit then
         return armor_box or fallback_chest
     end
@@ -6907,7 +6926,7 @@ function stalker_camp_builder.is_quest_or_task_stash(id)
     local is_quest = false
     stalker_camp_builder.iterate_server_container(id, function(child_id, child_se)
         local sec = child_se:section_name()
-        if sec and (sys_ini:line_exist(sec, "quest_item") and sys_ini:r_bool(sec, "quest_item")) then
+        if sec and (ini_sys:line_exist(sec, "quest_item") and ini_sys:r_bool(sec, "quest_item")) then
             is_quest = true
             return true
         end
@@ -7468,13 +7487,10 @@ local function loot_and_clear_stash(s_id, exp)
                 end
             end
         end)
-        local cl_stash = level and level.object_by_id and level.object_by_id(s_id)
-        if cl_stash then
-            for _, rel_se in ipairs(to_release) do
-                pcall(function()
-                    alife_release(rel_se, true)
-                end)
-            end
+        for _, rel_se in ipairs(to_release) do
+            pcall(function()
+                alife_release(rel_se, true)
+            end)
         end
     end
 

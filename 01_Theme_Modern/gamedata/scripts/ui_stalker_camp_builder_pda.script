@@ -2277,18 +2277,8 @@ function SettlementManagerPDA:OnBanishClicked()
     local npc_id = item.survivor_id
     -- Find the live client object to call banish_npc
     local npc = level.object_by_id(npc_id)
-    if npc then
-        stalker_camp_builder.banish_npc(db.actor, npc)
-    else
-        -- NPC is offline - remove directly from survivors table
-        for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
-            if camp.survivors[npc_id] then
-                local name = camp.survivors[npc_id].name or "settler"
-                camp.survivors[npc_id] = nil
-                actor_menu.set_msg(1, string.format(game.translate_string("st_settler_banished"), name), 4)
-                break
-            end
-        end
+    if stalker_camp_builder and stalker_camp_builder.banish_npc then
+        stalker_camp_builder.banish_npc(db.actor, npc or npc_id)
     end
     -- Refresh the survivor list
     self:OnSettlementSelected()
@@ -2986,6 +2976,14 @@ function SettlementManagerPDA:OnLocateRivalMapClicked()
     local smart = item.smart
     local rcamp = stalker_camp_builder.rival_camps and stalker_camp_builder.rival_camps[smart]
     if not rcamp then return end
+
+    -- Rebuild/refresh the physical map spot from the rival camp's actual chest
+    -- before switching to the Area Map.
+    pcall(function()
+        if stalker_camp_builder.sync_all_camp_map_spots then
+            stalker_camp_builder.sync_all_camp_map_spots(true)
+        end
+    end)
 
     play_pda_ui_sound([[device\pda\route_opened]])
     local pda_menu = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
