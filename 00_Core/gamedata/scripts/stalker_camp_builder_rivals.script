@@ -1010,7 +1010,23 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
         elseif camp.status == "unoccupied" then
             local occupant_squad = nil
             local occupant_faction = nil
-            if mrandom(100) <= (sb.cfg.rival_friendly_takeover or 25) then
+            -- one takeover roll per abandonment; a won roll brings the new garrison 1 to 3 game
+            -- hours later, and not while the player is within 150 m
+            if camp.takeover_at == nil then
+                camp.takeover_at = false
+                if mrandom(100) <= (sb.cfg.rival_friendly_takeover or 25) then
+                    camp.takeover_at = current_sec + mrandom(3600, 10800)
+                end
+            end
+            local player_near = false
+            if actor and same_level and camp.position then
+                local apos = actor:position()
+                local dx = apos.x - camp.position.x
+                local dy = apos.y - camp.position.y
+                local dz = apos.z - camp.position.z
+                player_near = (dx * dx + dy * dy + dz * dz) <= 22500
+            end
+            if camp.takeover_at and current_sec >= camp.takeover_at and not player_near then
                 local level_facs = sb.get_level_factions(camp.level or level_name)
                 occupant_faction = level_facs[mrandom(#level_facs)]
                 local camp_pos = v_scratch_pos:set(camp.position.x, camp.position.y, camp.position.z)
@@ -1021,6 +1037,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
             if occupant_squad then
                 camp.status = nil
                 camp.unoccupied_time = nil
+                camp.takeover_at = nil
                 camp.squad_id = occupant_squad.id
                 sb.setup_rival_squad_positions(occupant_squad, camp, sim)
                 camp.faction = occupant_faction
@@ -1044,7 +1061,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_claimed_friendly"), camp.name, faction_name), nil, "general_stalker", 10000)
                     end
                 end
-            else
+            elseif not camp.takeover_at then
+                -- no takeover coming: the abandoned camp decays
                 local is_empty = true
                 local box_obj = level.object_by_id(camp.chest_id)
                 if box_obj then
