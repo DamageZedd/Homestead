@@ -74,6 +74,11 @@ stalker_camp_builder.settler_lookup = stalker_camp_builder.settler_lookup or {}
 -- Local references for fast local access inside this file
 local SAVE_STATE_VERSION = 2
 
+-- `level` has no valid_vertex_id (that is a game graph method); u32(-1) means no vertex
+local function is_level_vertex(lvid)
+    return lvid and lvid < 4294967295 and lvid ~= -1 and lvid >= 0
+end
+
 local _suppress_news_intercept = false
 stalker_camp_builder._suppress_news_intercept = false
 
@@ -2516,7 +2521,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
     if not npc_pos then return end
     local dist_to_chest = npc_pos:distance_to(chest_pos)
     local npc_lvid = npc:level_vertex_id()
-    if not (npc_lvid and level.valid_vertex_id and level.valid_vertex_id(npc_lvid)) then
+    if not is_level_vertex(npc_lvid) then
         return
     end
 
@@ -2528,7 +2533,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
         local nudge_x = chest_pos.x + 3.2 * math.cos(nudge_ang)
         local nudge_z = chest_pos.z + 3.2 * math.sin(nudge_ang)
         local nudge_lvid = level.vertex_id(vector():set(nudge_x, chest_pos.y, nudge_z))
-        if nudge_lvid and nudge_lvid < 4294967295 and nudge_lvid ~= -1 and level.valid_vertex_id(nudge_lvid) and npc:accessible(nudge_lvid) then
+        if is_level_vertex(nudge_lvid) and npc:accessible(nudge_lvid) then
             local nudge_vpos = level.vertex_position(nudge_lvid)
             if nudge_vpos and npc.set_npc_position then
                 pcall(function()
@@ -2544,14 +2549,14 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
 
     -- Leash: If too far from camp (e.g. wandered > 16m), return to camp perimeter
     if dist_to_chest > 16 then
-        local safe_lvid = (rival_info.level_vertex_id and level.valid_vertex_id(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
+        local safe_lvid = (rival_info.level_vertex_id and is_level_vertex(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
         p_data.target_lvid = safe_lvid
         p_data.wait_until = 0
     end
 
     local at_target = false
     if p_data.target_lvid then
-        if not (level.valid_vertex_id(p_data.target_lvid) and npc:accessible(p_data.target_lvid)) then
+        if not (is_level_vertex(p_data.target_lvid) and npc:accessible(p_data.target_lvid)) then
             p_data.target_lvid = npc_lvid
             at_target = true
         else
@@ -2637,7 +2642,7 @@ local function run_rival_npc_patrol(npc, npc_id, rival_info)
                 end
             end
 
-            local safe_fallback = (rival_info.level_vertex_id and level.valid_vertex_id and level.valid_vertex_id(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
+            local safe_fallback = (rival_info.level_vertex_id and is_level_vertex(rival_info.level_vertex_id) and npc:accessible(rival_info.level_vertex_id)) and rival_info.level_vertex_id or npc_lvid
             p_data.target_lvid = found_lvid or safe_fallback
         else
             -- At target: play alert, guard, and patrol idle animations looking outwards

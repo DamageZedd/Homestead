@@ -27,6 +27,10 @@ stalker_camp_builder.settler_home_squads = settler_home_squads
 
 local settler_last_dest_lvid = {}
 
+local function is_valid_level_vertex(lvid)
+    return lvid and lvid >= 0 and lvid < 4294967295 and lvid ~= -1
+end
+
 -- ============================================================================
 -- camp_npc_move_to ? release settler from vanilla scheme and walk to lvid
 -- ----------------------------------------------------------------------------
@@ -67,21 +71,17 @@ function stalker_camp_builder.camp_npc_move_to(npc, lvid, extra_lvid)
             return
         end
     end
-    if not target_lvid or target_lvid <= 0 or target_lvid >= 4294967295 or target_lvid == -1 then return end
-    if level and level.valid_vertex_id and not level.valid_vertex_id(target_lvid) then return end
+    if not is_valid_level_vertex(target_lvid) then return end
 
     local acc_lvid = target_lvid
     if utils_obj and utils_obj.send_to_nearest_accessible_vertex then
         acc_lvid = utils_obj.send_to_nearest_accessible_vertex(game_npc, target_lvid)
     end
-    if not acc_lvid or acc_lvid <= 0 or acc_lvid >= 4294967295 or acc_lvid == -1 then
-        acc_lvid = game_npc:level_vertex_id()
-    end
-    if level and level.valid_vertex_id and not level.valid_vertex_id(acc_lvid) then
+    if not is_valid_level_vertex(acc_lvid) then
         acc_lvid = game_npc:level_vertex_id()
     end
 
-    if not (acc_lvid and level.valid_vertex_id and level.valid_vertex_id(acc_lvid)) then return end
+    if not is_valid_level_vertex(acc_lvid) then return end
     if not game_npc:accessible(acc_lvid) then return end
     if game_npc:level_vertex_id() == acc_lvid then return end
 
@@ -626,15 +626,13 @@ function stalker_camp_builder.setup_settler_beh_logic(npc, target_lvid, look_pos
     end)
 
     -- 3. Set rally_lvid so the beh evaluator holds them at target_lvid
-    if st and type(st.beh) == "table" and target_lvid and target_lvid > 0 then
-        if (not level) or (not level.valid_vertex_id) or level.valid_vertex_id(target_lvid) then
-            st.beh.rally_lvid = target_lvid
-            st.beh.am_i_reached = true
-        end
+    if st and type(st.beh) == "table" and target_lvid and is_valid_level_vertex(target_lvid) then
+        st.beh.rally_lvid = target_lvid
+        st.beh.am_i_reached = true
     end
 
     -- 4. Enforce physical stand lock
-    if target_lvid and target_lvid > 0 and level and level.valid_vertex_id and level.valid_vertex_id(target_lvid) then
+    if target_lvid and is_valid_level_vertex(target_lvid) then
         pcall(function() npc:set_dest_level_vertex_id(target_lvid) end)
     end
     npc:set_movement_type(move.stand)
