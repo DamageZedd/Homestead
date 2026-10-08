@@ -1369,7 +1369,8 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     self.camp_def:SetText(sformat("Security Rating: %d / %d   [%s]   %d%%  (%s)", stats.defense, def_cap, def_gauge, def_pct, def_rating_str))
     self.camp_def_breakdown:SetText(sformat("Perimeter Grid: %d Barricades   |   %d Guards   |   %d Turrets", stats.barricades, stats.guards, stats.gadgets))
     if self.camp_threat_lvl then
-        local threat_str = (camp.under_attack or camp.raid_active) and "CRITICAL (Active Raid)" or (stats.defense >= 60 and "LOW (Sector Fortified)" or "MODERATE (Standard Patrols)")
+        -- against the defense cap, as the rating above: 40% is the old 60 of the default 150
+        local threat_str = (camp.under_attack or camp.raid_active) and "CRITICAL (Active Raid)" or (def_pct >= 40 and "LOW (Sector Fortified)" or "MODERATE (Standard Patrols)")
         self.camp_threat_lvl:SetText(sformat("Threat Level: %s", threat_str))
     end
 
