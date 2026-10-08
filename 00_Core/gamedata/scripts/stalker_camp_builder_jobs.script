@@ -1777,8 +1777,15 @@ function stalker_camp_builder.process_electrician_job(npc_id, hub_id, camp, surv
             local data = hf_obj_manager.get_data(light_id)
             if data then
                 data.condition = 1.0
-                data.is_on = true
                 hf_obj_manager.update_data(light_id, data)
+                -- an online lamp's binder keeps its fuel and writes it back over the data on
+                -- every update, so refuel the binder too
+                local obj = level.object_by_id(light_id)
+                local binder = obj and obj:binded_object()
+                local wrapper = binder and binder.wrapper
+                if wrapper and wrapper.fuel then
+                    wrapper.fuel = 1.0
+                end
                 recharged = recharged + 1
             end
         end
