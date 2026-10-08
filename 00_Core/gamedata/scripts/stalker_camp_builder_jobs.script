@@ -56,6 +56,21 @@ stalker_camp_builder.hunter_meat_table = {
     "mutant_part_chimera_meat",
 }
 
+-- What jobs use up, by exact section. Substring tests also took gear and kits stored in the
+-- camp: "wood" exo_wood_outfit, "water" itm_water_pump, "battery" the af_dummy_battery artefact.
+local WOOD_PARTS = { prt_i_wood = true, prt_o_wood_1 = true, prt_o_wood_2 = true }
+local CLEAN_WATER = { flask = true, water_drink = true, mineral_water = true }
+local LAMP_BATTERIES = {
+    batteries_dead = true, batteries = true, battery = true, battery_dead = true,
+    ammo_battery = true, ammo_battery_d = true, prt_i_battery = true,
+}
+local GUNPOWDER_TIER = { powder_1 = 1, powder_2 = 2, powder_3 = 3, powder_4 = 3 }
+
+local function is_wood_part(sec) return WOOD_PARTS[sec] == true end
+local function is_clean_water(sec) return CLEAN_WATER[sec] == true end
+local function is_lamp_battery(sec) return LAMP_BATTERIES[sec] == true end
+local function is_gunpowder(sec) return GUNPOWDER_TIER[sec] ~= nil end
+
 -- set_survivor_job -- assigns a job to a settler and re-syncs their
 function stalker_camp_builder.set_survivor_job(npc_id, job)
     local sb = stalker_camp_builder
@@ -352,7 +367,8 @@ function stalker_camp_builder.is_camp_supply_capped(hub_id, camp, category, surv
         cap = 15
         check_func = function(sec)
             local s = sec:lower()
-            if s:find("_cooked") or s:sub(-2) == "_b" or s:sub(-2) == "_a" then
+            -- prepared meat is meat_*_a / meat_*_b; glue_a, sewing_kit_b, guitar_a are not food
+            if s:find("_cooked") or (s:sub(1, 5) == "meat_" and (s:sub(-2) == "_b" or s:sub(-2) == "_a")) then
                 return true
             end
             if s == "meat_tushkano" or s == "meat_dog" or s == "meat_pseudodog"
@@ -558,14 +574,8 @@ function stalker_camp_builder.process_ammo_crafting(npc_id, box_id, camp, surviv
     local function check_sec(sec, item_id)
         if not sec then return end
         local s = sec:lower()
-        if s:find("powder") or s:find("propell") then
-            local tier_rank = 1
-            if s:find("powder_3") or s:find("large") or s:find("heavy") or s:find("powder_4") or s:find("propell.*3") or s:find("propell.*large") then
-                tier_rank = 3
-            elseif s:find("powder_2") or s:find("rifle") or s:find("propell.*2") or s:find("propell.*rifle") then
-                tier_rank = 2
-            end
-            found_powders[#found_powders + 1] = { id = item_id, sec = s, tier = tier_rank }
+        if is_gunpowder(s) then
+            found_powders[#found_powders + 1] = { id = item_id, sec = s, tier = GUNPOWDER_TIER[s] }
         elseif sec == "prt_i_scrap" or s:find("scrap") or s:find("casing") or s:find("bullet") then
             if not scrap_id then
                 scrap_id = item_id
@@ -1097,8 +1107,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         end
 
         local has_powder = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
-            local s = sec:lower()
-            return s:find("powder") ~= nil or s:find("propell") ~= nil
+            return is_gunpowder(sec:lower())
         end)
         local has_scrap = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
             local s = sec:lower()
@@ -1249,9 +1258,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         if not has_lights then
             return true, "No Lamps", "Camp has no lamps or spotlights to power/maintain"
         end
-        local has_batt = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
-            return sec == "ammo_battery" or sec == "battery" or sec == "ammo_battery_d" or sec == "batteries" or sec == "prt_i_battery" or (sec and sec:find("battery"))
-        end)
+        local has_batt = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_lamp_battery)
         if not has_batt then
             return true, "No Battery", "Camp storage has no batteries for electrician maintenance"
         end
@@ -1260,9 +1267,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
     elseif job == "woodcutter" then
         local mode = survivor.woodcutter_mode or "auto"
         if mode == "charcoal" then
-            local has_wood = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
-                return sec == "prt_i_wood" or sec == "prt_o_wood_1" or sec == "prt_o_wood_2" or (sec and sec:find("wood"))
-            end)
+            local has_wood = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_wood_part)
             if not has_wood then
                 return true, "No Wood", "Requires wood parts in camp storage to burn charcoal"
             end
@@ -1280,11 +1285,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         if not has_still then
             return true, "No Still", "Camp requires a placed Milk Can (Bidon) or Stove"
         end
-        local has_water = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
-            if not sec then return false end
-            local s = sec:lower()
-            return s:find("water") or s:find("flask") or s == "mineral_water" or s == "water_drink" or s == "bottle_metal" or s:find("canteen")
-        end)
+        local has_water = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_clean_water)
         if not has_water then
             return true, "No Water", "Requires clean water in camp storage to distill vodka"
         end
@@ -1415,17 +1416,7 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
         }
         consumed_fuel = sb.find_and_consume_item(
             hub_id, camp,
-            function(sec)
-                if fuel_items[sec] then return true end
-                if sec:find("gas_balloon", 1, true) then return true end
-                if sec:find("gas_ballon",  1, true) then return true end
-                if sec:find("gas_cylinder", 1, true) then return true end
-                if sec:find("gaz_balon",  1, true) then return true end
-                if sec:find("gaz_balloon", 1, true) then return true end
-                if sec:find("balon_gas", 1, true) then return true end
-                if sec:find("jerrycan", 1, true) then return true end
-                return false
-            end,
+            function(sec) return fuel_items[sec] == true end,
             stove_id
         )
 
@@ -1451,14 +1442,7 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
             end
 
             if cooking_tier < 3 and max_tier >= 2 then
-                consumed_water = sb.find_and_consume_item(
-                    hub_id, camp,
-                    function(sec)
-                        local s = sec:lower()
-                        return s:find("water") or s:find("flask") or s:find("canteen") or s == "mineral_water" or s == "water_drink"
-                    end,
-                    meat_box_id
-                )
+                consumed_water = sb.find_and_consume_item(hub_id, camp, is_clean_water, meat_box_id)
                 if consumed_water then
                     cooking_tier = 2
                 end
@@ -1752,16 +1736,7 @@ function stalker_camp_builder.process_electrician_job(npc_id, hub_id, camp, surv
         return
     end
 
-    local battery_sections = {
-        ["ammo_battery"] = true, ["battery"] = true, ["ammo_battery_d"] = true,
-        ["batteries"] = true, ["battery_dead"] = true, ["prt_i_battery"] = true,
-    }
-    local function is_battery(sec)
-        if battery_sections[sec] then return true end
-        if sec and (sec:find("battery") or sec:find("batteries")) then return true end
-        return false
-    end
-    local consumed = sb.find_and_consume_item(hub_id, camp, is_battery, nil)
+    local consumed = sb.find_and_consume_item(hub_id, camp, is_lamp_battery, nil)
     local npc = level.object_by_id(npc_id)
     local name = npc and npc:character_name() or "Survivor"
 
@@ -1812,9 +1787,7 @@ function stalker_camp_builder.process_woodcutter_job(npc_id, hub_id, camp, survi
     if do_charcoal then
         local consumed_count = 0
         for i = 1, 15 do
-            local consumed = sb.find_and_consume_item(hub_id, camp, function(sec)
-                return sec == "prt_i_wood" or sec == "prt_o_wood_1" or sec == "prt_o_wood_2" or (sec and sec:find("wood"))
-            end, nil)
+            local consumed = sb.find_and_consume_item(hub_id, camp, is_wood_part, nil)
             if consumed then
                 consumed_count = consumed_count + 1
             else
@@ -1877,11 +1850,7 @@ function stalker_camp_builder.process_brewer_job(npc_id, hub_id, camp, survivor,
         return false
     end
 
-    local consumed_water = sb.find_and_consume_item(hub_id, camp, function(sec)
-        if not sec then return false end
-        local s = sec:lower()
-        return s:find("water") or s:find("flask") or s == "mineral_water" or s == "water_drink" or s == "bottle_metal" or s:find("canteen")
-    end, nil)
+    local consumed_water = sb.find_and_consume_item(hub_id, camp, is_clean_water, nil)
 
     if not consumed_water then
         if survivor then survivor.shortfall_reason = "No Clean Water" end
@@ -1890,9 +1859,7 @@ function stalker_camp_builder.process_brewer_job(npc_id, hub_id, camp, survivor,
     end
 
     for i = 1, 10 do
-        sb.find_and_consume_item(hub_id, camp, function(sec)
-            return sec == "prt_i_wood" or sec == "prt_o_wood_1" or (sec and sec:find("wood"))
-        end, nil)
+        sb.find_and_consume_item(hub_id, camp, is_wood_part, nil)
     end
 
     local count = 2  -- DANZY EDIT (balance): was 5 (10 with drug kit)
@@ -2310,7 +2277,7 @@ function stalker_camp_builder.update_camp_jobs()
                     local consumed_filter = sb.camp_consume_item(hub_id, camp, function(sec)
                         if not sec then return false end
                         local s = sec:lower()
-                        return (sb.cfg.water_filters and (sb.cfg.water_filters[sec] or sb.cfg.water_filters[s])) or s:find("charcoal") or s:find("paper") or s:find("filter")
+                        return sb.cfg.water_filters and (sb.cfg.water_filters[sec] or sb.cfg.water_filters[s])
                     end, camp_box_id)
 
                     if consumed_filter then
