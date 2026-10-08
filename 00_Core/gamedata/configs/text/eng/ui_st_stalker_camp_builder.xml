@@ -161,7 +161,7 @@
         <text>Rival Camp Spawn Distance Max (meters)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_max_desc">
-        <text>Maximum distance from a smart terrain where rival camps can spawn. Must be greater than Min. Default: 50m.</text>
+        <text>Maximum distance from a smart terrain where rival camps can spawn. Must be greater than Min. Default: 250m.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_setup_duration_hr">
         <text>Rival Camp Occupancy Duration (game hours)</text>
@@ -983,7 +983,7 @@
         <text>Medic Job Cycle (minutes)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_medic_job_interval_min_desc">
-        <text>Real minutes between medic job processing runs. Default: 8 minutes.</text>
+        <text>Real minutes between medic job processing runs. Default: 25 minutes.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_event_player_dist">
         <text>Event/Raid Player Distance (meters)</text>
@@ -1127,7 +1127,7 @@
         <text>Electrician Interval (min)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min_desc">
-        <text>How often the electrician recharges camp lamps. Default: 10 minutes.</text>
+        <text>How often the electrician recharges camp lamps. Default: 15 minutes.</text>
     </string>
     <string id="st_pda_job_btn_electrician">
         <text>Electrician</text>

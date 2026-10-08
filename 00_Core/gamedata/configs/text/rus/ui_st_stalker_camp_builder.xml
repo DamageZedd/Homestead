@@ -161,7 +161,7 @@
         <text>Макс. дистанция спавна вражеского лагеря (метры)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_spawn_dist_max_desc">
-        <text>Максимальное расстояние от смарт-террейна, на котором могут появиться вражеские лагеря. Должно быть больше минимального. По умолчанию: 50м.</text>
+        <text>Максимальное расстояние от смарт-террейна, на котором могут появиться вражеские лагеря. Должно быть больше минимального. По умолчанию: 250м.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_setup_duration_hr">
         <text>Длительность стоянки вражеского лагеря (игровые часы)</text>
@@ -983,7 +983,7 @@
         <text>Цикл работы Медика (минуты)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_medic_job_interval_min_desc">
-        <text>Реальные минуты между циклами работы медика. По умолчанию: 8 минут.</text>
+        <text>Реальные минуты между циклами работы медика. По умолчанию: 25 минут.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_event_player_dist">
         <text>Дистанция событий/рейдов от игрока (метры)</text>
@@ -1121,7 +1121,7 @@
         <text>Интервал работы электрика (мин)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_electrician_job_interval_min_desc">
-        <text>Как часто электрик перезаряжает лампы лагеря. По умолчанию: 10 минут.</text>
+        <text>Как часто электрик перезаряжает лампы лагеря. По умолчанию: 15 минут.</text>
     </string>
     <string id="st_pda_job_btn_electrician">
         <text>Электрик</text>
