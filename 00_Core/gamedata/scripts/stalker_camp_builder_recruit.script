@@ -1995,8 +1995,11 @@ function stalker_camp_builder.heal_ghost_companion_squads()
 
                             if is_banished_match then
                                 is_ghost_member = true
-                            -- Positive Check 2: Settler in camp whose job was switched away from companion
-                            elseif in_camp and not is_active_camp_comp then
+                            -- Positive Check 2: Settler in camp whose job was switched away from companion.
+                            -- Not one hired with the vanilla companion dialog: that one keeps its camp job and is
+                            -- in non_task_companions, so Protection B below keeps it.
+                            elseif in_camp and not is_active_camp_comp
+                                and not (axr_companions.non_task_companions and axr_companions.non_task_companions[mid]) then
                                 is_ghost_member = true
                             end
 
