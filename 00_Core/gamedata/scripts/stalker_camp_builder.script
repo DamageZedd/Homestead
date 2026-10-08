@@ -4442,6 +4442,11 @@ local function verify_and_heal_settlers()
                     stalker_camp_builder.heal_settler_squad_membership(id_num, camp.level, hub_pos)
                 end
             end
+            -- the pin that keeps a home squad at the camp is a function on the server object,
+            -- which the save dropped
+            if se and stalker_camp_builder.pin_settler_home_squad then
+                stalker_camp_builder.pin_settler_home_squad(id_num)
+            end
         end
 
         for _, npc_id in ipairs(stale) do
