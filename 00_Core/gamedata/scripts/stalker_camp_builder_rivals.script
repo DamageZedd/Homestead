@@ -244,6 +244,11 @@ function stalker_camp_builder.setup_rival_squad_positions(squad, camp, sim_overr
                 se_npc.position = target_pos
                 se_npc.m_level_vertex_id = target_lvid
                 se_npc.m_game_vertex_id = gvid
+                -- a member just created near the player comes online on the vertex it was created
+                -- with (db.spawned_vertex_by_id, read at net_spawn), the chest's: make it the station's
+                if db.spawned_vertex_by_id and db.spawned_vertex_by_id[k.id] then
+                    db.spawned_vertex_by_id[k.id] = target_lvid
+                end
 
                 local online_npc = level.object_by_id(k.id)
                 if online_npc and IsStalker(online_npc) and (not IsMonster(online_npc)) then
