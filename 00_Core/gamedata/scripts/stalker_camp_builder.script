@@ -8699,27 +8699,40 @@ local function deposit_expedition_haul(exp, camp, bonus_loot)
         item_counts[dname] = item_counts[dname] + 1
     end
 
+    local spec_mult = (sb.get_specialization_mult and camp and sb.get_specialization_mult(camp, "scavenge")) or 1.0
     for _, itm in ipairs_(exp.haul or {}) do
-        local dep_box = nil
-        pcall(function()
-            dep_box = sb.deposit_item_to_camp(exp.hub_id, camp, itm.sec,
-                itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
-        end)
-        if dep_box then
-            items_recovered = items_recovered + 1
-            record(itm.sec)
+        local count = 1
+        if spec_mult > 1.0 then
+            count = count + (math.random() < (spec_mult - 1.0) and 1 or 0)
+        end
+        for c = 1, count do
+            local dep_box = nil
+            pcall(function()
+                dep_box = sb.deposit_item_to_camp(exp.hub_id, camp, itm.sec,
+                    itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+            end)
+            if dep_box then
+                items_recovered = items_recovered + 1
+                record(itm.sec)
+            end
         end
     end
 
     for _, bsec in ipairs_(bonus_loot) do
-        local dep_box = nil
-        pcall(function()
-            dep_box = sb.deposit_item_to_camp(exp.hub_id, camp, bsec,
-                false, exp.survivor_tier or 0)
-        end)
-        if dep_box then
-            items_recovered = items_recovered + 1
-            record(bsec)
+        local count = 1
+        if spec_mult > 1.0 then
+            count = count + (math.random() < (spec_mult - 1.0) and 1 or 0)
+        end
+        for c = 1, count do
+            local dep_box = nil
+            pcall(function()
+                dep_box = sb.deposit_item_to_camp(exp.hub_id, camp, bsec,
+                    false, exp.survivor_tier or 0)
+            end)
+            if dep_box then
+                items_recovered = items_recovered + 1
+                record(bsec)
+            end
         end
     end
 
