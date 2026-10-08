@@ -762,24 +762,25 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
         if camp.squad_id or (camp.extra_squad_ids and #camp.extra_squad_ids > 0) then
             local squad = camp.squad_id and alife_object(camp.squad_id)
+            -- a squad the player recruited as companions is no longer the garrison (before the
+            -- check below, which rejects companion squads, here and for the extra squads)
+            if squad and is_companion_squad(camp.squad_id) then
+                release_rival_hold(sb, squad)
+                squad, camp.squad_id = nil, nil
+            end
             -- a dead squad is released and its id handed to a later object: forget an id that
             -- no longer names a squad (here and for the extra squads below)
             if not (squad and is_valid_camp_squad(camp, squad)) then
-                squad, camp.squad_id = nil, nil
-            end
-            -- a squad the player recruited as companions is no longer the garrison
-            if squad and is_companion_squad(camp.squad_id) then
-                release_rival_hold(sb, squad)
                 squad, camp.squad_id = nil, nil
             end
             if camp.extra_squad_ids then
                 for i = #camp.extra_squad_ids, 1, -1 do
                     local ex_id = camp.extra_squad_ids[i]
                     local ex_sq = alife_object(ex_id)
-                    if not (ex_sq and is_valid_camp_squad(camp, ex_sq)) then
-                        table.remove(camp.extra_squad_ids, i)
-                    elseif is_companion_squad(ex_id) then
+                    if ex_sq and is_companion_squad(ex_id) then
                         release_rival_hold(sb, ex_sq)
+                        table.remove(camp.extra_squad_ids, i)
+                    elseif not (ex_sq and is_valid_camp_squad(camp, ex_sq)) then
                         table.remove(camp.extra_squad_ids, i)
                     end
                 end
