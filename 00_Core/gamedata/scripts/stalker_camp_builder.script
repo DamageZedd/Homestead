@@ -3801,9 +3801,7 @@ function stalker_camp_builder.get_ground_vertex_and_pos(pos, ref_y, max_allowed_
     end
 
     local dy_offsets = {
-        0.0, 0.25, -0.25, 0.5, -0.5, 0.75, -0.75, 1.0, -1.0,
-        1.5, -1.5, 2.0, -2.0, 2.5, -2.5, 3.0, -3.0, 4.0, -4.0,
-        5.0, -5.0
+        0.5, -0.5, 1.0, -1.0, 2.0, -2.0, 3.5, -3.5
     }
 
     local test_pos = vector()
@@ -3831,7 +3829,7 @@ function stalker_camp_builder.get_ground_vertex_and_pos(pos, ref_y, max_allowed_
 
     local h_pos = vector()
     local found_spiral_lvid = nil
-    for dist = 1, 8 do
+    for dist = 1, 4 do
         for _, dir in ipairs(STATIC_SPIRAL_SCAN_DIRS) do
             h_pos:set(pos.x + dir[1] * dist, target_y, pos.z + dir[2] * dist)
             local hlvid = level.vertex_id(h_pos)
@@ -4508,7 +4506,6 @@ function actor_on_first_update()
 
     level_start_time = time_global()
     snap_done = true
-    snap_rival_camps_to_ground()
     sync_all_camp_map_spots()
 
     local cur_tg = time_global()
@@ -4522,7 +4519,6 @@ function actor_on_first_update()
 
     clean_orphaned_camps(current_level)
     reestablish_settler_relations()
-    restrain_rival_squads()
     pcall(stalker_camp_builder.sanitize_orphan_container_children)
 
     if hf_furniture_types then
@@ -4532,7 +4528,6 @@ function actor_on_first_update()
     migrate_ctime_fields()
     check_hf_requirements(actor)
     validate_loaded_structures()
-    populate_gamma_rival_chests_on_load()
 
     run_settler_self_heals()
     verify_and_heal_settlers()
@@ -4540,6 +4535,16 @@ function actor_on_first_update()
     -- Delayed settler recall: Allow level geometry, pathing, and binders to fully settle
     CreateTimeEvent("homestead_level_entry", "recall_settlers", 2.0, function()
         pcall(cross_level_recall_and_health_check, current_level)
+        return true
+    end)
+
+    -- Delayed rival camp ground snapping, squad restraint & chest populating:
+    -- Defers ALife physics/squad adjustments until the level net_spawn and m_crows queues are 100% idle
+    CreateTimeEvent("homestead_level_entry", "snap_rival_camps", 2.5, function()
+        pcall(snap_rival_camps_to_ground)
+        pcall(restrain_rival_squads)
+        pcall(populate_gamma_rival_chests_on_load)
+        pcall(sync_all_camp_map_spots)
         return true
     end)
 

@@ -50,7 +50,31 @@ local function safe_teleport_object(id, gvid, lvid, pos, sim_override)
     local cls = se_obj.clsid and se_obj:clsid()
     local is_creature = cls and (IsStalker(nil, cls) or IsMonster(nil, cls))
     if is_creature then
+        local online_obj = level.object_by_id(id)
+        if online_obj then
+            pcall(function()
+                if online_obj.set_npc_position then
+                    online_obj:set_npc_position(pos)
+                end
+            end)
+            se_obj.position = pos
+            se_obj.m_level_vertex_id = lvid
+            se_obj.m_game_vertex_id = gvid
+            return
+        end
+        -- Offline creature: only invoke engine teleport if moving across game graph vertices
+        if se_obj.m_game_vertex_id == gvid then
+            se_obj.position = pos
+            se_obj.m_level_vertex_id = lvid
+            return
+        end
         pcall(function()
+            if db.offline_objects and db.offline_objects[id] then
+                db.offline_objects[id].level_vertex_id = nil
+            end
+            if db.spawned_vertex_by_id then
+                db.spawned_vertex_by_id[id] = nil
+            end
             if TeleportObject then
                 TeleportObject(id, pos, lvid, gvid)
             elseif s.teleport_object then
@@ -1412,15 +1436,17 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
 
                                 if should_reanchor and sec ~= "" and ini_sys:section_exist(sec) then
                                     local new_dpos = v_new_decor:set(dpos.x, final_decor_y, dpos.z)
-                                    local old_angle = se_decor.angle or v_decor_angle:set(0, math.random() * math.pi * 2, 0)
-                                    alife_release(se_decor)
-                                    local new_se = sim:create(sec, new_dpos, final_dlvid, dgvid)
-                                    if new_se then
-                                        new_se.angle = old_angle
-                                        surviving[#surviving + 1] = new_se.id
+                                    se_decor.position = new_dpos
+                                    se_decor.m_level_vertex_id = final_dlvid
+                                    se_decor.m_game_vertex_id = dgvid
+                                    surviving[#surviving + 1] = dec_id
+                                    local cl_decor = level.object_by_id(dec_id)
+                                    if cl_decor then
+                                        pcall(function()
+                                            local ps = cl_decor:get_physics_shell()
+                                            if ps then ps:freeze() end
+                                        end)
                                     end
-                                elseif should_reanchor then
-                                    alife_release(se_decor)
                                 else
                                     surviving[#surviving + 1] = dec_id
                                     local cl_decor = level.object_by_id(dec_id)
@@ -1439,27 +1465,7 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                     if camp.squad_id then
                         local squad = sim:object(camp.squad_id)
                         if squad then
-                            local squad_online = false
-                            for k in sb.safe_squad_members(squad) do
-                                if k.id and level.object_by_id(k.id) then
-                                    squad_online = true
-                                    break
-                                end
-                            end
-
-                            if not squad_online then
-                                squad.position = target_chest_pos
-                                squad.m_level_vertex_id = target_lvid
-                                squad.m_game_vertex_id = gvid
-                                for k in sb.safe_squad_members(squad) do
-                                    local se_npc = k.object or (k.id and sim:object(k.id))
-                                    if se_npc then
-                                        se_npc.position = target_chest_pos
-                                        se_npc.m_level_vertex_id = target_lvid
-                                        se_npc.m_game_vertex_id = gvid
-                                    end
-                                end
-                            end
+                            sb.setup_rival_squad_positions(squad, camp, sim)
                         end
                     end
 

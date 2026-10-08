@@ -38,6 +38,12 @@
 - **Fast Literal String Matching**: Added `plain = true` to fixed string searches in monkeypatched PDA scripts.
 - **Dead Code Pruning**: Stripped unused functions, legacy stubs, and dead variables across `bind_display_counter.script`, `ui_stalker_camp_builder_pda.script`, and `stalker_camp_builder.script`.
 
+### 🛑 Outpost net_spawn Duplicate ID & m_crows Crash Fix (Community / Gabe):
+- **Level Load `m_crows` Queue & Re-anchor Desync Elimination (`snap_rival_camps_to_ground`)**: Fixed a fatal engine assertion crash (`assertion !m_crows[1].empty() failed: 4` dumping `placeable_stove1`, `placeable_table1`, `placeable_bed_1`, `placeable_radio`) followed by `CGameObject:net_spawn() Object with ID already exists! ID=50439 self=sim_default_killer_050439 other=sim_default_killer_050439`. Previously, `snap_rival_camps_to_ground` released existing decorations with `alife_release` and immediately called `sim:create` while `CObjectList` was processing initial level spawns, corrupting the engine's internal update queue. Decorations now have their coordinates (`position`, `m_level_vertex_id`, `m_game_vertex_id`) updated in-place without releasing or re-creating entities.
+- **Online Entity Teleport Safety (`safe_teleport_object`)**: Stopped `TeleportObject` / `alife():teleport_object` from being called on online creatures or entities sharing the same game vertex. When an NPC is online on the active level, Homestead now repositions them via `set_npc_position(pos)` and updates their server coordinates directly, preventing the engine from attempting duplicate client-side `net_spawn()` registrations.
+- **Delayed Level-Entry Orchestration**: Deferred `snap_rival_camps_to_ground`, `restrain_rival_squads`, and `populate_gamma_rival_chests_on_load` from synchronous `actor_on_first_update` execution into a dedicated 2.5-second `CreateTimeEvent`. This guarantees level geometry, pathfinding graph, and ALife entity spawn queues are completely idle before any outpost adjustments occur.
+- **Streamlined Ground Vertex Probing (`get_ground_vertex_and_pos`)**: Optimized the height offset table and spiral radius in `get_ground_vertex_and_pos` to eliminate excessive CLevelGraph `vertex_id` queries on off-mesh positions, eliminating dozens of lines of `Invalid position for CLevelGraph::vertex_id specified` log spam.
+
 ## v1.2.1 — Community Hotfix: Ghost Companions & Settler Idle Animations
 
 ### 👻 "Ghost Companion" Desync Elimination (Community / OnariX):
