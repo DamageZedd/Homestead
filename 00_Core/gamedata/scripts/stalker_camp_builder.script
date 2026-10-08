@@ -3530,10 +3530,15 @@ function load_state(m_data)
     local save_version = m_data.stalker_camp_builder_version or 0
 
     stalker_camp_builder.active_camps = keys_to_numbers(unpack_table_vectors(m_data.stalker_camp_builder_active_camps or {}))
+    -- time_global() stamps count from game launch: after a restart they lie in the future
     for hub_id, camp in pairs_(stalker_camp_builder.active_camps) do
+        camp._cached_storage_metrics_tg = nil
+        camp._last_periodic_scan = nil
         if camp.survivors then
             for nid, surv in pairs_(camp.survivors) do
                 surv.job_start_realtime = nil
+                surv.temp_target_lvid = nil
+                surv.temp_target_time = nil
             end
         end
     end
