@@ -3054,21 +3054,24 @@ end
 
 -- NOTE: start_camp_trader_trade is defined earlier (with trading computer support) -- do not redefine here
 
-local function deliver_toolkit(kit_section, tier)
+local function deliver_toolkit(kit_section, tier, actor, npc)
     local actor_alao = db.actor
     if not actor_alao then return end
     local itm = actor_alao:object(kit_section)
     if not itm then return end
 
+    -- the camp the offer checked (actor_has_toolkit1..3): the technician's own, else the one the
+    -- player stands in. With neither, the player keeps the kit.
+    local a, n = resolve_speakers(actor, npc)
+    local camp = get_technician_camp(n)
+    if not camp then
+        local _, c = stalker_camp_builder.get_active_camp_near(actor_alao:position())
+        camp = c
+    end
+    if not camp then return end
+
     alife_release(alife_object(itm:id()))
 
-    local hub_id, camp = stalker_camp_builder.get_active_camp_near(actor_alao:position())
-    if not camp and inventory_upgrades and inventory_upgrades.victim_id then
-        local se_npc = alife_object(inventory_upgrades.victim_id)
-        if se_npc then
-            hub_id, camp = stalker_camp_builder.get_active_camp_near(se_npc.position)
-        end
-    end
     if camp then
         camp.tech_toolkit_tier = math.max(camp.tech_toolkit_tier or 0, tier)
         camp.toolkits = camp.toolkits or {}
@@ -3080,9 +3083,9 @@ local function deliver_toolkit(kit_section, tier)
     news_manager.send_tip(actor_alao, string.format(game.translate_string("st_tech_toolkit_delivered"), tier), nil, "general_stalker", 8000)
 end
 
-function stalker_camp_builder.give_tech_toolkit1(actor, npc) deliver_toolkit("itm_basickit", 1) end
-function stalker_camp_builder.give_tech_toolkit2(actor, npc) deliver_toolkit("itm_advancedkit", 2) end
-function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("itm_expertkit", 3) end
+function stalker_camp_builder.give_tech_toolkit1(actor, npc) deliver_toolkit("itm_basickit", 1, actor, npc) end
+function stalker_camp_builder.give_tech_toolkit2(actor, npc) deliver_toolkit("itm_advancedkit", 2, actor, npc) end
+function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("itm_expertkit", 3, actor, npc) end
 
 function stalker_camp_builder.dialog_auto_sort_supplies(actor, npc)
     stalker_camp_builder.smart_dump_to_camp_storage()
