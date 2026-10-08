@@ -1219,17 +1219,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                     sb.safe_iterate_inventory_box(box_obj, check_empty)
                 end
 
-                local player_far = true
-                if actor and same_level and camp.position then
-                    local apos = actor:position()
-                    local cpos = camp.position
-                    local dx = apos.x - cpos.x
-                    local dy = apos.y - cpos.y
-                    local dz = apos.z - cpos.z
-                    if (dx * dx + dy * dy + dz * dz) <= 3600 then
-                        player_far = false
-                    end
-                end
+                -- the chest and furniture go in one update: not while the player can see them
+                local player_far = not is_player_near(camp.level or level_name, camp.position)
 
                 local decay_duration = camp.ruins_decay_time or 10800
                 local time_expired = camp.unoccupied_time and (current_sec - camp.unoccupied_time >= decay_duration)
