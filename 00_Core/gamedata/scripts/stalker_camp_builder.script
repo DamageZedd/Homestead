@@ -3505,6 +3505,7 @@ function save_state(m_data)
         m_data.stalker_camp_builder_last_rival_spawn_sec = stalker_camp_builder.last_rival_spawn_attempt_sec
         m_data.stalker_camp_builder_radio_logs = stalker_camp_builder.radio_logs or {}
         m_data.stalker_camp_builder_active_stash_expeditions = pack_table_vectors(stalker_camp_builder.active_stash_expeditions or {})
+        m_data.stalker_camp_builder_hospitality_end_sec = stalker_camp_builder.hospitality_buff_end_sec
     end)
 end
 
@@ -3586,6 +3587,8 @@ function load_state(m_data)
     stalker_camp_builder.dismantled_levels = keys_to_numbers(m_data.stalker_camp_builder_dismantled_levels or {})
     stalker_camp_builder.last_rival_spawn_attempt_sec = m_data.stalker_camp_builder_last_rival_spawn_sec or 0
     stalker_camp_builder.active_stash_expeditions = keys_to_numbers(unpack_table_vectors(m_data.stalker_camp_builder_active_stash_expeditions or {}))
+    local raw_hosp = m_data.stalker_camp_builder_hospitality_end_sec
+    stalker_camp_builder.hospitality_buff_end_sec = (type_(raw_hosp) == "number") and raw_hosp or nil
 
     do
         local cur_tg = time_global()
