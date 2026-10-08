@@ -2663,11 +2663,7 @@ function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)
             if exp then
                 local current_sec = sb.game_sec()
                 local game_elapsed = current_sec - exp.start_sec
-                local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
-                if tf <= 0 then tf = 10 end
-                local real_elapsed = (time_global() - (exp.start_realtime or time_global())) / 1000
-                local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
-                return mmin(1.0, mmax(0.0, effective_elapsed / exp.duration))
+                return mmin(1.0, mmax(0.0, game_elapsed / exp.duration))
             end
         end
         return nil  -- Scavengers wait at camp for orders; no passive progress cycle
@@ -2746,9 +2742,7 @@ function stalker_camp_builder.get_job_time_remaining(survivor, camp, hub_id)
                 local game_elapsed = current_sec - exp.start_sec
                 local tf = (level and level.get_time_factor and level.get_time_factor()) or 10
                 if tf <= 0 then tf = 10 end
-                local real_elapsed = (time_global() - (exp.start_realtime or time_global())) / 1000
-                local effective_elapsed = mmax(game_elapsed, real_elapsed * tf)
-                local rem_game_sec = mmax(0, exp.duration - effective_elapsed)
+                local rem_game_sec = mmax(0, exp.duration - game_elapsed)
                 return mmax(0, math.floor(rem_game_sec / tf))
             end
         end
