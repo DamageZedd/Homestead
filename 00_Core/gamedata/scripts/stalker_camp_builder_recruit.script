@@ -1148,6 +1148,18 @@ function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
     survivor_data.job_start_time = game.get_game_time():diffSec(game.CTime())
     survivor_data.job_start_realtime = time_global()
     target_camp.survivors[npc_id] = survivor_data
+    -- workstation picks, the cook's fridge trip and npc_on_update's lookup still point at the old camp
+    survivor_data.assigned_furniture = nil
+    survivor_data.temp_target_lvid = nil
+    survivor_data.temp_target_time = 0
+    if sb.camp_npc_furniture_cache then
+        for key in pairs(sb.camp_npc_furniture_cache) do
+            if type(key) == "string" and key:find("^" .. npc_id .. "_") then
+                sb.camp_npc_furniture_cache[key] = nil
+            end
+        end
+    end
+    sb.settler_lookup[npc_id] = { hub_id = target_hub_id, camp = target_camp, survivor = survivor_data }
 
     sb.teleport_npc_to_camp_hub(npc_id, target_hub_id)
     sb.set_camp_settler_relations(target_hub_id, npc_id, true)
