@@ -1692,7 +1692,17 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
         sb.record_banished_companion(npc_id)
     end
 
+    local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
+    if m_data then
+        m_data.stalker_camp_builder_freed_settlers = m_data.stalker_camp_builder_freed_settlers or {}
+        m_data.stalker_camp_builder_freed_settlers[npc_id] = true
+    end
+
     local se_npc = sim:object(npc_id)
+    if se_npc then
+        sim:set_switch_online(npc_id, true)
+        sim:set_switch_offline(npc_id, true)
+    end
     local online_npc = on_npc or (level and level.object_by_id and level.object_by_id(npc_id))
 
     -- 1. Locate and clean any squad the NPC belongs to (home squad, companion squad, or actor squad)
@@ -2092,10 +2102,9 @@ function stalker_camp_builder.dismiss_survivor(actor, npc)
             camp.survivors[tostring(npc_id)] = nil
 
             local on_npc = level.object_by_id(npc_id) or (type(npc) == "userdata" and npc)
-            sb.purge_settler_companion_and_squad_state(npc_id, on_npc)
-
-            if utils_obj and utils_obj.switch_online then
-                pcall(utils_obj.switch_online, npc_id)
+            sb.purge_settler_companion_and_squad_state(npc_id, on_npc, true)
+            if sb.reassign_freed_settler_to_smart then
+                sb.reassign_freed_settler_to_smart(npc_id)
             end
 
             if db.actor and actor_menu and actor_menu.set_msg then
@@ -2150,10 +2159,9 @@ function stalker_camp_builder.banish_npc(actor, npc)
             camp.survivors[tostring(npc_id)] = nil
 
             local on_npc = level.object_by_id(npc_id) or (type(npc) == "userdata" and npc)
-            sb.purge_settler_companion_and_squad_state(npc_id, on_npc)
-
-            if utils_obj and utils_obj.switch_online then
-                pcall(utils_obj.switch_online, npc_id)
+            sb.purge_settler_companion_and_squad_state(npc_id, on_npc, true)
+            if sb.reassign_freed_settler_to_smart then
+                sb.reassign_freed_settler_to_smart(npc_id)
             end
 
             if db.actor and actor_menu and actor_menu.set_msg then
@@ -2232,6 +2240,81 @@ end
 --    giving the engine a frame to breathe between each large-inventory
 --    release instead of hammering it synchronously.
 -- ============================================================================
+-- ============================================================================
+-- reassign_freed_settler_to_smart -- return a freed settler to ALife simulation
+-- ============================================================================
+function stalker_camp_builder.reassign_freed_settler_to_smart(npc_id)
+    local sb = stalker_camp_builder
+    local sim = alife()
+    if not (sim and npc_id) then return end
+    local se_npc = sim:object(npc_id)
+    if not se_npc then return end
+
+    if se_npc.alive and not se_npc:alive() then return end
+    local cls = se_npc.clsid and se_npc:clsid()
+    if cls and not IsStalker(nil, cls) then return end
+
+    -- Do not reassign story NPCs to generic sim squads
+    if get_object_story_id and get_object_story_id(npc_id) then return end
+
+    -- Ensure NPC has normal switch flags so they can move and simulate freely
+    sim:set_switch_online(npc_id, true)
+    sim:set_switch_offline(npc_id, true)
+
+    local comm = se_npc.community and se_npc:community()
+    if not comm or comm == "" or comm == "zombied" or comm == "monster" then return end
+
+    -- Check if NPC is already in a valid squad
+    local cur_squad = get_object_squad(se_npc)
+    if cur_squad then return end
+
+    local spos = se_npc.position
+    local lvid = se_npc.m_level_vertex_id
+    local gvid = se_npc.m_game_vertex_id
+    if not (spos and lvid and gvid) then return end
+
+    local nearest_smart = nil
+    local min_dist = math.huge
+    if SIMBOARD and SIMBOARD.smarts then
+        for s_id, sm in pairs(SIMBOARD.smarts) do
+            local sm_obj = sm.smrt or sim:object(s_id)
+            if sm_obj and sm_obj.position then
+                local same_lvl = false
+                if game_graph and sim then
+                    local gv_s = game_graph():vertex(sm_obj.m_game_vertex_id)
+                    local gv_n = game_graph():vertex(gvid)
+                    if gv_s and gv_n and gv_s:level_id() == gv_n:level_id() then
+                        same_lvl = true
+                    end
+                end
+                if same_lvl then
+                    local dx = sm_obj.position.x - spos.x
+                    local dy = sm_obj.position.y - spos.y
+                    local dz = sm_obj.position.z - spos.z
+                    local d = dx*dx + dy*dy + dz*dz
+                    if d < min_dist then
+                        min_dist = d
+                        nearest_smart = sm_obj
+                    end
+                end
+            end
+        end
+    end
+
+    local ok_create, new_squad = pcall(function()
+        return sim:create("online_offline_group", spos, lvid, gvid)
+    end)
+    if ok_create and new_squad then
+        pcall(function() new_squad:register_member(npc_id) end)
+        if SIMBOARD then
+            SIMBOARD.squads[new_squad.id] = new_squad
+            if nearest_smart and SIMBOARD.assign_squad_to_smart then
+                pcall(function() SIMBOARD:assign_squad_to_smart(new_squad, nearest_smart.id) end)
+            end
+        end
+    end
+end
+
 function stalker_camp_builder.dismantle_camp(hub_id)
     local sb = stalker_camp_builder
     local camp = sb.active_camps[hub_id]
@@ -2245,20 +2328,16 @@ function stalker_camp_builder.dismantle_camp(hub_id)
     if camp.survivors then
         for npc_id, survivor in pairs(camp.survivors) do
             local id_num = tonumber(npc_id) or npc_id
-            if survivor.job == "companion" or survivor.is_companion then
-                if sb.record_banished_companion then sb.record_banished_companion(id_num) end
-                if sb.purge_settler_companion_and_squad_state then sb.purge_settler_companion_and_squad_state(id_num) end
-            end
-            -- Never force a client object online for an unloaded level. The server
-            -- entity can be released from Homestead bookkeeping while remaining offline.
-            if camp.level == level.name() then
-                pcall(function() utils_obj.switch_online(id_num) end)
+            if sb.record_banished_companion then sb.record_banished_companion(id_num) end
+            local on_npc = level.object_by_id(id_num)
+            if sb.purge_settler_companion_and_squad_state then
+                sb.purge_settler_companion_and_squad_state(id_num, on_npc, true)
             end
             sb.camp_npc_released[id_num] = nil
             sb.refugee_ids[id_num] = nil
             sb.settler_lookup[id_num] = nil
-            if sb.release_settler_home_squad then
-                sb.release_settler_home_squad(id_num)
+            if sb.reassign_freed_settler_to_smart then
+                sb.reassign_freed_settler_to_smart(id_num)
             end
         end
     end
