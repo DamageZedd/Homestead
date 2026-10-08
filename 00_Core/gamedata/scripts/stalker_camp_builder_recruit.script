@@ -1317,6 +1317,13 @@ function stalker_camp_builder.set_survivor_position(npc_id, lvid, pos)
         x = pos.x, y = pos.y, z = pos.z
     }
 
+    -- A companion keeps following: the settler beh scheme below would hold them here, and
+    -- npc_on_update leaves companions alone. They take the post when they go back to the camp.
+    local survivor = target_camp.survivors[npc_id]
+    if survivor.job == "companion" or survivor.is_companion or (sb.is_companion and sb.is_companion(npc_id)) then
+        return true
+    end
+
     -- INSTANT TELEPORT & BEH WAIT SCHEME ACTIVATION
     local target_pos = vector():set(pos.x, pos.y, pos.z)
     local se_npc = alife_object(npc_id)
