@@ -89,7 +89,7 @@ local function play_pda_ui_sound(snd_path)
     -- PDA audio disabled per user request
 end
 -- Homestead PDA Settlement Manager Tab UI
--- Version: v1.2.2.1
+-- Version: v1.2.3
 
 local SINGLETON = nil
 
