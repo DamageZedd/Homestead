@@ -967,6 +967,10 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
                 end
                 -- printf(sformat("[Homestead] recruit_npc_to_camp: restoring paused job '%s' (xp=%d, tier=%d) for npc %d", restored_job, restored_xp, restored_tier, npc_id))
             end
+            -- a companion settler recruited into another camp leaves the old one
+            if search_hub_id ~= hub_id then
+                search_camp.survivors[npc_id] = nil
+            end
             break
         end
     end
