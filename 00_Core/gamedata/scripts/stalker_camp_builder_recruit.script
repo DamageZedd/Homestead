@@ -988,6 +988,10 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
     if sb.non_settler_cache then
         sb.non_settler_cache[npc_id] = nil
     end
+    local m_data = alife_storage_manager.get_state()
+    if m_data and m_data.stalker_camp_builder_banished_companions then
+        m_data.stalker_camp_builder_banished_companions[npc_id] = nil
+    end
     -- printf(sformat("[Homestead] recruit_npc_to_camp: survivor entry created for npc %d, survivors in camp %d: %d total", npc_id, hub_id, (function() local c=0 for _ in pairs(camp.survivors) do c=c+1 end return c end)()))
 
     sb.set_camp_settler_relations(hub_id, npc_id, true)
@@ -1379,6 +1383,11 @@ function stalker_camp_builder.recruit_back(p1, p2)
             survivor.job = "companion"
             survivor.is_companion = true
 
+            local m_data = alife_storage_manager.get_state()
+            if m_data and m_data.stalker_camp_builder_banished_companions then
+                m_data.stalker_camp_builder_banished_companions[npc_id] = nil
+            end
+
             sb.set_camp_settler_relations(hub_id, npc_id, false)
 
             if level.object_by_id(npc_id) == nil then
@@ -1600,6 +1609,24 @@ end
 
 
 -- ============================================================================
+-- record_banished_companion -- persistent storage tracking for banished settlers
+-- ----------------------------------------------------------------------------
+-- Positively records banished/dismissed settler IDs so save-migration sweeps
+-- and ghost companion checks can definitively identify former Homestead companions
+-- without ever relying on hazardous negative heuristics.
+-- ============================================================================
+function stalker_camp_builder.record_banished_companion(npc_id)
+    if not npc_id then return end
+    local m_data = alife_storage_manager.get_state()
+    if m_data then
+        if not m_data.stalker_camp_builder_banished_companions then
+            m_data.stalker_camp_builder_banished_companions = {}
+        end
+        m_data.stalker_camp_builder_banished_companions[npc_id] = true
+    end
+end
+
+-- ============================================================================
 -- purge_settler_companion_and_squad_state
 -- Completely and safely strips companion squads, home squads, infoportions,
 -- saved variables, and logic state when a settler is banished or dismissed.
@@ -1610,6 +1637,10 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
     local sb = stalker_camp_builder
     local sim = alife()
     if not (npc_id and sim) then return end
+
+    if sb.record_banished_companion then
+        sb.record_banished_companion(npc_id)
+    end
 
     local se_npc = sim:object(npc_id)
     local online_npc = on_npc or (level and level.object_by_id and level.object_by_id(npc_id))
@@ -1644,6 +1675,38 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
         end
     end
 
+    -- Also sweep axr_companions.companion_squads to catch any lingering squad referencing this NPC
+    if axr_companions and axr_companions.companion_squads then
+        for sid, s in pairs(axr_companions.companion_squads) do
+            local sq_obj = (type(s) == "userdata" and s) or sim:object(sid)
+            if sq_obj and sq_obj.squad_members then
+                local has_npc = false
+                local ok_m, members = pcall(function() return sq_obj:squad_members() end)
+                if ok_m and members then
+                    for k in members do
+                        if k.id == npc_id then
+                            has_npc = true
+                            break
+                        end
+                    end
+                end
+                if has_npc then
+                    axr_companions.companion_squads[sid] = nil
+                    sq_obj.scripted_target = nil
+                    sq_obj.current_action = nil
+                    sq_obj.assigned_smart_id = nil
+                    sq_obj.get_script_target = nil
+                    pcall(function() sq_obj:unregister_member(npc_id) end)
+                    local ok_c, cnt = pcall(function() return sq_obj:npc_count() end)
+                    if ok_c and cnt and cnt <= 0 then
+                        if SIMBOARD then SIMBOARD.squads[sid] = nil end
+                        pcall(function() sb.safe_alife_release(sq_obj) end)
+                    end
+                end
+            end
+        end
+    end
+
     -- 2. Release tracked settler home squad if any
     if sb.release_settler_home_squad then
         pcall(function() sb.release_settler_home_squad(npc_id) end)
@@ -1675,11 +1738,13 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
 
     -- 6. Strip companion & beh infoportions across both ALife and game_object
     pcall(function()
-        sim:disable_info(npc_id, "npcx_is_companion")
-        sim:disable_info(npc_id, "npcx_beh_wait")
-        sim:disable_info(npc_id, "npcx_beh_cannot_dismiss")
-        sim:disable_info(npc_id, "homestead_settler_guard")
-        sim:disable_info(npc_id, "homestead_settler_patrol")
+        if sim.disable_info_portion then
+            sim:disable_info_portion(npc_id, "npcx_is_companion")
+            sim:disable_info_portion(npc_id, "npcx_beh_wait")
+            sim:disable_info_portion(npc_id, "npcx_beh_cannot_dismiss")
+            sim:disable_info_portion(npc_id, "homestead_settler_guard")
+            sim:disable_info_portion(npc_id, "homestead_settler_patrol")
+        end
     end)
     if online_npc then
         pcall(function()
@@ -1723,10 +1788,19 @@ end
 -- ============================================================================
 -- heal_ghost_companion_squads -- Migration / Self-Heal sweep for existing saves
 -- ----------------------------------------------------------------------------
--- Scans companion_squads and SIMBOARD squads for orphaned "ghost companion" squads:
--- squads following the actor (scripted_target == "actor" or in companion_squads)
--- whose members have already been banished/dismissed or are no longer valid companions.
--- Cures saves where ghost companion HP bars linger on HUD and stalkers slowly follow.
+-- Scans companion_squads for orphaned "ghost companion" squads created by
+-- Homestead when asking settlers to become companions and subsequently banishing
+-- or reassigning them.
+--
+-- Safety-critical guarantees (Fixes Issue #25):
+-- - Handles squad userdata and unloaded false placeholders in companion_squads
+-- - NEVER modifies or unregisters task escorts, hostage rescues, or story companions
+--   (strictly protects cannot_dismiss, hostages_by_id, task_squads, active tasks,
+--   story squads/NPCs, and vanilla non_task_companions)
+-- - Only purges squads positively verified as banished Homestead settlers
+--   (m_data.stalker_camp_builder_banished_companions), camp settlers whose job was
+--   switched away from companion, or legacy single-member online_offline_group
+--   squads following the actor with no task/vanilla/story claims.
 -- ============================================================================
 function stalker_camp_builder.heal_ghost_companion_squads()
     local sb = stalker_camp_builder
@@ -1737,87 +1811,187 @@ function stalker_camp_builder.heal_ghost_companion_squads()
     local actor_squad = get_object_squad(db.actor)
     local actor_squad_id = actor_squad and actor_squad.id
 
-    -- 1. Check axr_companions.companion_squads
-    if axr_companions and axr_companions.companion_squads then
-        local stale_squad_ids = {}
-        for squad_id, squad in pairs(axr_companions.companion_squads) do
-            if type(squad) == "table" and squad.id and squad.id ~= actor_squad_id then
-                local is_legit_companion = false
+    if not (axr_companions and axr_companions.companion_squads) then
+        return 0
+    end
+
+    local m_data = alife_storage_manager.get_state()
+    local banished_set = m_data and m_data.stalker_camp_builder_banished_companions or {}
+
+    local tm = task_manager and task_manager.get_task_manager and task_manager.get_task_manager()
+    local active_tasks = tm and tm.task_info or {}
+
+    local stale_squads = {}
+
+    for squad_id, squad_entry in pairs(axr_companions.companion_squads) do
+        local squad = (type(squad_entry) == "userdata" and squad_entry) or sim:object(squad_id)
+        if not squad then
+            -- Orphaned squad ID with no ALife entity
+            axr_companions.companion_squads[squad_id] = nil
+        elseif squad.id ~= actor_squad_id then
+            local is_protected = false
+            local is_ghost_homestead_squad = false
+            local ghost_member_ids = {}
+
+            -- Safety Filter 1: Story squad
+            local sq_story_id = squad.m_story_id or squad.story_id
+            if sq_story_id and sq_story_id ~= 65535 then
+                is_protected = true
+            end
+
+            -- Safety Filter 2: Registered task squad in sim_offline_combat
+            if not is_protected and sim_offline_combat and sim_offline_combat.task_squads and sim_offline_combat.task_squads[squad.id] then
+                is_protected = true
+            end
+
+            -- Safety Filter 3: Referenced by active quest
+            if not is_protected then
+                for _, tsk in pairs(active_tasks) do
+                    if tsk.squad_id == squad.id then
+                        is_protected = true
+                        break
+                    end
+                end
+            end
+
+            if not is_protected then
                 local ok_mem, members = pcall(function() return squad:squad_members() end)
                 if ok_mem and members then
+                    local count = 0
                     for k in members do
+                        count = count + 1
                         local mid = k.id
                         if mid then
-                            -- Check if legitimately a non-task companion
-                            local is_non_task = axr_companions.non_task_companions and axr_companions.non_task_companions[mid]
-                            local has_comp_info = sim:has_info(mid, "npcx_is_companion")
+                            local se_m = sim:object(mid)
+
+                            -- Protection A: Story NPC
+                            if se_m and se_m.m_story_id and se_m.m_story_id ~= 65535 then
+                                is_protected = true
+                                break
+                            end
+
+                            -- Protection B: Vanilla non-task companion
+                            if axr_companions.non_task_companions and axr_companions.non_task_companions[mid] then
+                                is_protected = true
+                                break
+                            end
+
+                            -- Protection C: Task escort / cannot-dismiss / hostage
+                            local has_cannot_dismiss = false
+                            if sim.has_info and sim:has_info(mid, "npcx_beh_cannot_dismiss") then
+                                has_cannot_dismiss = true
+                            elseif se_m and se_load_var(mid, se_m:name(), "companion_cannot_dismiss") then
+                                has_cannot_dismiss = true
+                            elseif axr_task_manager and axr_task_manager.hostages_by_id and axr_task_manager.hostages_by_id[mid] then
+                                has_cannot_dismiss = true
+                            end
+                            if has_cannot_dismiss then
+                                is_protected = true
+                                break
+                            end
+
+                            -- Protection D: Active task reference on member
+                            for _, tsk in pairs(active_tasks) do
+                                if tsk.task_giver_id == mid or tsk.target_id == mid then
+                                    is_protected = true
+                                    break
+                                end
+                            end
+                            if is_protected then break end
+
+                            -- Protection E: Active Homestead camp companion (job == "companion" or is_companion)
                             local in_camp = false
-                            local is_camp_comp = false
+                            local is_active_camp_comp = false
                             for _, camp in pairs(sb.active_camps or {}) do
                                 if camp.survivors and (camp.survivors[mid] or camp.survivors[tostring(mid)]) then
                                     in_camp = true
                                     local surv = camp.survivors[mid] or camp.survivors[tostring(mid)]
                                     if surv.job == "companion" or surv.is_companion then
-                                        is_camp_comp = true
+                                        is_active_camp_comp = true
                                     end
                                     break
                                 end
                             end
-
-                            -- A squad member is a legitimate companion if:
-                            -- a) Active camp companion (job == "companion")
-                            -- b) Legit vanilla non-task companion with npcx_is_companion who is NOT a settler
-                            if (is_camp_comp) or (is_non_task and has_comp_info and not in_camp) then
-                                is_legit_companion = true
+                            if is_active_camp_comp then
+                                is_protected = true
                                 break
+                            end
+
+                            -- Positive Check 1: Explicitly banished/dismissed Homestead settler
+                            if banished_set[mid] then
+                                is_ghost_homestead_squad = true
+                                ghost_member_ids[#ghost_member_ids + 1] = mid
+                            -- Positive Check 2: Settler in camp whose job was switched away from companion
+                            elseif in_camp and not is_active_camp_comp then
+                                is_ghost_homestead_squad = true
+                                ghost_member_ids[#ghost_member_ids + 1] = mid
+                            -- Positive Check 3: Legacy orphaned companion squad created by Homestead
+                            -- (Homestead dedicated companion squads are section "online_offline_group",
+                            -- single member, targeted to actor, not in camp, and not protected by any task/story)
+                            elseif squad:section_name() == "online_offline_group" and (squad.scripted_target == "actor") and not in_camp then
+                                is_ghost_homestead_squad = true
+                                ghost_member_ids[#ghost_member_ids + 1] = mid
                             end
                         end
                     end
-                end
 
-                if not is_legit_companion then
-                    stale_squad_ids[#stale_squad_ids + 1] = squad
+                    -- If squad has 0 members, it is an empty stale squad
+                    if count == 0 then
+                        stale_squads[#stale_squads + 1] = { squad = squad, members = {} }
+                    elseif not is_protected and is_ghost_homestead_squad then
+                        stale_squads[#stale_squads + 1] = { squad = squad, members = ghost_member_ids }
+                    end
+                end
+            end
+        end
+    end
+
+    for _, item in ipairs(stale_squads) do
+        local squad = item.squad
+        local sid = squad.id
+        axr_companions.companion_squads[sid] = nil
+        squad.scripted_target = nil
+        squad.current_action = nil
+        squad.assigned_smart_id = nil
+        squad.get_script_target = nil
+
+        local ok_mem, members = pcall(function() return squad:squad_members() end)
+        if ok_mem and members then
+            local mem_ids = {}
+            for k in members do if k.id then mem_ids[#mem_ids + 1] = k.id end end
+            for _, mid in ipairs(mem_ids) do
+                pcall(function() squad:unregister_member(mid) end)
+                local se_m = sim:object(mid)
+                if se_m then
+                    se_m.group_id = 65535
+                    pcall(function()
+                        se_save_var(mid, se_m:name(), "companion", nil)
+                        se_save_var(mid, se_m:name(), "companion_cannot_dismiss", nil)
+                        se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
+                    end)
+                end
+                if sim.disable_info_portion then
+                    pcall(function() sim:disable_info_portion(mid, "npcx_is_companion") end)
+                end
+                local on_m = level.object_by_id(mid)
+                if on_m then
+                    pcall(function() on_m:disable_info_portion("npcx_is_companion") end)
+                end
+                if stalker_generic and stalker_generic.remove_level_spot then
+                    pcall(function() stalker_generic.remove_level_spot(mid) end)
+                end
+                if banished_set and banished_set[mid] then
+                    banished_set[mid] = nil
                 end
             end
         end
 
-        for _, squad in ipairs(stale_squad_ids) do
-            local sid = squad.id
-            axr_companions.companion_squads[sid] = nil
-            squad.scripted_target = nil
-            squad.current_action = nil
-            squad.assigned_smart_id = nil
-            squad.get_script_target = nil
-
-            local ok_mem, members = pcall(function() return squad:squad_members() end)
-            if ok_mem and members then
-                local mem_ids = {}
-                for k in members do if k.id then mem_ids[#mem_ids + 1] = k.id end end
-                for _, mid in ipairs(mem_ids) do
-                    pcall(function() squad:unregister_member(mid) end)
-                    local se_m = sim:object(mid)
-                    if se_m then
-                        se_m.group_id = 65535
-                        pcall(function()
-                            se_save_var(mid, se_m:name(), "companion", nil)
-                            se_save_var(mid, se_m:name(), "companion_cannot_dismiss", nil)
-                            se_save_var(mid, se_m:name(), "companion_cannot_teleport", nil)
-                        end)
-                    end
-                    pcall(function() sim:disable_info(mid, "npcx_is_companion") end)
-                    if stalker_generic and stalker_generic.remove_level_spot then
-                        pcall(function() stalker_generic.remove_level_spot(mid) end)
-                    end
-                end
-            end
-
-            local ok_cnt, cnt = pcall(function() return squad:npc_count() end)
-            if ok_cnt and cnt and cnt <= 0 then
-                if SIMBOARD then SIMBOARD.squads[sid] = nil end
-                pcall(function() sb.safe_alife_release(squad) end)
-            end
-            healed = healed + 1
+        local ok_cnt, cnt = pcall(function() return squad:npc_count() end)
+        if ok_cnt and cnt and cnt <= 0 then
+            if SIMBOARD then SIMBOARD.squads[sid] = nil end
+            pcall(function() sb.safe_alife_release(squad) end)
         end
+        healed = healed + 1
     end
 
     return healed
@@ -1991,16 +2165,21 @@ function stalker_camp_builder.dismantle_camp(hub_id)
     -- Cleanly free/release settler home squads so settlers are no longer bound to this settlement
     if camp.survivors then
         for npc_id, survivor in pairs(camp.survivors) do
+            local id_num = tonumber(npc_id) or npc_id
+            if survivor.job == "companion" or survivor.is_companion then
+                if sb.record_banished_companion then sb.record_banished_companion(id_num) end
+                if sb.purge_settler_companion_and_squad_state then sb.purge_settler_companion_and_squad_state(id_num) end
+            end
             -- Never force a client object online for an unloaded level. The server
             -- entity can be released from Homestead bookkeeping while remaining offline.
             if camp.level == level.name() then
-                pcall(function() utils_obj.switch_online(npc_id) end)
+                pcall(function() utils_obj.switch_online(id_num) end)
             end
-            sb.camp_npc_released[npc_id] = nil
-            sb.refugee_ids[npc_id] = nil
-            sb.settler_lookup[npc_id] = nil
+            sb.camp_npc_released[id_num] = nil
+            sb.refugee_ids[id_num] = nil
+            sb.settler_lookup[id_num] = nil
             if sb.release_settler_home_squad then
-                sb.release_settler_home_squad(npc_id)
+                sb.release_settler_home_squad(id_num)
             end
         end
     end
@@ -2016,6 +2195,9 @@ function stalker_camp_builder.dismantle_camp(hub_id)
         level.map_remove_object_spot(hub_id, "ui_pda2_actor_sleep_location")
         level.map_remove_object_spot(hub_id, "treasure_player")
         level.map_remove_object_spot(hub_id, "green_location")
+        if sb.remove_all_camp_map_spots then
+            sb.remove_all_camp_map_spots(hub_id)
+        end
     end)
 
     -- Release only the boundary script zone (not physical furniture or storage containers)

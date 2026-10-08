@@ -3367,7 +3367,7 @@ function hf_on_furniture_place(obj_id)
                 last_raid_check_time = cur_sec
             }
             last_raid_game_sec = cur_sec + (cfg.raid_cooldown or 129600)
-            level.map_add_object_spot_ser(obj_id, "green_location", "Camp: My Settlement")  -- camp marker, not stash marker
+            level.map_add_object_spot(obj_id, get_settlement_map_spot_type(), "Camp: My Settlement")  -- runtime camp marker, not serialized
 
             local ok_zone, se_zone = pcall(function()
                 return alife():create("script_zone", se_obj.position, se_obj.m_level_vertex_id, se_obj.m_game_vertex_id)
@@ -3995,6 +3995,16 @@ function remove_all_rival_map_spots(chest_id)
 end
 stalker_camp_builder.remove_all_rival_map_spots = remove_all_rival_map_spots
 
+function remove_all_camp_map_spots(hub_id)
+    if not hub_id then return end
+    for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
+        if level.map_has_object_spot(hub_id, spot) ~= 0 then
+            pcall(function() level.map_remove_object_spot(hub_id, spot) end)
+        end
+    end
+end
+stalker_camp_builder.remove_all_camp_map_spots = remove_all_camp_map_spots
+
 function sync_rival_camp_map_spot(camp)
     if not (camp and camp.chest_id) then return end
     local sb = stalker_camp_builder
@@ -4025,7 +4035,7 @@ function sync_rival_camp_map_spot(camp)
     if camp.map_spot_key == key and level.map_has_object_spot(camp.chest_id, spot_type) ~= 0 then return end
     remove_all_rival_map_spots(camp.chest_id)
     pcall(function()
-        level.map_add_object_spot_ser(camp.chest_id, spot_type, target_label)
+        level.map_add_object_spot(camp.chest_id, spot_type, target_label)
     end)
     camp.map_spot_key = key
 end
@@ -4050,14 +4060,22 @@ function sync_all_camp_map_spots(force)
             local c_name = camp.name or "Settlement"
             local label = "Settlement: " .. c_name
 
-            -- Remove obsolete/competing map spots on camp hub
-            for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
-                if spot ~= camp_spot and level.map_has_object_spot(hub_id, spot) ~= 0 then
-                    pcall(function() level.map_remove_object_spot(hub_id, spot) end)
+            -- Remove obsolete/competing map spots on camp hub (strips legacy serialized spots too)
+            if force then
+                for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
+                    if level.map_has_object_spot(hub_id, spot) ~= 0 then
+                        pcall(function() level.map_remove_object_spot(hub_id, spot) end)
+                    end
+                end
+            else
+                for _, spot in ipairs(KNOWN_CAMP_MAP_SPOTS) do
+                    if spot ~= camp_spot and level.map_has_object_spot(hub_id, spot) ~= 0 then
+                        pcall(function() level.map_remove_object_spot(hub_id, spot) end)
+                    end
                 end
             end
             if level.map_has_object_spot(hub_id, camp_spot) == 0 then
-                pcall(function() level.map_add_object_spot_ser(hub_id, camp_spot, label) end)
+                pcall(function() level.map_add_object_spot(hub_id, camp_spot, label) end)
             end
             if camp.zone_id and level.map_has_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location") ~= 0 then
                 level.map_remove_object_spot(camp.zone_id, "ui_pda2_actor_sleep_location")
