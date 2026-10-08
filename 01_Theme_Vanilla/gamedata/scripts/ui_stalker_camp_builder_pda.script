@@ -2897,6 +2897,14 @@ function SettlementManagerPDA:OnLocateRivalMapClicked()
     local rcamp = stalker_camp_builder.rival_camps and stalker_camp_builder.rival_camps[smart]
     if not rcamp then return end
 
+    -- Rebuild/refresh the physical map spot from the rival camp's actual chest
+    -- before switching to the Area Map.
+    pcall(function()
+        if stalker_camp_builder.sync_all_camp_map_spots then
+            stalker_camp_builder.sync_all_camp_map_spots(true)
+        end
+    end)
+
     play_pda_ui_sound([[device\pda\route_opened]])
     local pda_menu = ActorMenu and ActorMenu.get_pda_menu and ActorMenu.get_pda_menu()
     if pda_menu and pda_menu.SetActiveSubdialog then
