@@ -983,9 +983,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                     local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
-                                        m_squad.get_script_target = function(self)
-                                            return camp.squad_id
-                                        end
+                                        -- kept in the squad's save; get_script_target reads a squad id as text
+                                        m_squad.scripted_target = tostring(camp.squad_id)
                                     end
                                 end
                             end
@@ -2500,9 +2499,8 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
     if courier_squad then
         local target_smart_id = dest_smart and dest_smart.id
         if target_smart_id then
-            courier_squad.get_script_target = function(self)
-                return target_smart_id
-            end
+            -- kept in the squad's save, unlike a function; get_script_target looks the name up
+            courier_squad.scripted_target = dest_smart:name()
             if SIMBOARD and SIMBOARD.assign_squad_to_smart then
                 pcall(function() SIMBOARD:assign_squad_to_smart(courier_squad, target_smart_id) end)
             end
@@ -2547,10 +2545,6 @@ function stalker_camp_builder.update_active_convoys()
                 alife_release(squad)
                 sb.active_convoys[squad_id] = nil
             else
-                if convoy.target_smart_id and squad.get_script_target == nil then
-                    squad.get_script_target = function(self) return convoy.target_smart_id end
-                end
-
                 local dx = squad.position.x - convoy.target_pos.x
                 local dy = squad.position.y - convoy.target_pos.y
                 local dz = squad.position.z - convoy.target_pos.z
