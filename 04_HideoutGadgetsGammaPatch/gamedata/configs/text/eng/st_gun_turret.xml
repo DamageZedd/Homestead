@@ -26,12 +26,6 @@
 	<string id="st_channel">
 		<text>Set Channel</text>
 	</string>
-	<string id="st_turret_channel">
-		<text>Channel</text>
-	</string>
-	<string id="st_channel_off">
-		<text>off</text>
-	</string>
 	<string id="st_display_counter">
 		<text>Nixie Display</text>
 	</string>
