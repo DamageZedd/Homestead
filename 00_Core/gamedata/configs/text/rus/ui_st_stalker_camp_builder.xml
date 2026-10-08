@@ -206,7 +206,7 @@
         <text>Вызвать торговый караван</text>
     </string>
     <string id="st_pda_btn_recall_settlers">
-        <text>Отозвать всех поселенцев (Со всех локаций)</text>
+        <text>Отозвать всех поселенцев</text>
     </string>
     <string id="st_pda_specialization_lbl">
         <text>Специализация лагеря (нажмите для смены)</text>
