@@ -4527,7 +4527,6 @@ function actor_on_first_update()
 
     clean_orphaned_camps(current_level)
     reestablish_settler_relations()
-    pcall(stalker_camp_builder.sanitize_orphan_container_children)
 
     if hf_furniture_types then
         hf_furniture_types.add_type("camp_hub", function(obj_id) end)
