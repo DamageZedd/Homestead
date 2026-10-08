@@ -65,7 +65,8 @@ function get_singleton() return SINGLETON end
 
 function homestead_pda_actor_on_update()
     if not stalker_camp_builder then return end
-    if not SINGLETON or SINGLETON._closing then
+    -- the window outlives a closed PDA; Update() refreshes it while it is on screen
+    if not SINGLETON or SINGLETON._closing or not SINGLETON:IsShown() then
         return
     end
     if SINGLETON.current_tab ~= "survivors" and SINGLETON.current_tab ~= "overview" then
