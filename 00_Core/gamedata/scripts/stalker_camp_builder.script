@@ -6973,15 +6973,22 @@ function stalker_camp_builder.is_quest_or_task_stash(id)
     return false
 end
 
+-- not treasure_player or ui_pda2_actor_box*: those mark the player's own stashes
 local stash_spot_types = {
-    "treasure", "treasure_player", "treasure_unique", "treasure_epic", "treasure_searched",
-    "treasure_unsearched", "ui_pda2_stash_location", "ui_pda2_actor_box", "ui_pda2_actor_box_location",
-    "ui_pda2_actor_box_green", "ui_pda2_actor_box_blue", "ui_pda2_actor_box_yellow", "ui_pda2_actor_box_red",
+    "treasure", "treasure_unique", "treasure_epic", "treasure_searched",
+    "treasure_unsearched", "ui_pda2_stash_location",
     "ui_pda2_secret_location", "ui_pda2_special_location", "alife_presentation_stash"
 }
 
+-- a backpack stash the player dropped (item_backpack records each one)
+local function is_player_stash(id)
+    local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
+    return (m_data and m_data.player_created_stashes and m_data.player_created_stashes[id] ~= nil) or false
+end
+
 local function has_marked_stash_spot(id)
     if not id or id <= 0 then return false end
+    if is_player_stash(id) then return false end
     for _, spot in ipairs(stash_spot_types) do
         if level.map_has_object_spot(id, spot) > 0 then
             return true
@@ -7443,6 +7450,7 @@ local function loot_and_clear_stash(s_id, exp)
     exp.looted_stashes = exp.looted_stashes or {}
     if exp.looted_stashes[s_id] then return end
     exp.looted_stashes[s_id] = true
+    if is_player_stash(s_id) then return end
     exp.haul = exp.haul or {}
 
     local is_yellow = false
