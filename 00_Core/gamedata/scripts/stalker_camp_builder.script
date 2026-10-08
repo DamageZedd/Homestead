@@ -2938,7 +2938,8 @@ function npc_on_update(npc)
             my_survivor.assigned_furniture = my_survivor.assigned_furniture or {}
             local assigned_id = my_survivor.assigned_furniture[struct_type_name]
             if assigned_id then
-                local se_assigned = alife_object(assigned_id)
+                -- the claim holds only while the camp still lists that furniture (as in get_settler_job_target)
+                local se_assigned = my_camp.structures[assigned_id] == struct_type_name and alife_object(assigned_id)
                 if se_assigned then
                     return se_assigned.m_level_vertex_id, assigned_id
                 else

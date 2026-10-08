@@ -447,7 +447,9 @@ function stalker_camp_builder.get_settler_job_target(npc_id, hub_id)
     if survivor and survivor.assigned_furniture then
         for _, stype in ipairs(preferred) do
             local assigned_id = survivor.assigned_furniture[stype]
-            if assigned_id then
+            -- only while the camp still lists it as that furniture: a piece picked up through a binder
+            -- that doesn't report the pickup leaves the claim, and its id goes to a later object
+            if assigned_id and camp.structures and camp.structures[assigned_id] == stype then
                 local se_struct = alife_object(assigned_id)
                 if se_struct then
                     if sb.get_furniture_front_vertex_and_pos then
