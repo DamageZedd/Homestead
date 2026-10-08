@@ -77,13 +77,22 @@ local function is_squad_alive(squad)
     return false
 end
 
+-- whether a convoy entry's squad id names something other than its courier by now (a released
+-- squad's id goes to a later object)
+local function courier_id_reused(sim, id, conv)
+    local sq = sim:object(id)
+    return sq ~= nil and not (sq.squad_members and (not conv.section or sq:section_name() == conv.section))
+end
+
 local function cleanup_camp_convoys(chest_id)
     local sb = stalker_camp_builder
     local sim = alife()
     if not (sb and chest_id and sim) then return end
     if sb.active_convoys then
         for c_sq_id, conv in pairs(sb.active_convoys) do
-            if conv and conv.target_camp_chest == chest_id then
+            if conv and conv.target_camp_chest == chest_id and courier_id_reused(sim, c_sq_id, conv) then
+                sb.active_convoys[c_sq_id] = nil
+            elseif conv and conv.target_camp_chest == chest_id then
                 local c_sq = sim:object(c_sq_id)
                 if c_sq then
                     c_sq.get_script_target = nil
@@ -103,7 +112,8 @@ local function cleanup_camp_convoys(chest_id)
         for _, c in pairs(sb.rival_camps) do
             if type(c) == "table" and c.chest_id == chest_id and c.heat_mutant_squad_id then
                 local m_sq = sim:object(c.heat_mutant_squad_id)
-                if m_sq then
+                -- only while the id still names a mutant squad
+                if m_sq and m_sq.squad_members and is_squad_monster[m_sq.player_id] then
                     m_sq.get_script_target = nil
                     for k in sb.safe_squad_members(m_sq) do
                         if k.id then
@@ -956,7 +966,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                             local has_active_heat_mutants = false
                             if camp.heat_mutant_squad_id then
                                 local existing_m = sim:object(camp.heat_mutant_squad_id)
-                                if existing_m and is_squad_alive(existing_m) then
+                                if existing_m and is_squad_alive(existing_m) and is_squad_monster[existing_m.player_id] then
                                     has_active_heat_mutants = true
                                 else
                                     camp.heat_mutant_squad_id = nil
@@ -2533,6 +2543,7 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
             target_lvid = camp.level_vertex_id,
             target_gvid = camp.game_vertex_id,
             faction = camp.faction,
+            section = squad_sec,
             dispatch_time = game.get_game_time():diffSec(game.CTime()),
             level = camp.level
         }
@@ -2548,6 +2559,7 @@ function stalker_camp_builder.update_active_convoys()
 
     for squad_id, convoy in pairs(sb.active_convoys) do
         local squad = sim:object(squad_id)
+        if squad and courier_id_reused(sim, squad_id, convoy) then squad = nil end
         if not squad or not is_squad_alive(squad) then
             sb.active_convoys[squad_id] = nil
         else
