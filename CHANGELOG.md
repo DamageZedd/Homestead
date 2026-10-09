@@ -89,6 +89,11 @@
   - Refactored `get_auto_sort_target_box` to track all candidate settlement containers per category (multiple ammo sumkas, gun cases, medicine boxes, etc.) and route incoming items to the first container of that type with available capacity before spilling over to general chests.
   - Updated 1-click Auto-Sort (`smart_dump_to_camp_storage`) with an in-memory batch weight cache to stop transferring items once containers reach their capacity limits, notifying the player of skipped items rather than overfilling capped boxes.
   - Passed item weight during settler job deposits (`deposit_item_to_camp`) so automation cycles seamlessly spread production across available settlement containers.
+- **Storage Capacity Full Job Gating & Hub Overflow Dropping (Fixes #195)**: Fixed an issue where settlement jobs and expeditions continued overfilling the main chest indefinitely once all containers in a settlement reached maximum weight capacity:
+  - Added `camp_has_storage_room` checking container capacity thresholds across all valid settlement storage boxes.
+  - Producing settlement jobs (Cooks, Crafters, Medics, Hunters, Scrappers, Woodcutters, Brewers, and waiting Scavengers) pause with status `[PAUSED - Storage Full]` when all containers reach capacity, preserving cycle timers until room is cleared.
+  - In `get_auto_sort_target_box`, prevented unconditional fallback to `fallback_chest` when all containers are full.
+  - In `deposit_item_to_camp`, if an expedition haul arrives when all containers are at capacity, items spawn neatly on the ground at the camp hub workbench rather than vanishing or overfilling stashes.
 - **Fallback Stash & Outpost Loot Table Sanitization (PR #159)**: Replaced nonexistent item section entries (`prt_i_resistor`, `prt_i_transist`, `toolkit_r`, `elite_detector`, etc.) in fallback loot and outpost chest tables with authentic items.
 
 ### 🛡️ Defense Turrets, Audio & Gadgets Hardening (Community / devinhorowitz):

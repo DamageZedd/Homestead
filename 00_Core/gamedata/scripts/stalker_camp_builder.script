@@ -6779,6 +6779,64 @@ function stalker_camp_builder.box_has_room_for(box_id, add_weight, weight_cache)
     return (cur_w + (add_weight or 0)) <= (cap + 0.001)
 end
 
+function stalker_camp_builder.camp_has_storage_room(camp, hub_id, weight)
+    local sb = stalker_camp_builder
+    if not camp and not hub_id then return false end
+    if type(camp) ~= "table" and type(hub_id) == "table" then
+        local tmp = camp
+        camp = hub_id
+        hub_id = tmp
+    end
+    if not hub_id and camp and camp.hub_id then
+        hub_id = camp.hub_id
+    end
+    if not camp and hub_id and sb.active_camps then
+        camp = sb.active_camps[hub_id]
+    end
+    if not camp then return false end
+
+    local needed_w = weight or 0.1
+    local checked = {}
+
+    -- Check primary chest
+    if camp.primary_chest_id and is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
+        checked[camp.primary_chest_id] = true
+        if sb.box_has_room_for(camp.primary_chest_id, needed_w) then
+            return true
+        end
+    end
+
+    -- Check workshop stash
+    local m_data = alife_storage_manager and alife_storage_manager.get_state()
+    if m_data and m_data.workshop_stashes and hub_id and m_data.workshop_stashes[hub_id] then
+        local ws_id = m_data.workshop_stashes[hub_id]
+        if ws_id and not checked[ws_id] and is_valid_camp_box(ws_id, hub_id, camp) then
+            checked[ws_id] = true
+            if sb.box_has_room_for(ws_id, needed_w) then
+                return true
+            end
+        end
+    end
+
+    -- Check all camp structures that are valid containers
+    if camp.structures then
+        for struct_id, _ in pairs(camp.structures) do
+            local target_id = struct_id
+            if m_data and m_data.workshop_stashes and m_data.workshop_stashes[struct_id] then
+                target_id = m_data.workshop_stashes[struct_id]
+            end
+            if not checked[target_id] and is_valid_camp_box(target_id, hub_id, camp) then
+                checked[target_id] = true
+                if sb.box_has_room_for(target_id, needed_w) then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 -- AUTO-SORT TARGET ROUTING & CENTRALIZED DEPOSIT SYSTEM (v1.3.0)
 function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item, is_player_dump, item_weight, weight_cache)
     local pairs_ = pairs
@@ -7010,8 +7068,12 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes })
     if general_fallback then return general_fallback end
 
-    -- no box in the camp holds any item: make one, as for a camp with no box
-    return fallback_chest or make_hub_box()
+    -- If all categorized containers are full, check if fallback_chest itself has room
+    if fallback_chest and sb.box_has_room_for(fallback_chest, item_weight, weight_cache) then
+        return fallback_chest
+    end
+
+    return nil
 end
 
 
@@ -7137,10 +7199,26 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
     end
     local weights = sb._deposit_weights
     local target_box_id = sb.get_auto_sort_target_box(camp, hub_id, sec, false, item_w, weights)
-    if not target_box_id then return nil end
+    local box_se = target_box_id and alife_object(target_box_id)
 
-    local box_se = alife_object(target_box_id)
-    if not box_se then return nil end
+    local drop_on_ground = false
+    local ground_pos, ground_lvid, ground_gvid
+    if not box_se then
+        local hub_se = (hub_id and safe_alife_object(hub_id)) or (camp and camp.hub_id and safe_alife_object(camp.hub_id))
+        if hub_se then
+            ground_pos = hub_se.position
+            ground_lvid = hub_se.m_level_vertex_id
+            ground_gvid = hub_se.m_game_vertex_id
+            drop_on_ground = true
+        elseif camp and camp.position and camp.level_vertex_id and camp.game_vertex_id then
+            ground_pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+            ground_lvid = camp.level_vertex_id
+            ground_gvid = camp.game_vertex_id
+            drop_on_ground = true
+        else
+            return nil
+        end
+    end
 
     local is_wpn = false
     local is_outfit = false
@@ -7194,26 +7272,34 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
     local se_item = nil
     local is_degradable = is_wpn or is_outfit or (utils_item and utils_item.is_degradable and utils_item.is_degradable(nil, sec))
 
-    -- DANZY FIX PRESERVATION & ENGINE HARDENING:
-    -- Pre-registration packet condition for degradable gear:
-    --   alife_create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id, false)
-    -- In X-Ray Monolith MT, creating unregistered items inside containers leaves uninitialized vtables
-    -- that trigger fatal pure virtual function calls (xrDebugNew.cpp:1048) on se_item:name() and container corruption.
-    -- We spawn registered items safely directly inside target_box_id and rely on queue_item_cond + item_parts.
-    if alife_create_item and box_se then
-        pcall(function()
-            se_item = alife_create_item(sec, box_se, { cond = cond })
-        end)
-    end
+    if drop_on_ground then
+        if alife_create then
+            se_item = alife_create(sec, ground_pos, ground_lvid, ground_gvid)
+        else
+            se_item = sim:create(sec, ground_pos, ground_lvid, ground_gvid)
+        end
+    else
+        -- DANZY FIX PRESERVATION & ENGINE HARDENING:
+        -- Pre-registration packet condition for degradable gear:
+        --   alife_create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id, false)
+        -- In X-Ray Monolith MT, creating unregistered items inside containers leaves uninitialized vtables
+        -- that trigger fatal pure virtual function calls (xrDebugNew.cpp:1048) on se_item:name() and container corruption.
+        -- We spawn registered items safely directly inside target_box_id and rely on queue_item_cond + item_parts.
+        if alife_create_item and box_se then
+            pcall(function()
+                se_item = alife_create_item(sec, box_se, { cond = cond })
+            end)
+        end
 
-    if not se_item or not (se_item.id and alife_object(se_item.id)) then
-        pcall(function()
-            if alife_create then
-                se_item = alife_create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id)
-            else
-                se_item = sim:create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id)
-            end
-        end)
+        if not se_item or not (se_item.id and alife_object(se_item.id)) then
+            pcall(function()
+                if alife_create then
+                    se_item = alife_create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id)
+                else
+                    se_item = sim:create(sec, box_se.position, box_se.m_level_vertex_id, box_se.m_game_vertex_id, target_box_id)
+                end
+            end)
+        end
     end
 
     if not (se_item and se_item.id and alife_object(se_item.id)) then return nil end
@@ -7305,11 +7391,11 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
         camp._cached_storage_metrics_tg = nil
     end
 
-    if weights[target_box_id] ~= nil then
+    if target_box_id and weights and weights[target_box_id] ~= nil then
         weights[target_box_id] = weights[target_box_id] + item_w
     end
 
-    return target_box_id
+    return target_box_id or (se_item and se_item.id)
 end
 
 function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)

@@ -1114,6 +1114,11 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         return true
     end
 
+    local is_producing_job = (job == "cook" or job == "craft" or job == "medic" or job == "hunter" or job == "scrapper" or job == "woodcutter" or job == "brewer")
+    if is_producing_job and sb.camp_has_storage_room and not sb.camp_has_storage_room(camp, hub_id, 0.5) then
+        return true, "Storage Full", "All settlement storage containers are at maximum capacity"
+    end
+
     if job == "cook" then
         if sb.is_camp_supply_capped and sb.is_camp_supply_capped(hub_id, camp, "food") then
             return true, "Stockpile Full", "Food stockpile is full (15+ rations stored)"
@@ -1308,6 +1313,9 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         end
         if not has_container then
             return true, "No Storage", "No storage container to deposit loot"
+        end
+        if sb.camp_has_storage_room and not sb.camp_has_storage_room(camp, hub_id, 0.5) then
+            return true, "Storage Full", "All settlement storage containers are at maximum capacity"
         end
         return false, nil, nil
 
