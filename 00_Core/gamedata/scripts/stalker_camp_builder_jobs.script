@@ -1459,7 +1459,7 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
     local consumed_vodka = nil
     local cooking_method = game.translate_string("st_cooking_at_campfire")
 
-    if is_actual_stove and (sb.cfg.cook_requires_fuel ~= false) then
+    if is_actual_stove then
         local fuel_items = {
             ["charcoal"]            = true,
             ["kerosene"]            = true,
@@ -1471,13 +1471,18 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
             ["explo_jerrycan_fuel"] = true,
             ["jerrycan_fuel"]       = true,
         }
-        consumed_fuel = sb.find_and_consume_item(
-            hub_id, camp,
-            function(sec) return fuel_items[sec] == true end,
-            stove_id
-        )
+        -- with Cook Requires Fuel off, the stove cooks without burning anything
+        local fired = (sb.cfg.cook_requires_fuel == false)
+        if not fired then
+            consumed_fuel = sb.find_and_consume_item(
+                hub_id, camp,
+                function(sec) return fuel_items[sec] == true end,
+                stove_id
+            )
+            fired = consumed_fuel ~= nil
+        end
 
-        if consumed_fuel then
+        if fired then
             cooking_method = game.translate_string("st_cooking_on_stove")
             cooking_tier = 1
 
