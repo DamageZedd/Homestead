@@ -6605,8 +6605,8 @@ function stalker_camp_builder.get_camp_morale(camp, hub_obj)
 
     local has_radio = false
     for id, stype in pairs_(camp.structures or {}) do
-        local se = alife_object(id)
-        if se and se:section_name():find("radio") then
+        -- by type, as get_camp_stats counts radios: the guitar doesn't name a radio
+        if stype == "radio" and alife_object(id) then
             has_radio = true; break
         end
     end
