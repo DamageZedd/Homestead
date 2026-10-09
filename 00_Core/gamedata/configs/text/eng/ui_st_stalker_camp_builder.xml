@@ -1195,6 +1195,12 @@
     <string id="st_auto_sort_empty">
         <text>No crafting materials, meats, or repair supplies found in backpack to sort.</text>
     </string>
+    <string id="st_auto_sort_skipped">
+        <text>%d other items stayed in your backpack: no container for them has room.</text>
+    </string>
+    <string id="st_auto_sort_none_fit">
+        <text>AUTO-SORT: no settlement container has room for your %d items.</text>
+    </string>
     <string id="st_dialog_auto_sort_ask">
         <text>Sort and deposit all my crafting supplies into camp storage.</text>
     </string>
