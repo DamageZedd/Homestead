@@ -2682,6 +2682,9 @@ end
 function stalker_camp_builder.start_camp_trader_trade(actor, npc)
     local actor_alao = db.actor
     local sb = stalker_camp_builder
+    -- the action of the trader's own line: the engine passes (trader, player)
+    local _, trader = resolve_speakers(actor, npc)
+    actor, npc = actor_alao, trader
     if not npc then return end
 
     if bind_trading_computer and bind_trading_computer.is_connection_blocked and bind_trading_computer.is_connection_blocked() then
