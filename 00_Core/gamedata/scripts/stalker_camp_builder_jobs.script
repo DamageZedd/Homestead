@@ -214,91 +214,55 @@ function stalker_camp_builder.spawn_scavenged_loot(box_id, multiplier, hub_id, c
                       or "l01_escape"
     local map_tier = (sb.gamma_map_tiers and sb.gamma_map_tiers[target_level]) or 2
 
-    local surv_tier = survivor and (survivor.tier or (sb.get_survivor_tier and sb.get_survivor_tier(survivor))) or 0
-    local rare_chance = 10 + (surv_tier * 7) -- DANZY EDIT (balance): 10/17/24/31% (was 15/25/35/45%)
-    if camp and camp.specialization == "hideout" then
-        rare_chance = rare_chance + 10
+    local min_items = (sb.cfg and sb.cfg.scavenge_min_items) or (sb.defaults and sb.defaults.scavenge_min_items) or 1
+    local max_items = (sb.cfg and sb.cfg.scavenge_max_items) or (sb.defaults and sb.defaults.scavenge_max_items) or 2
+    if min_items > max_items then min_items, max_items = max_items, min_items end
+    local base_count = math.random(min_items, max_items)
+
+    local tier_mult = (sb.get_survivor_tier_mult and survivor and sb.get_survivor_tier_mult(survivor)) or 1.0
+    local spec_mult = (sb.get_specialization_mult and camp and sb.get_specialization_mult(camp, "scavenge")) or 1.0
+    local mult = multiplier or (tier_mult * spec_mult)
+    local raw_count = base_count * mult
+    local total_count = math.max(1, math.floor(raw_count) + (math.random() < (raw_count - math.floor(raw_count)) and 1 or 0))
+
+    local fallback_list = nil
+    if sb.generate_gamma_stash_loot then
+        fallback_list = sb.generate_gamma_stash_loot(map_tier, false, target_level)
     end
-    local is_yellow = (math.random(100) <= rare_chance)
-    if is_yellow then
-        map_tier = math.min(5, map_tier + 1)
+    if not fallback_list or #fallback_list == 0 then
+        fallback_list = sb.scavenge_loot_table or {"conserva", "bandage", "ammo_9x18_fmj", "prt_i_scrap"}
     end
 
     local items_to_deposit = {}
-    local tm_success = false
-
-    if treasure_manager and treasure_manager.set_random_stash then
-        local bonus_items = nil
-        if is_yellow and sb.roll_gamma_toolkit then
-            local tk = sb.roll_gamma_toolkit(target_level)
-            if tk and ini_sys and ini_sys:section_exist(tk) then
-                bonus_items = { tk }
-            end
-        end
-
-        local ok = pcall(treasure_manager.set_random_stash, true, nil, bonus_items, target_box)
-        if ok and treasure_manager.caches and type(treasure_manager.caches[target_box]) == "string" then
-            local raw_str = treasure_manager.caches[target_box]
-            treasure_manager.caches[target_box] = nil
-            local parts = str_explode and str_explode(raw_str, ",")
-            if parts and #parts > 0 then
-                for _, entry in ipairs_(parts) do
-                    -- "section__uses": a partly used item (split_stash_entry)
-                    local sec, uses = entry, nil
-                    if sb.split_stash_entry then sec, uses = sb.split_stash_entry(entry) end
-                    if sec and sec ~= "" and ini_sys and ini_sys:section_exist(sec) then
-                        items_to_deposit[#items_to_deposit+1] = { sec = sec, uses = uses, is_yellow = is_yellow, map_tier = map_tier }
-                    end
-                end
-                tm_success = (#items_to_deposit > 0)
-            end
+    for i = 1, total_count do
+        local sec = fallback_list[math.random(#fallback_list)]
+        if sec and ini_sys and ini_sys:section_exist(sec) then
+            items_to_deposit[#items_to_deposit+1] = { sec = sec, is_yellow = false, map_tier = map_tier }
         end
     end
 
-    if not tm_success or #items_to_deposit == 0 then
-        local fallback_list = nil
-        if sb.generate_gamma_stash_loot then
-            fallback_list = sb.generate_gamma_stash_loot(map_tier, is_yellow, target_level)
-        end
-        if not fallback_list or #fallback_list == 0 then
-            fallback_list = sb.scavenge_loot_table or {"conserva", "bandage", "ammo_9x18_fmj", "prt_i_scrap"}
-        end
-        for _, sec in ipairs_(fallback_list) do
-            if sec and ini_sys and ini_sys:section_exist(sec) then
-                items_to_deposit[#items_to_deposit+1] = { sec = sec, is_yellow = is_yellow, map_tier = map_tier }
-            end
-        end
-    end
-
-    local spec_mult = (sb.get_specialization_mult and camp and sb.get_specialization_mult(camp, "scavenge")) or 1.0
     local deposited_items = {}
     for _, itm in ipairs_(items_to_deposit) do
         local sec = itm.sec
-        local count = 1
-        if spec_mult > 1.0 then
-            count = count + (math.random() < (spec_mult - 1.0) and 1 or 0)
-        end
-        for c = 1, count do
-            if camp and hub_id and sb.deposit_item_to_camp then
-                local dep_box = sb.deposit_item_to_camp(hub_id, camp, sec, itm.is_yellow, itm.map_tier, nil, nil, itm.uses)
-                if dep_box then
-                    deposited_items[#deposited_items+1] = sec
-                end
-            else
-                local dest_box = (sb.get_auto_sort_target_box and camp and hub_id and sb.get_auto_sort_target_box(camp, hub_id, sec)) or target_box
-                local box_se = alife_object(dest_box)
-                if box_se then
-                    local pos = box_se.position or STATIC_ZERO_VECTOR
-                    local lvid = box_se.m_level_vertex_id or 0
-                    local gvi = box_se.m_game_vertex_id or 0
-                    sim:create(sec, pos, lvid, gvi, dest_box)
-                    deposited_items[#deposited_items+1] = sec
-                end
+        if camp and hub_id and sb.deposit_item_to_camp then
+            local dep_box = sb.deposit_item_to_camp(hub_id, camp, sec, false, itm.map_tier, nil, nil, itm.uses)
+            if dep_box then
+                deposited_items[#deposited_items+1] = sec
+            end
+        else
+            local dest_box = (sb.get_auto_sort_target_box and camp and hub_id and sb.get_auto_sort_target_box(camp, hub_id, sec)) or target_box
+            local box_se = alife_object(dest_box)
+            if box_se then
+                local pos = box_se.position or STATIC_ZERO_VECTOR
+                local lvid = box_se.m_level_vertex_id or 0
+                local gvi = box_se.m_game_vertex_id or 0
+                sim:create(sec, pos, lvid, gvi, dest_box)
+                deposited_items[#deposited_items+1] = sec
             end
         end
     end
 
-    return deposited_items, is_yellow
+    return deposited_items, false
 end
 
 local function format_deposited_items_summary(item_secs, fallback)
@@ -2937,8 +2901,9 @@ function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)
                 local game_elapsed = current_sec - exp.start_sec
                 return mmin(1.0, mmax(0.0, game_elapsed / exp.duration))
             end
+            return 0
         end
-        return nil  -- Scavengers wait at camp for orders; no passive progress cycle
+        -- Not on expedition: fall through to calculate local patrol cycle progress
     end
 
     local rt_interval
@@ -2951,6 +2916,7 @@ function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)
     elseif job == "woodcutter" then rt_interval = sb.cfg.realtime_job_woodcutter_interval or (sb.defaults and sb.defaults.realtime_job_woodcutter_interval) or 1200
     elseif job == "brewer"   then rt_interval = sb.cfg.realtime_job_brewer_interval or (sb.defaults and sb.defaults.realtime_job_brewer_interval) or 1200
     elseif job == "scrapper" then rt_interval = sb.cfg.realtime_job_scrapper_interval or (sb.defaults and sb.defaults.realtime_job_scrapper_interval) or 1200
+    elseif job == "scavenge" then rt_interval = sb.cfg.realtime_job_scavenge_interval or (sb.defaults and sb.defaults.realtime_job_scavenge_interval) or 900
     else return nil  -- idle / guard have no cycle to display
     end
     if not rt_interval or rt_interval <= 0 then return 0 end
@@ -3017,8 +2983,9 @@ function stalker_camp_builder.get_job_time_remaining(survivor, camp, hub_id)
                 local rem_game_sec = mmax(0, exp.duration - game_elapsed)
                 return mmax(0, math.floor(rem_game_sec / tf))
             end
+            return 0
         end
-        return nil  -- Scavengers wait at camp for orders; no countdown timer
+        -- Not on expedition: fall through to calculate local patrol time remaining
     end
 
     local rt_interval
@@ -3031,6 +2998,7 @@ function stalker_camp_builder.get_job_time_remaining(survivor, camp, hub_id)
     elseif job == "woodcutter" then rt_interval = sb.cfg.realtime_job_woodcutter_interval or (sb.defaults and sb.defaults.realtime_job_woodcutter_interval) or 1200
     elseif job == "brewer"   then rt_interval = sb.cfg.realtime_job_brewer_interval or (sb.defaults and sb.defaults.realtime_job_brewer_interval) or 1200
     elseif job == "scrapper" then rt_interval = sb.cfg.realtime_job_scrapper_interval or (sb.defaults and sb.defaults.realtime_job_scrapper_interval) or 1200
+    elseif job == "scavenge" then rt_interval = sb.cfg.realtime_job_scavenge_interval or (sb.defaults and sb.defaults.realtime_job_scavenge_interval) or 900
     else return nil
     end
     if not rt_interval or rt_interval <= 0 then return 0 end
