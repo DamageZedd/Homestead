@@ -1982,9 +1982,14 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
     local smarts = sb.get_smart_terrains_on_level(target_level)
     if not smarts or #smarts == 0 then return false end
 
+    -- not at a smart terrain the game marks as inhabited by special characters (misc\smart_profiles.ltx
+    -- [populated_smarts], loaded as simulation_objects.base_smarts)
+    local populated = simulation_objects and simulation_objects.base_smarts or {}
     local shuffled_smarts = {}
     for _, s in ipairs_(smarts) do
-        shuffled_smarts[#shuffled_smarts+1] = s
+        if populated[s.name] ~= true then
+            shuffled_smarts[#shuffled_smarts+1] = s
+        end
     end
     for i = #shuffled_smarts, 2, -1 do
         local j = mrandom(i)
