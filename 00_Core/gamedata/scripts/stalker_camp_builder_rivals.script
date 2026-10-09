@@ -1016,15 +1016,29 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                             end
 
                             local player_near = is_player_near(camp.level or level_name, camp.position)
-                            if not has_active_heat_mutants and not player_near and same_level and mrandom(100) <= 20 then
+                            -- off the player's level too: on most levels no spot lies beyond the switch
+                            -- distance from an outpost
+                            if not has_active_heat_mutants and not player_near and mrandom(100) <= 20 then
                                 local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
                                 local msec = mutant_types[mrandom(#mutant_types)]
-                                local m_dist = mrandom(45, 80)
-                                local m_ang = mrandom() * math.pi * 2
-                                v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
-                                local mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
+                                local mlvid, mgpos, mgvid
+                                if same_level then
+                                    local m_dist = mrandom(45, 80)
+                                    local m_ang = mrandom() * math.pi * 2
+                                    v_scratch_pos:set(camp.position.x + m_dist * mcos(m_ang), camp.position.y, camp.position.z + m_dist * msin(m_ang))
+                                    mlvid, mgpos = sb.get_ground_vertex_and_pos(v_scratch_pos, camp.position.y, 3.0)
+                                    mgvid = camp.game_vertex_id
+                                else
+                                    -- the ground can be probed only on the loaded level: elsewhere the pack starts,
+                                    -- offline, at the outpost's smart terrain, which it heads for anyway
+                                    local smart = camp.smart_name and SIMBOARD and SIMBOARD.smarts_by_names
+                                        and SIMBOARD.smarts_by_names[camp.smart_name]
+                                    if smart then
+                                        mlvid, mgpos, mgvid = smart.m_level_vertex_id, smart.position, smart.m_game_vertex_id
+                                    end
+                                end
                                 if mlvid and mgpos and not is_player_near(camp.level or level_name, mgpos) then
-                                    local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, camp.game_vertex_id, true)
+                                    local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, mgvid, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
                                         -- the outpost's smart terrain, kept in the squad's save: the simulation moves a
