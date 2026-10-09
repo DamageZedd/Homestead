@@ -2343,6 +2343,11 @@ function SettlementManagerPDA:OnDismantleClicked()
     if not stalker_camp_builder or not stalker_camp_builder.dismantle_camp then return end
     local item = self.settlement_list:GetSelectedItem()
     if not item then return end
+    -- the list selects its first camp after a dismantle, and a double-click is two clicks
+    -- (CUIButton): a second click this soon would dismantle that camp too
+    local now = time_global()
+    if self.dismantle_tg and now - self.dismantle_tg < 1000 then return end
+    self.dismantle_tg = now
     local ok, reason = stalker_camp_builder.dismantle_camp(item.hub_id)
     if ok then
         self:Reset("overview")
@@ -2370,6 +2375,10 @@ end
 function SettlementManagerPDA:OnBanishClicked()
     local item = self.survivor_list:GetSelectedItem()
     if not item then return end
+    -- as for Dismantle: the roster selects its first settler after a banish
+    local now = time_global()
+    if self.banish_tg and now - self.banish_tg < 1000 then return end
+    self.banish_tg = now
     local npc_id = item.survivor_id
     -- Find the live client object to call banish_npc
     local npc = level.object_by_id(npc_id)
