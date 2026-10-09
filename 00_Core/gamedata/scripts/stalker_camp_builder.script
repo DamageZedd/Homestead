@@ -806,6 +806,11 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                 sb.safe_iterate_inventory_box(box_obj, function(temp, cl_item)
                     if not cl_item then return end
                     local iid = cl_item:id()
+                    -- An item released earlier in this update has no server object any more, but the
+                    -- box lists it until the client handles the destroy event next frame: skip it, or
+                    -- every later count and consume in this update finds it again
+                    local se_obj = sim:object(iid)
+                    if not se_obj then return end
                     -- uses owed from offline consumption come off before the uses are read
                     if type(cl_item) == "userdata" and sb.pending_item_cond and sb.pending_item_cond[iid] then
                         sb.apply_pending_cond(cl_item)
@@ -817,7 +822,6 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                     local uses = 1
                     local ok_u, u = pcall(function() return cl_item:get_remaining_uses() end)
                     if ok_u and u then uses = u end
-                    local se_obj = sim:object(iid)
 
                     if camp and camp.stored_items then
                         camp.stored_items[iid] = { sec = sec, cond = cond, uses = uses, box_id = cid }
