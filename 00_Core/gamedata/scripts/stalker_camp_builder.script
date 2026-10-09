@@ -4600,7 +4600,8 @@ local function separation_sweep(camp, hub_id)
                 if f_lvid and f_pos then
                     se_npc.position = f_pos
                     se_npc.m_level_vertex_id = f_lvid
-                    survivor.assigned_pos = { lvid = f_lvid, x = f_pos.x, y = f_pos.y, z = f_pos.z }
+                    -- moved only: assigned_pos is the post the player sets, and it would hold the
+                    -- settler here for every job from now on
                     local online_npc = level.object_by_id(id_num)
                     if online_npc and IsStalker(online_npc) and (not IsMonster(online_npc))
                         and online_npc.set_npc_position then
