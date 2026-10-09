@@ -257,11 +257,15 @@ function stalker_camp_builder.get_recruitment_roll(npc)
         recruitment_rolls = {}
     end
 
-    -- Memory leak safeguard: evict cache if size grows beyond 100 entries
+    -- Memory leak safeguard: evict cache if size grows beyond 100 entries. Keep this NPC's roll:
+    -- the dialog asks twice per answer (recruitment_roll_success, then recruitment_roll_fail), and a
+    -- second roll can make both false, which leaves the NPC no reply (an engine assert)
     local count = 0
     for _ in pairs(recruitment_rolls) do count = count + 1 end
     if count > 100 then
+        local own = recruitment_rolls[npc_id]
         recruitment_rolls = {}
+        recruitment_rolls[npc_id] = own
     end
 
     local is_comp = sb.is_companion(npc)
