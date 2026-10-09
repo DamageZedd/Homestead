@@ -2192,6 +2192,12 @@ function stalker_camp_builder.rename_survivor(npc_id, new_name)
         if camp.survivors and camp.survivors[npc_id] then
             camp.survivors[npc_id].name = new_name
             camp.survivors[npc_id].renamed = true
+            -- the NPC's own name: set_character_name belongs to the server object, which hands the
+            -- name to the NPC when it next spawns
+            local se_npc = alife_object(npc_id)
+            if se_npc and se_npc.set_character_name then
+                pcall(function() se_npc:set_character_name(new_name) end)
+            end
             return true
         end
     end
