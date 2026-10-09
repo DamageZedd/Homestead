@@ -2824,6 +2824,12 @@ local function get_upgrade_tier(section)
     if not section then return 1 end
     if #section >= 14 then
         local indx = section:sub(14, 14):lower()
+        -- G.A.M.M.A.'s Upgrades pricing overhaul gates the columns its own way: a/b need no
+        -- toolkit (tier 0 always passes), d the basic one, c, e and f as in the base game
+        if upgrade_rank_pricing ~= nil then
+            if indx == "a" or indx == "b" then return 0 end
+            if indx == "d" then return 1 end
+        end
         if indx == "a" or indx == "b" then return 1 end
         if indx == "c" or indx == "d" then return 2 end
         if indx == "e" or indx == "f" then return 3 end
