@@ -766,6 +766,20 @@ function stalker_camp_builder.get_dynamic_squad_section_for_faction(faction, for
     return "bandit_sim_squad_novice"
 end
 
+-- the squad upgrade_rival_camp_tier adds at tier 3. An outpost that changes hands keeps its tier and
+-- its furniture, so its new owner gets this squad too; nothing is built.
+local function reinforce_stronghold(sb, camp, sim)
+    if (camp.tier or 1) < 3 or not camp.position then return end
+    local pos = vector():set(camp.position.x, camp.position.y, camp.position.z)
+    local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
+    local squad = sb.create_squad_at_pos(squad_sec, pos, camp.level_vertex_id, camp.game_vertex_id)
+    if squad then
+        sb.setup_rival_squad_positions(squad, camp, sim)
+        camp.extra_squad_ids = camp.extra_squad_ids or {}
+        table.insert(camp.extra_squad_ids, squad.id)
+    end
+end
+
 local function process_single_rival_camp(key, camp, level_name, actor, current_sec, sb, v_scratch_pos)
     if type(camp) ~= "table" or not camp.chest_id then return end
 
@@ -1143,6 +1157,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                     if new_squad then
                                         camp.squad_id = new_squad.id
                                         sb.setup_rival_squad_positions(new_squad, camp, sim)
+                                        reinforce_stronghold(sb, camp, sim)
                                     end
 
                                     local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
@@ -1203,6 +1218,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                 camp.squad_id = occupant_squad.id
                 sb.setup_rival_squad_positions(occupant_squad, camp, sim)
                 camp.faction = occupant_faction
+                reinforce_stronghold(sb, camp, sim)
                 camp.cleared = false
                 camp.despawn_chest_when_empty = nil
                 camp.setup_sec = current_sec
