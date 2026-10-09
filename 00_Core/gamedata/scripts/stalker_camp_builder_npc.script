@@ -624,9 +624,11 @@ function stalker_camp_builder.setup_settler_beh_logic(npc, target_lvid, look_pos
         schemes["beh"] = "axr_beh"
     end
 
-    -- Ensure st.beh is a valid table, never a boolean or nil
-    if type(st.beh) ~= "table" then
-        st.beh = {}
+    -- st.beh is left for assign_storage_and_bind (xr_logic) to create: it adds the beh evaluator
+    -- and action to the NPC's planner only when it creates the table. A value that isn't a table
+    -- would stop it, so clear that.
+    if st.beh ~= nil and type(st.beh) ~= "table" then
+        st.beh = nil
     end
 
     -- 1. Activate dedicated settler beh scheme if not already active
