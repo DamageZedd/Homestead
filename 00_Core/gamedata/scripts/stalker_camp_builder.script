@@ -6725,6 +6725,12 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     -- haru_specialized_storage_boxes refuses anything else the player puts in by hand
     local function takes_item(box_id)
         local se_b = safe_alife_object(box_id)
+        -- Hideout Furniture's weapon displays (pistol shelf, pegboards) are boxes too: weapon_showcase
+        -- refuses other items the player moves in, and shows only guns put in by hand
+        if se_b and weapon_showcase and weapon_showcase.valid_stash
+           and weapon_showcase.valid_stash[se_b:section_name()] then
+            return false
+        end
         local kind = se_b and ini_sys and ini_sys:r_string_ex(se_b:section_name(), "specialized_storage")
         if kind == "ammo" then
             return IsItem ~= nil and IsItem("ammo", sec) ~= nil
