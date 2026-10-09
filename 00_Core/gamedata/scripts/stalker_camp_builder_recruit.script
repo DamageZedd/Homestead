@@ -1020,6 +1020,9 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
         s.medic_order = prev_record.medic_order
         s.craft_order = prev_record.craft_order
         s.woodcutter_mode = prev_record.woodcutter_mode
+        s.has_axe = prev_record.has_axe
+        s.has_drugkit = prev_record.has_drugkit
+        s.has_tools = prev_record.has_tools
     end
     sb.settler_lookup[npc_id] = {
         hub_id = hub_id,
@@ -2817,6 +2820,70 @@ function stalker_camp_builder.is_camp_trader(p1, p2)
     return ok and res or false
 end
 
+function stalker_camp_builder.is_camp_woodcutter(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if surv and surv.job == "woodcutter" then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+function stalker_camp_builder.is_camp_brewer(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if surv and surv.job == "brewer" then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+function stalker_camp_builder.is_camp_scrapper(p1, p2)
+    local ok, res = pcall(function()
+        local actor, npc = resolve_speakers(p1, p2)
+        if not npc then return false end
+        local npc_id = npc:id()
+        if npc_id == 0 or (actor and npc_id == actor:id()) then return false end
+
+        local sb = stalker_camp_builder
+        for _, camp in pairs(sb.active_camps or {}) do
+            if type(camp) == "table" and camp.survivors then
+                local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+                if surv and surv.job == "scrapper" then
+                    return true
+                end
+            end
+        end
+        return false
+    end)
+    return ok and res or false
+end
+
+
 function stalker_camp_builder.open_technician_workbench(actor, npc)
     local a, n = resolve_speakers(actor, npc)
     local sb = stalker_camp_builder
@@ -3171,6 +3238,155 @@ function stalker_camp_builder.give_tech_toolkit3(actor, npc) deliver_toolkit("it
 function stalker_camp_builder.dialog_auto_sort_supplies(actor, npc)
     stalker_camp_builder.smart_dump_to_camp_storage()
 end
+
+local function get_speaker_survivor_and_camp(p1, p2)
+    local actor, npc = resolve_speakers(p1, p2)
+    if not npc then return nil, nil, nil end
+    local npc_id = npc:id()
+    if not npc_id or npc_id == 0 or (actor and npc_id == actor:id()) then return nil, nil, nil end
+    local sb = stalker_camp_builder
+    if sb.settler_lookup and sb.settler_lookup[npc_id] then
+        local entry = sb.settler_lookup[npc_id]
+        if entry and entry.survivor and entry.camp then
+            return entry.survivor, entry.camp, entry.hub_id
+        end
+    end
+    for hub_id, camp in pairs(sb.active_camps or {}) do
+        if type(camp) == "table" and camp.survivors then
+            local surv = camp.survivors[npc_id] or camp.survivors[tostring(npc_id)] or camp.survivors[tonumber(npc_id)]
+            if surv then
+                return surv, camp, hub_id
+            end
+        end
+    end
+    return nil, nil, nil
+end
+
+local SCRAPPER_TOOL_SECTIONS = {
+    "wpn_axe3", "wpn_sledgehammer", "crowbar", "itm_crowbar", "wpn_crowbar",
+    "hammer", "ball_hammer",
+    "itm_basickit", "itm_advancedkit", "itm_expertkit",
+    "toolkit_1", "toolkit_2", "toolkit_3",
+    "toolkit_p", "toolkit_s", "toolkit_r5", "toolkit_r7",
+    "itm_repairkit_tier_1", "itm_repairkit_tier_2", "itm_repairkit_tier_3",
+    "itm_gunsmith_toolkit", "itm_outfit_toolkit"
+}
+
+function stalker_camp_builder.actor_has_woodcutter_axe(p1, p2)
+    local actor = db.actor
+    if not actor then return false end
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "woodcutter" and not surv.has_axe) then return false end
+    return (actor:object("wpn_axe") ~= nil)
+        or (actor:object("wpn_axe2") ~= nil)
+        or (actor:object("wpn_axe3") ~= nil)
+end
+
+function stalker_camp_builder.give_woodcutter_axe(p1, p2)
+    local actor = db.actor
+    if not actor then return end
+    local surv, camp = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "woodcutter" and not surv.has_axe) then return end
+    local itm = actor:object("wpn_axe") or actor:object("wpn_axe2") or actor:object("wpn_axe3")
+    if itm then
+        alife_release(alife_object(itm:id()))
+        surv.has_axe = true
+        news_manager.send_tip(actor, game.translate_string("st_woodcutter_axe_delivered"), nil, "general_stalker", 8000)
+    end
+end
+
+function stalker_camp_builder.actor_has_brewer_drugkit(p1, p2)
+    local actor = db.actor
+    if not actor then return false end
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "brewer" and not surv.has_drugkit) then return false end
+    return (actor:object("itm_drugkit") ~= nil) or (actor:object("drugkit") ~= nil)
+end
+
+function stalker_camp_builder.give_brewer_drugkit(p1, p2)
+    local actor = db.actor
+    if not actor then return end
+    local surv, camp = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "brewer" and not surv.has_drugkit) then return end
+    local itm = actor:object("itm_drugkit") or actor:object("drugkit")
+    if itm then
+        alife_release(alife_object(itm:id()))
+        surv.has_drugkit = true
+        if camp then
+            camp.has_drugkit = true
+            stalker_camp_builder.get_camp_morale(camp)
+        end
+        news_manager.send_tip(actor, game.translate_string("st_brewer_kit_delivered"), nil, "general_stalker", 8000)
+    end
+end
+
+function stalker_camp_builder.actor_has_scrapper_tools(p1, p2)
+    local actor = db.actor
+    if not actor then return false end
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "scrapper" and not surv.has_tools) then return false end
+    for _, sec in ipairs(SCRAPPER_TOOL_SECTIONS) do
+        if actor:object(sec) then return true end
+    end
+    return false
+end
+
+function stalker_camp_builder.give_scrapper_tools(p1, p2)
+    local actor = db.actor
+    if not actor then return end
+    local surv, camp = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "scrapper" and not surv.has_tools) then return end
+    local itm = nil
+    for _, sec in ipairs(SCRAPPER_TOOL_SECTIONS) do
+        itm = actor:object(sec)
+        if itm then break end
+    end
+    if itm then
+        alife_release(alife_object(itm:id()))
+        surv.has_tools = true
+        news_manager.send_tip(actor, game.translate_string("st_scrapper_tools_delivered"), nil, "general_stalker", 8000)
+    end
+end
+
+function stalker_camp_builder.is_not_woodcutter_mode_auto(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "woodcutter") then return false end
+    return (surv.woodcutter_mode or "auto") ~= "auto"
+end
+
+function stalker_camp_builder.is_not_woodcutter_mode_timber(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "woodcutter") then return false end
+    return (surv.woodcutter_mode or "auto") ~= "timber"
+end
+
+function stalker_camp_builder.is_not_woodcutter_mode_charcoal(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if not (surv and surv.job == "woodcutter") then return false end
+    return (surv.woodcutter_mode or "auto") ~= "charcoal"
+end
+
+function stalker_camp_builder.set_woodcutter_mode_auto(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if surv then
+        surv.woodcutter_mode = "auto"
+    end
+end
+
+function stalker_camp_builder.set_woodcutter_mode_timber(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if surv then
+        surv.woodcutter_mode = "timber"
+    end
+end
+
+function stalker_camp_builder.set_woodcutter_mode_charcoal(p1, p2)
+    local surv = get_speaker_survivor_and_camp(p1, p2)
+    if surv then
+        surv.woodcutter_mode = "charcoal"
+    end
+end
+
 
 
 -- ============================================================================

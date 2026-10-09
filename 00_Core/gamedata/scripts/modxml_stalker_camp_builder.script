@@ -83,15 +83,25 @@ local dialogues = [[
             <next>1</next>
             <next>2</next>
             <next>3</next>
+            <next>4</next>
             <next>6</next>
             <next>8</next>
             <next>9</next>
             <next>10</next>
             <next>17</next>
+            <next>18</next>
+            <next>19</next>
+            <next>23</next>
+            <next>70</next>
+            <next>71</next>
+            <next>72</next>
+            <next>73</next>
             <next>50</next>
             <next>60</next>
             <next>62</next>
+            <next>7</next>
             <next>5</next>
+            <next>999</next>
         </phrase>
         <phrase id="1">
             <text>st_job_scavenge_ask</text>
@@ -228,6 +238,167 @@ local dialogues = [[
         <phrase id="77">
             <script_text>stalker_camp_builder.get_camp_status_text</script_text>
             <next>100</next>
+        </phrase>
+        <phrase id="18">
+            <text>st_job_woodcutter_ask</text>
+            <action>stalker_camp_builder.set_woodcutter_job</action>
+            <next>181</next>
+        </phrase>
+        <phrase id="181">
+            <text>st_job_woodcutter_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="19">
+            <text>st_job_brewer_ask</text>
+            <action>stalker_camp_builder.set_brewer_job</action>
+            <next>191</next>
+        </phrase>
+        <phrase id="191">
+            <text>st_job_brewer_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="23">
+            <text>st_job_scrapper_ask</text>
+            <action>stalker_camp_builder.set_scrapper_job</action>
+            <next>231</next>
+        </phrase>
+        <phrase id="231">
+            <text>st_job_scrapper_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="70">
+            <precondition>stalker_camp_builder.actor_has_woodcutter_axe</precondition>
+            <text>st_camp_woodcutter_axe_ask</text>
+            <action>stalker_camp_builder.give_woodcutter_axe</action>
+            <next>701</next>
+        </phrase>
+        <phrase id="701">
+            <text>st_camp_woodcutter_axe_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="71">
+            <precondition>stalker_camp_builder.actor_has_brewer_drugkit</precondition>
+            <text>st_camp_brewer_kit_ask</text>
+            <action>stalker_camp_builder.give_brewer_drugkit</action>
+            <next>711</next>
+        </phrase>
+        <phrase id="711">
+            <text>st_camp_brewer_kit_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="72">
+            <precondition>stalker_camp_builder.actor_has_scrapper_tools</precondition>
+            <text>st_camp_scrapper_tools_ask</text>
+            <action>stalker_camp_builder.give_scrapper_tools</action>
+            <next>721</next>
+        </phrase>
+        <phrase id="721">
+            <text>st_camp_scrapper_tools_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="73">
+            <precondition>stalker_camp_builder.is_camp_woodcutter</precondition>
+            <text>st_camp_woodcutter_mode_ask</text>
+            <next>730</next>
+        </phrase>
+        <phrase id="730">
+            <text>st_camp_woodcutter_mode_reply</text>
+            <next>731</next>
+            <next>732</next>
+            <next>733</next>
+        </phrase>
+        <phrase id="731">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_auto</precondition>
+            <text>st_woodcutter_mode_auto_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_auto</action>
+            <next>739</next>
+        </phrase>
+        <phrase id="732">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_timber</precondition>
+            <text>st_woodcutter_mode_timber_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_timber</action>
+            <next>739</next>
+        </phrase>
+        <phrase id="733">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_charcoal</precondition>
+            <text>st_woodcutter_mode_charcoal_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_charcoal</action>
+            <next>739</next>
+        </phrase>
+        <phrase id="739">
+            <text>st_camp_woodcutter_mode_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="999">
+            <text>st_manage_camp_close</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+    </phrase_list>
+</dialog>
+
+<dialog id="camp_woodcutter_dialog">
+    <precondition>stalker_camp_builder.is_camp_woodcutter</precondition>
+    <phrase_list>
+        <phrase id="0">
+            <text>st_camp_woodcutter_ask</text>
+            <next>1</next>
+        </phrase>
+        <phrase id="1">
+            <text>st_camp_woodcutter_reply</text>
+            <next>10</next>
+            <next>20</next>
+            <next>99</next>
+        </phrase>
+        <phrase id="10">
+            <precondition>stalker_camp_builder.actor_has_woodcutter_axe</precondition>
+            <text>st_camp_woodcutter_axe_ask</text>
+            <action>stalker_camp_builder.give_woodcutter_axe</action>
+            <next>11</next>
+        </phrase>
+        <phrase id="11">
+            <text>st_camp_woodcutter_axe_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="20">
+            <text>st_camp_woodcutter_mode_ask</text>
+            <next>21</next>
+        </phrase>
+        <phrase id="21">
+            <text>st_camp_woodcutter_mode_reply</text>
+            <next>22</next>
+            <next>23</next>
+            <next>24</next>
+            <next>99</next>
+        </phrase>
+        <phrase id="22">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_auto</precondition>
+            <text>st_woodcutter_mode_auto_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_auto</action>
+            <next>25</next>
+        </phrase>
+        <phrase id="23">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_timber</precondition>
+            <text>st_woodcutter_mode_timber_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_timber</action>
+            <next>25</next>
+        </phrase>
+        <phrase id="24">
+            <precondition>stalker_camp_builder.is_not_woodcutter_mode_charcoal</precondition>
+            <text>st_woodcutter_mode_charcoal_dialog</text>
+            <action>stalker_camp_builder.set_woodcutter_mode_charcoal</action>
+            <next>25</next>
+        </phrase>
+        <phrase id="25">
+            <text>st_camp_woodcutter_mode_done</text>
+            <action>dialogs.break_dialog</action>
+        </phrase>
+        <phrase id="99">
+            <text>st_manage_camp_close</text>
+            <next>100</next>
+        </phrase>
+        <phrase id="100">
+            <text>st_manage_camp_close_reply</text>
+            <action>dialogs.break_dialog</action>
         </phrase>
     </phrase_list>
 </dialog>
@@ -709,6 +880,9 @@ function on_game_start()
         end
         if not dialog_list:has("camp_technician_dialog") then
             dialog_list:add("camp_technician_dialog")
+        end
+        if not dialog_list:has("camp_woodcutter_dialog") then
+            dialog_list:add("camp_woodcutter_dialog")
         end
         if not dialog_list:has("return_to_settlement_dialog") then
             dialog_list:add("return_to_settlement_dialog")

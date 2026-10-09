@@ -1666,7 +1666,7 @@ function SettlementManagerPDA:OnSurvivorSelected()
         local boost_str = ""
         if job == "woodcutter" and s_item.has_axe then
             boost_str = " [Axe: 2x Boost]"
-        elseif job == "brewer" and s_item.has_drugkit then
+        elseif job == "brewer" and (s_item.has_drugkit or (camp and camp.has_drugkit)) then
             boost_str = " [Distillery Kit: 2x Boost]"
         elseif job == "scrapper" and s_item.has_tools then
             boost_str = " [Demolition Tools: 2x Boost]"
@@ -2642,7 +2642,7 @@ function SettlementManagerPDA:RefreshJobProgress(force, hub_id_override)
                         local boost_str = ""
                         if job == "woodcutter" and survivor.has_axe then
                             boost_str = " [Axe: 2x Boost]"
-                        elseif job == "brewer" and survivor.has_drugkit then
+                        elseif job == "brewer" and (survivor.has_drugkit or (camp and camp.has_drugkit)) then
                             boost_str = " [Distillery Kit: 2x Boost]"
                         elseif job == "scrapper" and survivor.has_tools then
                             boost_str = " [Demolition Tools: 2x Boost]"

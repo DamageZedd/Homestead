@@ -1991,7 +1991,7 @@ function stalker_camp_builder.process_brewer_job(npc_id, hub_id, camp, survivor,
     end
 
     local count = 2  -- DANZY EDIT (balance): was 5 (10 with drug kit)
-    if survivor and survivor.has_drugkit then
+    if (survivor and survivor.has_drugkit) or (camp and camp.has_drugkit) then
         count = 4
     end
     local mult = math.max(1, math.floor(sb.cfg.craft_output_multiplier or 1))

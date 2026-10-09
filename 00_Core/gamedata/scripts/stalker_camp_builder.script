@@ -4926,6 +4926,18 @@ function set_electrician_job(actor, npc)
     set_survivor_job(npc:id(), "electrician")
 end
 
+function set_woodcutter_job(actor, npc)
+    set_survivor_job(npc:id(), "woodcutter")
+end
+
+function set_brewer_job(actor, npc)
+    set_survivor_job(npc:id(), "brewer")
+end
+
+function set_scrapper_job(actor, npc)
+    set_survivor_job(npc:id(), "scrapper")
+end
+
 function check_camp_chest_supplies(camp, hub_obj)
     if time_global() < homestead_teardown_grace_until then
         return false, false
@@ -9504,6 +9516,71 @@ end
 function start_camp_trader_trade(actor, npc)
     return stalker_camp_builder.start_camp_trader_trade and stalker_camp_builder.start_camp_trader_trade(actor, npc)
 end
+
+function is_camp_woodcutter(actor, npc)
+    return stalker_camp_builder.is_camp_woodcutter and stalker_camp_builder.is_camp_woodcutter(actor, npc)
+end
+
+function is_camp_brewer(actor, npc)
+    return stalker_camp_builder.is_camp_brewer and stalker_camp_builder.is_camp_brewer(actor, npc)
+end
+
+function is_camp_scrapper(actor, npc)
+    return stalker_camp_builder.is_camp_scrapper and stalker_camp_builder.is_camp_scrapper(actor, npc)
+end
+
+function actor_has_woodcutter_axe(actor, npc)
+    return stalker_camp_builder.actor_has_woodcutter_axe and stalker_camp_builder.actor_has_woodcutter_axe(actor, npc)
+end
+
+function give_woodcutter_axe(actor, npc)
+    return stalker_camp_builder.give_woodcutter_axe and stalker_camp_builder.give_woodcutter_axe(actor, npc)
+end
+
+function actor_has_brewer_drugkit(actor, npc)
+    return stalker_camp_builder.actor_has_brewer_drugkit and stalker_camp_builder.actor_has_brewer_drugkit(actor, npc)
+end
+
+function give_brewer_drugkit(actor, npc)
+    return stalker_camp_builder.give_brewer_drugkit and stalker_camp_builder.give_brewer_drugkit(actor, npc)
+end
+
+function actor_has_scrapper_tools(actor, npc)
+    return stalker_camp_builder.actor_has_scrapper_tools and stalker_camp_builder.actor_has_scrapper_tools(actor, npc)
+end
+
+function give_scrapper_tools(actor, npc)
+    return stalker_camp_builder.give_scrapper_tools and stalker_camp_builder.give_scrapper_tools(actor, npc)
+end
+
+function is_not_woodcutter_mode_auto(actor, npc)
+    return stalker_camp_builder.is_not_woodcutter_mode_auto and stalker_camp_builder.is_not_woodcutter_mode_auto(actor, npc)
+end
+
+function is_not_woodcutter_mode_timber(actor, npc)
+    return stalker_camp_builder.is_not_woodcutter_mode_timber and stalker_camp_builder.is_not_woodcutter_mode_timber(actor, npc)
+end
+
+function is_not_woodcutter_mode_charcoal(actor, npc)
+    return stalker_camp_builder.is_not_woodcutter_mode_charcoal and stalker_camp_builder.is_not_woodcutter_mode_charcoal(actor, npc)
+end
+
+function set_woodcutter_mode_auto(actor, npc)
+    return stalker_camp_builder.set_woodcutter_mode_auto and stalker_camp_builder.set_woodcutter_mode_auto(actor, npc)
+end
+
+function set_woodcutter_mode_timber(actor, npc)
+    return stalker_camp_builder.set_woodcutter_mode_timber and stalker_camp_builder.set_woodcutter_mode_timber(actor, npc)
+end
+
+function set_woodcutter_mode_charcoal(actor, npc)
+    return stalker_camp_builder.set_woodcutter_mode_charcoal and stalker_camp_builder.set_woodcutter_mode_charcoal(actor, npc)
+end
+
+stalker_camp_builder.set_woodcutter_job = set_woodcutter_job
+stalker_camp_builder.set_brewer_job = set_brewer_job
+stalker_camp_builder.set_scrapper_job = set_scrapper_job
+
 
 stalker_camp_builder.is_actor_healthy = is_actor_healthy
 stalker_camp_builder.is_actor_not_healthy = is_actor_not_healthy
