@@ -2052,14 +2052,16 @@ function SettlementManagerPDA:OnSurvivorSelected()
                 end
             elseif job == "woodcutter" then
                 local w_mode = s_item.woodcutter_mode or "auto"
-                local mode_label = game.translate_string("st_directive_woodcutter_" .. w_mode)
+                -- a button's label never wraps: without its "(...)" detail, as the other themes'
+                -- hs_theme.short has it
+                local mode_label = (game.translate_string("st_directive_woodcutter_" .. w_mode):gsub("%s*%b()%s*$", ""))
                 if self.btn_job_directive.TextControl and self.btn_job_directive:TextControl() then
                     self.btn_job_directive:TextControl():SetText("[ " .. mode_label .. " ]")
                     self.btn_job_directive:TextControl():SetTextColor(GetARGB(255, 238, 196, 112))
                 end
             elseif job == "craft" then
                 local c_order = s_item.craft_order or "auto"
-                local order_label = game.translate_string("st_directive_craft_" .. c_order)
+                local order_label = (game.translate_string("st_directive_craft_" .. c_order):gsub("%s*%b()%s*$", ""))
                 if self.btn_job_directive.TextControl and self.btn_job_directive:TextControl() then
                     self.btn_job_directive:TextControl():SetText("[ " .. order_label .. " ]")
                     self.btn_job_directive:TextControl():SetTextColor(GetARGB(255, 255, 180, 100))
