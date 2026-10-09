@@ -65,11 +65,15 @@ local LAMP_BATTERIES = {
     ammo_battery = true, ammo_battery_d = true, prt_i_battery = true,
 }
 local GUNPOWDER_TIER = { powder_1 = 1, powder_2 = 2, powder_3 = 3, powder_4 = 3 }
+local CRAFT_SCRAP = { prt_i_scrap = true }
+local MEDIC_CLOTH = { prt_i_cloth = true }
 
 local function is_wood_part(sec) return WOOD_PARTS[sec] == true end
 local function is_clean_water(sec) return CLEAN_WATER[sec] == true end
 local function is_lamp_battery(sec) return LAMP_BATTERIES[sec] == true end
 local function is_gunpowder(sec) return GUNPOWDER_TIER[sec] ~= nil end
+local function is_scrap(sec) return sec and CRAFT_SCRAP[sec:lower()] == true end
+local function is_cloth(sec) return sec and MEDIC_CLOTH[sec:lower()] == true end
 
 -- set_survivor_job -- assigns a job to a settler and re-syncs their
 function stalker_camp_builder.set_survivor_job(npc_id, job)
@@ -563,7 +567,7 @@ function stalker_camp_builder.process_ammo_crafting(npc_id, box_id, camp, surviv
         local s = sec:lower()
         if is_gunpowder(s) then
             found_powders[#found_powders + 1] = { id = item_id, sec = s, tier = GUNPOWDER_TIER[s] }
-        elseif sec == "prt_i_scrap" or s:find("scrap") or s:find("casing") or s:find("bullet") then
+        elseif is_scrap(s) then
             if not scrap_id then
                 scrap_id = item_id
             end
@@ -1173,8 +1177,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id, sn
             return is_gunpowder(sec:lower())
         end)
         local has_scrap = sb.camp_has_item and sb.camp_has_item(hub_id, camp, function(sec)
-            local s = sec:lower()
-            return sec == "prt_i_scrap" or s:find("scrap") ~= nil or s:find("casing") ~= nil or s:find("bullet") ~= nil
+            return is_scrap(sec)
         end)
         if not has_powder and not has_scrap then
             return true, "Need Powder & Scrap", "Missing gunpowder and scrap metal in settlement storage"
@@ -1276,12 +1279,6 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id, sn
                     if total_ethanol >= req_vodka then return true end
                 end
             end)
-        end
-
-        local function is_cloth(sec)
-            if not sec then return false end
-            local s = sec:lower()
-            return s == "prt_i_cloth" or s == "prt_i_paper" or s:find("fabric") ~= nil or s:find("textile") ~= nil
         end
 
         if m_order == "bandage" then
@@ -1666,12 +1663,6 @@ function stalker_camp_builder.process_medic_job(npc_id, box_id, camp, survivor)
         local s = sec:lower()
         return s == "vodka" or s == "vodka2" or s == "vodka_quality" or s == "vodka_putinka"
             or s:find("vodka") ~= nil or s:find("antiseptic") ~= nil or s == "alcohol" or s:find("spirit") ~= nil
-    end
-
-    local function is_cloth(sec)
-        if not sec then return false end
-        local s = sec:lower()
-        return s == "prt_i_cloth" or s == "prt_i_paper" or s:find("fabric") ~= nil or s:find("textile") ~= nil
     end
 
     local total_ethanol = 0

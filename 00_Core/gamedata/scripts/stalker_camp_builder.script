@@ -1181,13 +1181,13 @@ function stalker_camp_builder.get_camp_inventory_snapshot(hub_id, camp, force)
             end
 
             if not snapshot.has_powder then
-                if s:find("gunpowder") ~= nil or s:find("powder") ~= nil or s == "prt_i_scrap" then
+                if s == "powder_1" or s == "powder_2" or s == "powder_3" or s == "powder_4" or s:find("gunpowder") ~= nil or s:find("powder") ~= nil then
                     snapshot.has_powder = true
                 end
             end
 
             if not snapshot.has_scrap then
-                if sec == "prt_i_scrap" or s:find("scrap") ~= nil or s:find("casing") ~= nil or s:find("bullet") ~= nil then
+                if sec == "prt_i_scrap" or s == "prt_i_scrap" then
                     snapshot.has_scrap = true
                 end
             end
@@ -1263,7 +1263,7 @@ function stalker_camp_builder.get_camp_inventory_snapshot(hub_id, camp, force)
             end
 
             if not snapshot.has_cloth then
-                if s == "prt_i_cloth" or s == "prt_i_paper" or s:find("fabric") ~= nil or s:find("textile") ~= nil then
+                if s == "prt_i_cloth" or sec == "prt_i_cloth" then
                     snapshot.has_cloth = true
                 end
             end
