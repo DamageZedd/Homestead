@@ -1181,10 +1181,10 @@
         <text>I have a set of Expert Tools for your workbench.</text>
     </string>
     <string id="st_camp_tech_tools_done">
-        <text>Fantastic! These tools will let me perform higher-grade modifications and faster repairs.</text>
+        <text>Fantastic! These tools will let me perform higher-grade modifications.</text>
     </string>
     <string id="st_tech_toolkit_delivered">
-        <text>Delivered Tier %d Toolkit to camp technician! Workshop upgrades unlocked and repair speed increased.</text>
+        <text>Delivered Tier %d Toolkit to camp technician! Workshop upgrades unlocked.</text>
     </string>
     <string id="st_pda_btn_auto_sort">
         <text>Auto-Sort Stash</text>
