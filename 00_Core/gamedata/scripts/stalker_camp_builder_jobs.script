@@ -2307,8 +2307,11 @@ function stalker_camp_builder.update_camp_jobs()
                 end
 
                 local trader_elapsed = current_sec - camp.trader_spawn_time
-                if trader_elapsed >= sb.cfg.trader_despawn_time then
-                    local se_trader = alife_object(camp.active_trader_id)
+                local se_trader = alife_object(camp.active_trader_id)
+                -- the caravan leaves where the player can't see it go; until then it stays, and a later
+                -- update tries again
+                if trader_elapsed >= sb.cfg.trader_despawn_time
+                    and not (se_trader and sb.in_player_range and sb.in_player_range(se_trader)) then
                     if se_trader then
                         -- the trader is in no squad, and alife_release removes stalkers only through their squad
                         safe_release_manager.release(se_trader)
