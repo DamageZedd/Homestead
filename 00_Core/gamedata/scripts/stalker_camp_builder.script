@@ -1386,11 +1386,7 @@ local RIVAL_SPAWN_SCAN_INTERVAL_MS = 60000  -- 60 real seconds
 -- holds back a routine report's toast; an alert (always) shows either way.
 function camp_send_tip(actor, text, snd_type, category, duration, hub_id, radio_category, always)
     if always or cfg.verbose_notifications ~= false then
-        _suppress_news_intercept = true
-        stalker_camp_builder._suppress_news_intercept = true
         pcall(news_manager.send_tip, actor, text, snd_type, category, duration)
-        _suppress_news_intercept = false
-        stalker_camp_builder._suppress_news_intercept = false
     end
     add_camp_log_entry(text, "info")
     if add_camp_radio_log then
@@ -5722,7 +5718,7 @@ function process_camp_morale()
                                 sb.reassign_freed_settler_to_smart(id_num)
                             end
                             if db.actor then
-                                news_manager.send_tip(db.actor, string.format(game.translate_string("st_survivor_abandoned"), name, camp_name), nil, "red_danger", 12000)
+                                camp_send_tip(db.actor, string.format(game.translate_string("st_survivor_abandoned"), name, camp_name), nil, "red_danger", 12000, camp.hub_id, "general", true)
                             end
                             camp._last_abandon_time = now_sec
                             break  -- only one per check
@@ -6731,7 +6727,6 @@ end
 function on_game_start()
     local type_ = type
     patch_alife_storage_manager()
-    hook_homestead_news_manager()
     -- v1.1.7: map_spot_menu_* callbacks are registered once at the end of
     pcall(function()
         local function get_weapon_repair_tier(sec)
@@ -7195,7 +7190,7 @@ function on_game_start()
                         warnings[#warnings+1] = "under raid"
                     end
                     if #warnings > 0 and db.actor then
-                        news_manager.send_tip(db.actor, sformat(game.translate_string("st_event_camp_warning"), camp.name or "Camp", table.concat(warnings, " and ")), nil, "red_danger", 10000)
+                        camp_send_tip(db.actor, sformat(game.translate_string("st_event_camp_warning"), camp.name or "Camp", table.concat(warnings, " and ")), nil, "red_danger", 10000, camp.hub_id, "combat", true)
                     end
                 end
             end
@@ -9374,7 +9369,7 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
     local disp_lvl = game.translate_string(target_level)
     local type_str = is_yellow and " [Yellow Rare]" or " [White Common]"
     local msg = string.format(game.translate_string("st_scavenger_expedition_departed"), best_surv.name or "Scavenger", best_camp.name or "Camp", disp_lvl, type_str, real_est)
-    news_manager.send_tip(actor, msg, nil, "general_stalker", 10000)
+    camp_send_tip(actor, msg, nil, "general_stalker", 10000, best_hub_id, "expedition", true)
 
     utils_obj.switch_offline(best_surv.npc_id)
     return true
@@ -9463,7 +9458,7 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
 
     local disp_lvl = game.translate_string(target_level)
     local msg = string.format(game.translate_string("st_scavenger_sweep_departed"), best_surv.name or "Scavenger", best_camp.name or "Camp", count, disp_lvl, real_est)
-    news_manager.send_tip(actor, msg, nil, "general_stalker", 11000)
+    camp_send_tip(actor, msg, nil, "general_stalker", 11000, best_hub_id, "expedition", true)
 
     utils_obj.switch_offline(best_surv.npc_id)
     return true
@@ -10299,82 +10294,7 @@ local function trim_radio_log(logs, max)
 end
 
 function stalker_camp_builder.intercept_pda_news_message(raw_text, sender, sender_id)
-    local sfind = string.find
-    if not raw_text or type(raw_text) ~= "string" or raw_text == "" then return end
-
-    local text = game.translate_string(raw_text)
-    if not text or text == "" then return end
-
-    local lower_text = text:lower()
-
-    local keywords = {
-        "settle", "camp", "surviv", "scaveng", "craft", "technic", "repair",
-        "cook", "medic", "electr", "guard", "water", "pump", "fridg", "turret",
-        "alarm", "siren", "raid", "recon", "mayday", "skirmish", "expedit",
-        "caravan", "trader", "homestead", "stash", "toolkit", "tool", "drugkit",
-        "sort", "outpost", "stronghold", "workb", "bunk", "bed", "refugee", "ambush", "morale"
-    }
-
-    local is_homestead = false
-    for _, kw in ipairs(keywords) do
-        if sfind(lower_text, kw, 1, true) then
-            is_homestead = true
-            break
-        end
-    end
-
-    if not is_homestead then return end
-
-    local cat = "general"
-    if sfind(lower_text, "scaveng", 1, true) or sfind(lower_text, "expedit", 1, true) or sfind(lower_text, "stash", 1, true) or sfind(lower_text, "ambush", 1, true) then
-        cat = "expedition"
-    elseif sfind(lower_text, "raid", 1, true) or sfind(lower_text, "alarm", 1, true) or sfind(lower_text, "attack", 1, true) or sfind(lower_text, "turret", 1, true) or sfind(lower_text, "siren", 1, true) or sfind(lower_text, "skirmish", 1, true) or sfind(lower_text, "mayday", 1, true) or sfind(lower_text, "killed", 1, true) or sfind(lower_text, "danger", 1, true) then
-        cat = "combat"
-    elseif sfind(lower_text, "craft", 1, true) or sfind(lower_text, "cook", 1, true) or sfind(lower_text, "repair", 1, true) or sfind(lower_text, "medic", 1, true) or sfind(lower_text, "water", 1, true) or sfind(lower_text, "pump", 1, true) or sfind(lower_text, "fridg", 1, true) or sfind(lower_text, "electr", 1, true) or sfind(lower_text, "tool", 1, true) then
-        cat = "work"
-    end
-
-    local h = (level and level.get_time_hours and level.get_time_hours()) or 12
-    local m = (level and level.get_time_minutes and level.get_time_minutes()) or 0
-    local time_str = string.format("%02d:%02d", h, m)
-
-    local entry = {
-        time_str = time_str,
-        category = cat,
-        text = text
-    }
-
-    stalker_camp_builder.radio_logs = stalker_camp_builder.radio_logs or {}
-    stalker_camp_builder.radio_logs["all"] = stalker_camp_builder.radio_logs["all"] or {}
-    local g_logs = stalker_camp_builder.radio_logs["all"]
-
-    for i = 1, math.min(5, #g_logs) do
-        if g_logs[i].text == text then
-            return
-        end
-    end
-
-    table.insert(g_logs, 1, entry)
-    trim_radio_log(g_logs, 100)
-
-    local active_camps = stalker_camp_builder.active_camps or {}
-    for hid, c in pairs(active_camps) do
-        if c.name and sfind(lower_text, c.name:lower(), 1, true) then
-            stalker_camp_builder.radio_logs[hid] = stalker_camp_builder.radio_logs[hid] or {}
-            local c_logs = stalker_camp_builder.radio_logs[hid]
-            table.insert(c_logs, 1, entry)
-            while #c_logs > 50 do
-                table.remove(c_logs)
-            end
-        end
-    end
-
-    if ui_stalker_camp_builder_pda and ui_stalker_camp_builder_pda.get_singleton then
-        local pda = ui_stalker_camp_builder_pda.get_singleton()
-        if pda and pda:IsShown() and pda.current_tab == "radio" then
-            pda:PopulateRadioFeed()
-        end
-    end
+    -- Deprecated in v1.2.4 (fixes #253): Homestead tips are dispatched directly via camp_send_tip
 end
 
 function add_camp_radio_log(hub_id, category, text)
@@ -10446,22 +10366,8 @@ function clear_camp_radio_logs(hub_id)
     stalker_camp_builder.radio_logs["all"] = {}
 end
 
-local orig_send_tip = nil
 function hook_homestead_news_manager()
-    if news_manager and news_manager.send_tip and not orig_send_tip then
-        orig_send_tip = news_manager.send_tip
-        news_manager.send_tip = function(actor, news_id, timeout, sender, showtime, sender_id)
-            local res = orig_send_tip(actor, news_id, timeout, sender, showtime, sender_id)
-            if not _suppress_news_intercept and not stalker_camp_builder._suppress_news_intercept then
-                pcall(function()
-                    if news_id and type(news_id) == "string" then
-                        stalker_camp_builder.intercept_pda_news_message(news_id, sender, sender_id)
-                    end
-                end)
-            end
-            return res
-        end
-    end
+    -- Deprecated in v1.2.4 (fixes #253): removed global news_manager monkeypatch to prevent foreign mod tips from polluting settlement logs
 end
 
 function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)

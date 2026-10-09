@@ -226,13 +226,26 @@ function alarm_system_pda_wrapper:update(delta)
     end
 
     if alarm_active and not self.last_alarm_active then
-        news_manager.send_tip(
-            db.actor,
-            game.translate_string("st_alarm_pda_triggered"),
-            nil,
-            nil,
-            20000
-        )
+        if stalker_camp_builder and stalker_camp_builder.camp_send_tip then
+            stalker_camp_builder.camp_send_tip(
+                db.actor,
+                game.translate_string("st_alarm_pda_triggered"),
+                nil,
+                "red_danger",
+                20000,
+                nil,
+                "combat",
+                true
+            )
+        else
+            news_manager.send_tip(
+                db.actor,
+                game.translate_string("st_alarm_pda_triggered"),
+                nil,
+                nil,
+                20000
+            )
+        end
     end
 
     self.object:set_bone_visible("bone_led", is_on, false, false)

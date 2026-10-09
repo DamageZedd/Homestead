@@ -2703,7 +2703,11 @@ function stalker_camp_builder.start_camp_trader_trade(actor, npc)
     if not npc then return end
 
     if bind_trading_computer and bind_trading_computer.is_connection_blocked and bind_trading_computer.is_connection_blocked() then
-        news_manager.send_tip(actor_alao, game.translate_string("st_trade_network_offline"), nil, "red_danger", 10000)
+        if sb.camp_send_tip then
+            sb.camp_send_tip(actor_alao, game.translate_string("st_trade_network_offline"), nil, "red_danger", 10000, nil, "work", true)
+        else
+            news_manager.send_tip(actor_alao, game.translate_string("st_trade_network_offline"), nil, "red_danger", 10000)
+        end
         return
     end
 

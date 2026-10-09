@@ -1519,7 +1519,7 @@ function stalker_camp_builder.process_cook_job(npc_id, hub_id, camp, survivor, b
     local function is_raw_meat(sec) return raw_meats[sec] == true end
     if not (sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_raw_meat, fridge_id)) then
         if fridge_id then
-            news_manager.send_tip(actor, game.translate_string("st_job_cook_no_meat"), nil, "red_danger", 10000)
+            sb.camp_send_tip(actor, game.translate_string("st_job_cook_no_meat"), nil, "red_danger", 10000, hub_id, "work", true)
         end
         return false
     end
@@ -2159,8 +2159,8 @@ function stalker_camp_builder.process_settler_eating(hub_id, camp)
         camp.hungry_until = current_sec + (sb.cfg.food_consumption_interval or 86400)
         camp.hungry_count = hungry
         if db.actor then
-            news_manager.send_tip(db.actor, string.format("%s: %d settler(s) went hungry - no food in storage. Morale is dropping.",
-                camp.name or "Settlement", hungry), nil, "general_stalker", 9000)
+            sb.camp_send_tip(db.actor, string.format("%s: %d settler(s) went hungry - no food in storage. Morale is dropping.",
+                camp.name or "Settlement", hungry), nil, "general_stalker", 9000, hub_id, "work", true)
         end
     else
         camp.hungry_until = nil
@@ -2572,7 +2572,7 @@ function stalker_camp_builder.update_camp_jobs()
                         end
                         sb.camp_send_tip(actor, game.translate_string("st_job_water_pumped"), nil, "general_stalker", 10000)
                     else
-                        news_manager.send_tip(actor, game.translate_string("st_job_water_no_filters"), nil, "red_danger", 10000)
+                        sb.camp_send_tip(actor, game.translate_string("st_job_water_no_filters"), nil, "red_danger", 10000, hub_id, "work", true)
                     end
                 end
             end
