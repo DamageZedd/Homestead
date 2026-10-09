@@ -9333,6 +9333,20 @@ end
 stalker_camp_builder.radio_logs = stalker_camp_builder.radio_logs or {}
 stalker_camp_builder.radio_logs["all"] = stalker_camp_builder.radio_logs["all"] or {}
 
+-- trims a log to max entries: a Radio Scan's lines (flagged scan) go first, oldest first, then the
+-- oldest reports. The next scan writes its lines again; a report pushed out is gone.
+local function trim_radio_log(logs, max)
+    for i = #logs, 1, -1 do
+        if #logs <= max then return end
+        if logs[i].scan then
+            table.remove(logs, i)
+        end
+    end
+    while #logs > max do
+        table.remove(logs)
+    end
+end
+
 function stalker_camp_builder.intercept_pda_news_message(raw_text, sender, sender_id)
     local sfind = string.find
     if not raw_text or type(raw_text) ~= "string" or raw_text == "" then return end
@@ -9390,9 +9404,7 @@ function stalker_camp_builder.intercept_pda_news_message(raw_text, sender, sende
     end
 
     table.insert(g_logs, 1, entry)
-    while #g_logs > 100 do
-        table.remove(g_logs)
-    end
+    trim_radio_log(g_logs, 100)
 
     local active_camps = stalker_camp_builder.active_camps or {}
     for hid, c in pairs(active_camps) do
@@ -9438,9 +9450,7 @@ function add_camp_radio_log(hub_id, category, text)
         category = category or "general",
         text = text
     })
-    while #all_logs > 50 do
-        table.remove(all_logs)
-    end
+    trim_radio_log(all_logs, 50)
     stalker_camp_builder.radio_logs["all"] = all_logs
 
     if hub_id then
@@ -9637,7 +9647,5 @@ function stalker_camp_builder.seed_initial_settlement_telemetry(force_refresh)
         g_logs[i].scan = true
     end
 
-    while #g_logs > 100 do
-        table.remove(g_logs)
-    end
+    trim_radio_log(g_logs, 100)
 end
