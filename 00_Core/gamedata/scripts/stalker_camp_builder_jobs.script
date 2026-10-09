@@ -2152,6 +2152,16 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
     end
 
     if #container_ids == 0 then return end
+    -- rounds come only from a pack's game object (below): with none of the camp's boxes online
+    -- there is nothing to take, so don't walk its storage once per turret
+    local box_online = false
+    for _, bid in ipairs_(container_ids) do
+        if level.object_by_id(bid) then
+            box_online = true
+            break
+        end
+    end
+    if not box_online then return end
 
     local refilled_any = false
     local spent_ammo_boxes = {}
