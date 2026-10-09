@@ -180,6 +180,10 @@ function stalker_camp_builder.anchor_settler_to_smart(npc_id, camp_level, target
     if not sim then return end
     local se_obj = sb.safe_alife_object(npc_id)
     if not se_obj then return end
+    -- register_member below writes through the member as a creature: a released settler's id that
+    -- an item took would crash the engine
+    local cls = se_obj:clsid()
+    if not (IsStalker(nil, cls) or IsMonster(nil, cls)) then return end
 
     -- CRITICAL ANTI-WANDER FIX:
     -- Unregister the settler completely from any vanilla smart terrain.
