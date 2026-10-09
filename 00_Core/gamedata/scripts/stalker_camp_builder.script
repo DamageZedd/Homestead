@@ -7280,7 +7280,8 @@ function stalker_camp_builder.smart_dump_to_camp_storage(target_hub_id)
 
         if is_item_equipped(actor, item) then return end
 
-        local is_quest = ini_sys:r_bool_ex(sec, "quest_item", false)
+        -- most quest items have kind = i_quest and no quest_item key; IsItem("quest") lists both
+        local is_quest = ini_sys:r_bool_ex(sec, "quest_item", false) or (IsItem and IsItem("quest", sec) ~= nil)
         if is_quest then return end
 
         local cls = item:clsid()
