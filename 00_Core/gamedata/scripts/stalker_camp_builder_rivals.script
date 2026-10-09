@@ -50,6 +50,24 @@ stalker_camp_builder.get_safe_switch_distance = get_safe_switch_distance
 stalker_camp_builder.get_safe_switch_distance_sqr = get_safe_switch_distance_sqr
 stalker_camp_builder.is_player_near = is_player_near
 
+-- whether pos on level lvl lies in one of the player's settlements, or within the 15 m that new
+-- outposts keep clear of them (spawn_single_rival_camp)
+local function in_player_settlement(lvl, pos)
+    local sb = stalker_camp_builder
+    if not (pos and sb.active_camps) then return false end
+    local clear = ((sb.cfg and sb.cfg.boundary_dist) or 50) + 15
+    for hub_id, pcamp in pairs(sb.active_camps) do
+        local on_level = not pcamp.level or pcamp.level == "unknown" or pcamp.level == lvl
+        local hub = on_level and alife_object(hub_id)
+        local hp = hub and hub.position
+        if hp then
+            local dx, dy, dz = hp.x - pos.x, hp.y - pos.y, hp.z - pos.z
+            if dx * dx + dy * dy + dz * dz < clear * clear then return true end
+        end
+    end
+    return false
+end
+
 
 -- whether the player has taken this squad as companions (axr_companions keeps them by squad id)
 local function is_companion_squad(id)
@@ -1005,12 +1023,17 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         if camp.heat >= 25 then
                             camp.heat = 5
                             local has_active_heat_mutants = false
+                            -- a pack stays at the outpost's smart terrain: none for one inside a settlement
+                            local heat_smart = camp.smart_name and SIMBOARD and SIMBOARD.smarts_by_names
+                                and SIMBOARD.smarts_by_names[camp.smart_name]
+                            local smart_in_settlement = heat_smart and in_player_settlement(camp.level or level_name, heat_smart.position)
                             if camp.heat_mutant_squad_id then
                                 local existing_m = sim:object(camp.heat_mutant_squad_id)
                                 if existing_m and is_squad_alive(existing_m) and is_squad_monster[existing_m.player_id] then
                                     has_active_heat_mutants = true
-                                    -- packs saved before this were sent at a squad id, which moves them nowhere
-                                    existing_m.scripted_target = camp.smart_name
+                                    -- packs saved before this were sent at a squad id, which moves them nowhere;
+                                    -- one parked in a settlement goes back to the simulation
+                                    existing_m.scripted_target = (not smart_in_settlement) and camp.smart_name or nil
                                 else
                                     camp.heat_mutant_squad_id = nil
                                 end
@@ -1019,7 +1042,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                             local player_near = is_player_near(camp.level or level_name, camp.position)
                             -- off the player's level too: on most levels no spot lies beyond the switch
                             -- distance from an outpost
-                            if not has_active_heat_mutants and not player_near and mrandom(100) <= 20 then
+                            if not has_active_heat_mutants and not player_near and not smart_in_settlement
+                                and mrandom(100) <= 20 then
                                 local mutant_types = {"simulation_dog", "simulation_flesh", "simulation_boar", "simulation_snork", "simulation_bloodsucker"}
                                 local msec = mutant_types[mrandom(#mutant_types)]
                                 local mlvid, mgpos, mgvid
@@ -1038,7 +1062,8 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                         mlvid, mgpos, mgvid = smart.m_level_vertex_id, smart.position, smart.m_game_vertex_id
                                     end
                                 end
-                                if mlvid and mgpos and not is_player_near(camp.level or level_name, mgpos) then
+                                if mlvid and mgpos and not is_player_near(camp.level or level_name, mgpos)
+                                    and not in_player_settlement(camp.level or level_name, mgpos) then
                                     local m_squad = sb.create_squad_at_pos(msec, mgpos, mlvid, mgvid, true)
                                     if m_squad and camp.squad_id then
                                         camp.heat_mutant_squad_id = m_squad.id
@@ -2548,6 +2573,10 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
         end
     end
 
+    -- a courier waits at its smart terrain until it delivers: not one inside a settlement, and it
+    -- doesn't set out from one either
+    if dest_smart and in_player_settlement(camp.level, dest_smart.position) then return end
+
     local candidates = {}
     for _, sm_entry in ipairs(smarts) do
         local sm = sm_entry.obj
@@ -2555,14 +2584,16 @@ function stalker_camp_builder.dispatch_rival_camp_convoy(camp)
             local dx = sm.position.x - cx
             local dy = sm.position.y - cy
             local dz = sm.position.z - cz
-            if (dx*dx + dy*dy + dz*dz) >= 3600 and not is_player_near(camp.level, sm.position) then
+            if (dx*dx + dy*dy + dz*dz) >= 3600 and not is_player_near(camp.level, sm.position)
+                and not in_player_settlement(camp.level, sm.position) then
                 candidates[#candidates + 1] = sm
             end
         end
     end
 
     local start_smart = (#candidates > 0) and candidates[math.random(#candidates)] or smarts[math.random(#smarts)].obj
-    if not start_smart or is_player_near(camp.level, start_smart.position) then return end
+    if not start_smart or is_player_near(camp.level, start_smart.position)
+        or in_player_settlement(camp.level, start_smart.position) then return end
 
     local squad_sec = sb.get_dynamic_squad_section_for_faction(camp.faction or "stalker")
     local start_pos = start_smart.position
