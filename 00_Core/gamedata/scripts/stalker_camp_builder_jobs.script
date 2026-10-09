@@ -1976,9 +1976,35 @@ function stalker_camp_builder.process_woodcutter_job(npc_id, hub_id, camp, survi
         do_charcoal = survivor._woodcutter_alt
     end
 
+    -- If on Auto directive and the settlement has an active brewer, ensure the brewery's
+    -- required 10-wood threshold before burning charcoal; harvest timber instead if wood < 10
+    if mode == "auto" and do_charcoal then
+        local has_camp_brewer = false
+        if camp and camp.survivors then
+            for _, s in pairs(camp.survivors) do
+                if s and s.job == "brewer" and not s.on_expedition then
+                    has_camp_brewer = true
+                    break
+                end
+            end
+        end
+        if has_camp_brewer then
+            local wood_avail = 0
+            if camp and camp._inv_snapshot then
+                wood_avail = camp._inv_snapshot.wood_count or 0
+            elseif sb.camp_count_item then
+                wood_avail = sb.camp_count_item(hub_id, camp, is_wood_part, 10) or 0
+            end
+            if wood_avail < 10 then
+                do_charcoal = false
+            end
+        end
+    end
+
     if do_charcoal then
         local consumed_count = 0
-        for i = 1, 15 do
+        local max_burn = 5 -- Burn a fixed batch of up to 5 wood scraps for 3-5 charcoal instead of wiping all storage
+        for i = 1, max_burn do
             local consumed = sb.find_and_consume_item(hub_id, camp, is_wood_part, nil)
             if consumed then
                 consumed_count = consumed_count + 1
