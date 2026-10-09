@@ -6796,20 +6796,29 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
         end
     end
 
-    if not any_box and hub_id and hub_obj and alife() then
-        -- the engine's own box: decor_box_wood is Even More Hideout Furnitures' wooden box kit, an item
+    -- the engine's own box at the hub, made the main chest: decor_box_wood is Even More Hideout
+    -- Furnitures' wooden box kit, an item
+    local function make_hub_box()
+        if not (hub_id and hub_obj and alife()) then return nil end
         local new_box = alife():create("inventory_box", hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
         if new_box then
             camp.structures = camp.structures or {}
             camp.structures[new_box.id] = "stash"
             camp.primary_chest_id = new_box.id
-            any_box = new_box.id
             table.insert(chest_boxes, new_box.id)
+            return new_box.id
         end
     end
 
-    local fallback_chest = chest_boxes[1] or tech_boxes[1] or crafter_boxes[1] or any_box
-    if not fallback_chest then return nil end
+    if not any_box then
+        any_box = make_hub_box()
+    end
+    if not any_box then return nil end
+
+    -- the last resort takes a job's deposit with no room check, so only a box that holds any item:
+    -- not a fridge, stove or med case, nor a box for another kind, as any_box can be
+    local fallback_chest = chest_boxes[1] or tech_boxes[1] or crafter_boxes[1] or other_boxes[1]
+        or weapon_boxes[1] or armor_boxes[1]
 
     local function pick_box(priority_lists)
         for _, list in ipairs(priority_lists) do
@@ -6873,7 +6882,8 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes })
     if general_fallback then return general_fallback end
 
-    return fallback_chest
+    -- no box in the camp holds any item: make one, as for a camp with no box
+    return fallback_chest or make_hub_box()
 end
 
 
