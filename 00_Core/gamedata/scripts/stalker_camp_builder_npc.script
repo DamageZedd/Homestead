@@ -296,6 +296,15 @@ function stalker_camp_builder.pin_settler_home_squad(npc_id)
     squad.get_script_target = stalker_camp_builder.home_squad_target
 end
 
+-- An online stalker's binder keeps the squad it found first and calls it on every update
+-- (xr_motivator 476-478); base Anomaly clears it only on death. Clear it when an NPC leaves a
+-- squad, or the binder goes on calling that squad after it is released.
+function stalker_camp_builder.forget_binder_squad(npc_id)
+    local obj = npc_id and level.object_by_id(npc_id)
+    local binder = obj and obj:binded_object()
+    if binder then binder.squad = nil end
+end
+
 -- ============================================================================
 -- release_settler_home_squad ? clean up the dedicated home squad created by
 -- anchor_settler_to_smart's scripted_target feature above.
@@ -326,6 +335,7 @@ function stalker_camp_builder.release_settler_home_squad(npc_id)
     local se_npc = alife_object(npc_id)
     if se_npc and se_npc.group_id == squad_id then
         pcall(function() squad:unregister_member(npc_id) end)
+        sb.forget_binder_squad(npc_id)
     end
 
     -- ONLY release the squad if it is now confirmed completely empty (npc_count == 0).
@@ -372,6 +382,7 @@ function stalker_camp_builder.convert_settler_to_companion_squad(npc_id, online_
         -- squad can be the cached home squad rather than the one the settler is in
         if squad and squad:npc_count() > 1 and se_npc.group_id == squad.id then
             pcall(function() squad:unregister_member(npc_id) end)
+            sb.forget_binder_squad(npc_id)
         end
         local spos = online_npc and online_npc:position() or se_npc.position
         local lvid = online_npc and online_npc:level_vertex_id() or se_npc.m_level_vertex_id
