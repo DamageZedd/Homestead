@@ -426,6 +426,7 @@ function stalker_camp_builder.release_npc_from_squad_and_smart(npc_id)
     local squad = get_object_squad(se_obj)
     if squad then
         squad:unregister_member(npc_id)
+        stalker_camp_builder.forget_binder_squad(npc_id)
         local npc_count_ok, npc_count_val = pcall(function() return squad:npc_count() end)
         if npc_count_ok and npc_count_val > 0 then
             squad:refresh()
@@ -1767,6 +1768,8 @@ function stalker_camp_builder.purge_settler_companion_and_squad_state(npc_id, on
     if sb.release_settler_home_squad then
         pcall(function() sb.release_settler_home_squad(npc_id) end)
     end
+    -- the binder still holds the squad it cached, which may be one released above
+    sb.forget_binder_squad(npc_id)
 
     -- 3. No group_id reset: unregister_member clears it in the engine, and the property is
     --    read-only to scripts (an assignment only hides the engine's value from later reads)
@@ -2032,6 +2035,7 @@ function stalker_camp_builder.heal_ghost_companion_squads()
         -- Process only identified ghost members
         for _, mid in ipairs(ghost_ids) do
             pcall(function() squad:unregister_member(mid) end)
+            sb.forget_binder_squad(mid)
             local se_m = sim:object(mid)
             if se_m then
                 pcall(function()
