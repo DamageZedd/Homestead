@@ -2388,6 +2388,9 @@ function stalker_camp_builder.dismantle_camp(hub_id)
     if sb.release_camp_trader then
         sb.release_camp_trader(camp)
     end
+    if sb.end_camp_raid then
+        sb.end_camp_raid(camp)
+    end
     sb.active_camps[hub_id] = nil
     sb.invalidate_scan_camp_structures_cache(hub_id)
 
