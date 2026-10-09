@@ -92,6 +92,8 @@ function stalker_camp_builder.set_survivor_job(npc_id, job)
                 surv.job_start_time = sb.game_sec()
                 surv.job_start_realtime = time_global()
                 surv.paused_elapsed = nil
+                surv._cached_paused_tg = nil
+                surv._cached_paused_job = nil
                 surv.assigned_furniture = {}
                 surv.temp_target_lvid = nil
                 surv.temp_target_time = 0
@@ -1061,7 +1063,7 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
 end
 
 -- get_job_paused_status -- authoritative check for paused settlement jobs
-function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
+function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id, snap)
     local pairs_ = pairs
     local sb = stalker_camp_builder
     if not survivor then return false, nil, nil end
@@ -1108,6 +1110,10 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         return false, nil, nil
     end
 
+    if not snap and sb.get_camp_inventory_snapshot and hub_id then
+        snap = sb.get_camp_inventory_snapshot(hub_id, camp, false)
+    end
+
     local function check_container(bid)
         if not bid then return false end
         if sb.is_actual_container then return sb.is_actual_container(bid) end
@@ -1115,11 +1121,25 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
     end
 
     local is_producing_job = (job == "cook" or job == "craft" or job == "medic" or job == "hunter" or job == "scrapper" or job == "woodcutter" or job == "brewer")
-    if is_producing_job and sb.camp_has_storage_room and not sb.camp_has_storage_room(camp, hub_id, 0.5) then
-        return true, "Storage Full", "All settlement storage containers are at maximum capacity"
+    if is_producing_job then
+        local has_room = (snap and snap.has_storage_room) or (sb.camp_has_storage_room and sb.camp_has_storage_room(camp, hub_id, 0.5))
+        if not has_room then
+            return true, "Storage Full", "All settlement storage containers are at maximum capacity"
+        end
     end
 
     if job == "cook" then
+        if snap then
+            if sb.cfg and sb.cfg.enable_surplus_cap ~= false and snap.food_count >= 15 then
+                return true, "Stockpile Full", "Food stockpile is full (15+ rations stored)"
+            end
+            local has_meat = (snap.fridge_id and snap.fridge_raw_meat_count > 0) or (not snap.fridge_id and snap.raw_meat_count > 0)
+            if not has_meat then
+                return true, "No Raw Meat", "No raw mutant meat in settlement storage"
+            end
+            return false, nil, nil
+        end
+
         if sb.is_camp_supply_capped and sb.is_camp_supply_capped(hub_id, camp, "food") then
             return true, "Stockpile Full", "Food stockpile is full (15+ rations stored)"
         end
@@ -1163,6 +1183,24 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
             return true, "No Workbench", "Settlement requires an assembled Workbench"
         end
 
+        if snap then
+            if sb.cfg and sb.cfg.enable_surplus_cap ~= false then
+                local c_order = survivor.craft_order or "auto"
+                local cap = (c_order == "pistol" or c_order == "shotgun") and 8 or ((c_order == "turret" or c_order == "auto") and 10 or 6)
+                if (snap.ammo_counts[c_order] or 0) >= cap then
+                    return true, "Stockpile Full", "Target ammunition supplies are fully stocked (6+ boxes stored)"
+                end
+            end
+            if not snap.has_powder and not snap.has_scrap then
+                return true, "Need Powder & Scrap", "Missing gunpowder and scrap metal in settlement storage"
+            elseif not snap.has_powder then
+                return true, "Need Gunpowder", "Missing gunpowder in settlement storage"
+            elseif not snap.has_scrap then
+                return true, "Need Scrap Metal", "Missing scrap metal in settlement storage"
+            end
+            return false, nil, nil
+        end
+
         if sb.is_camp_supply_capped and sb.is_camp_supply_capped(hub_id, camp, "ammo", survivor) then
             return true, "Stockpile Full", "Target ammunition supplies are fully stocked (6+ boxes stored)"
         end
@@ -1198,6 +1236,16 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
             return true, "No Workbench", "Settlement requires an assembled Workbench"
         end
 
+        if snap then
+            if not snap.has_damaged_gear then
+                return true, "No Damaged Gear", "No damaged weapons or armor (<95%) to repair"
+            end
+            if not snap.has_repair_fee then
+                return true, "Needs Vodka/Food", "Technician requires vodka or canned food provisions"
+            end
+            return false, nil, nil
+        end
+
         -- both results ("x and f()" keeps only the first, which left has_fee nil)
         local has_damaged, has_fee = false, false
         if sb.camp_has_repairable_gear then
@@ -1224,19 +1272,32 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         end
 
         local m_order = survivor and survivor.medic_order or "auto"
-        if sb.is_camp_supply_capped and sb.is_camp_supply_capped(hub_id, camp, "meds", survivor) then
-            return true, "Stockpile Full", "Target medical supplies are fully stocked (8+ stored)"
+        local req_vodka = (m_order == "akvatab" and 5) or (m_order == "kalium" and 3) or (m_order == "medkit" and 4) or 1
+
+        if snap then
+            if sb.cfg and sb.cfg.enable_surplus_cap ~= false then
+                local cap = (m_order == "auto" or m_order == "bandage") and 15 or 8
+                if (snap.med_counts[m_order] or 0) >= cap then
+                    return true, "Stockpile Full", "Target medical supplies are fully stocked (8+ stored)"
+                end
+            end
+            if m_order == "bandage" or m_order == "auto" then
+                if not snap.has_cloth and snap.total_ethanol < 1 then
+                    return true, "No Materials", "Requires Vodka, Antiseptic, or Cloth to synthesize medical supplies"
+                end
+            else
+                if snap.total_ethanol < req_vodka then
+                    return true, string.format("Need %dx Vodka", req_vodka), string.format("Requires %dx Vodka in settlement storage to synthesize this medicine", req_vodka)
+                end
+                if m_order == "medkit" and not snap.has_bandage then
+                    return true, "Need Bandage", "Requires a Bandage in settlement storage to make a Medkit"
+                end
+            end
+            return false, nil, nil
         end
 
-        local req_vodka = 1
-        if m_order == "akvatab" then
-            req_vodka = 5
-        elseif m_order == "kalium" then
-            req_vodka = 3
-        elseif m_order == "medkit" then
-            req_vodka = 4
-        elseif m_order == "bandage" then
-            req_vodka = 1
+        if sb.is_camp_supply_capped and sb.is_camp_supply_capped(hub_id, camp, "meds", survivor) then
+            return true, "Stockpile Full", "Target medical supplies are fully stocked (8+ stored)"
         end
 
         local total_ethanol = 0
@@ -1314,7 +1375,8 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         if not has_container then
             return true, "No Storage", "No storage container to deposit loot"
         end
-        if sb.camp_has_storage_room and not sb.camp_has_storage_room(camp, hub_id, 0.5) then
+        local has_room = (snap and snap.has_storage_room) or (sb.camp_has_storage_room and sb.camp_has_storage_room(camp, hub_id, 0.5))
+        if not has_room then
             return true, "Storage Full", "All settlement storage containers are at maximum capacity"
         end
         return false, nil, nil
@@ -1330,6 +1392,12 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         if not has_lights then
             return true, "No Lamps", "Camp has no lamps or spotlights to power/maintain"
         end
+        if snap then
+            if not snap.has_battery then
+                return true, "No Battery", "Camp storage has no batteries for electrician maintenance"
+            end
+            return false, nil, nil
+        end
         local has_batt = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_lamp_battery)
         if not has_batt then
             return true, "No Battery", "Camp storage has no batteries for electrician maintenance"
@@ -1339,6 +1407,12 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
     elseif job == "woodcutter" then
         local mode = survivor.woodcutter_mode or "auto"
         if mode == "charcoal" then
+            if snap then
+                if snap.wood_count <= 0 then
+                    return true, "No Wood", "Requires wood parts in camp storage to burn charcoal"
+                end
+                return false, nil, nil
+            end
             local has_wood = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_wood_part)
             if not has_wood then
                 return true, "No Wood", "Requires wood parts in camp storage to burn charcoal"
@@ -1356,6 +1430,15 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
         end
         if not has_still then
             return true, "No Still", "Camp requires a placed Milk Can (Bidon) or Stove"
+        end
+        if snap then
+            if snap.clean_water_count <= 0 then
+                return true, "No Water", "Requires clean water in camp storage to distill vodka"
+            end
+            if snap.wood_count < 10 then
+                return true, "Need Wood", "Requires 10 wood parts in camp storage to distill vodka"
+            end
+            return false, nil, nil
         end
         local has_water = sb.camp_has_item and sb.camp_has_item(hub_id, camp, is_clean_water)
         if not has_water then
@@ -1385,7 +1468,7 @@ function stalker_camp_builder._calc_job_paused_status(survivor, camp, hub_id)
     return false, nil, nil
 end
 
-function stalker_camp_builder.get_job_paused_status(survivor, camp, hub_id)
+function stalker_camp_builder.get_job_paused_status(survivor, camp, hub_id, max_age_ms)
     if not survivor then return false, nil, nil end
     local job = survivor.job or "idle"
 
@@ -1398,12 +1481,9 @@ function stalker_camp_builder.get_job_paused_status(survivor, camp, hub_id)
     end
 
     local now_tg = time_global()
-    -- DANZY EDIT: the cache lives on the saved survivor table, so after a reload
-    -- (timer restarts at 0) or a job change it kept showing the OLD reason, e.g.
-    -- a Scavenger stuck on "No Damaged Gear". Only reuse it for the same job and
-    -- only if the stored time isn't from a previous session.
+    local cache_ttl = max_age_ms or 10000 -- 10 seconds default matches master job update tick
     local c_tg = survivor._cached_paused_tg
-    if c_tg and survivor._cached_paused_job == job and now_tg >= c_tg and (now_tg - c_tg) < 1500 then
+    if c_tg and survivor._cached_paused_job == job and now_tg >= c_tg and (now_tg - c_tg) < cache_ttl then
         return survivor._cached_is_paused, survivor._cached_reason_short, survivor._cached_reason_detail
     end
 
@@ -2163,7 +2243,25 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
 
     if #turrets == 0 then return end
 
+    local deficits = {}
+    local total_deficit = 0
+    for _, turret_id in ipairs_(turrets) do
+        local current_ammo = sb.get_turret_ammo_count(turret_id)
+        local bullets_needed = 40 - current_ammo
+        if bullets_needed > 0 then
+            deficits[#deficits + 1] = { turret_id = turret_id, need = bullets_needed }
+            total_deficit = total_deficit + bullets_needed
+        end
+    end
+    if total_deficit <= 0 then return end
+
     local hub_id = (camp and camp.hub_id) or fallback_box_id or box_id
+    local snap = camp and camp._inv_snapshot
+    if not snap and sb.get_camp_inventory_snapshot then
+        snap = sb.get_camp_inventory_snapshot(hub_id, camp, false)
+    end
+    if snap and (snap.turret_9mm_rounds or 0) <= 0 then return end
+
     local container_ids = {}
     local seen_boxes = {}
     local function is_valid_box(bid)
@@ -2200,36 +2298,37 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
 
     local refilled_any = false
     local spent_ammo_boxes = {}
+    local cur_idx = 1
 
-    for _, turret_id in ipairs_(turrets) do
-        local current_ammo = sb.get_turret_ammo_count(turret_id)
-        local bullets_needed = 40 - current_ammo
-        if bullets_needed > 0 then
-            sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, cid, cl_item)
-                if bullets_needed <= 0 then return true end
-                if spent_ammo_boxes[item_id] then return end
-                -- a pack without a game object is a cse_alife_item_ammo, which exports no round
-                -- count: its rounds can be neither read nor taken
-                if not cl_item then return end
-                if sec and (sec:find("^ammo_9x19") or sec:find("^ammo_9x18")) then
-                    local box_bullets = 0
-                    pcall(function() box_bullets = cl_item:ammo_get_count() end)
-                    if box_bullets > 0 then
-                        local take = math.min(bullets_needed, box_bullets)
-                        local rem = box_bullets - take
-                        pcall(function() cl_item:ammo_set_count(rem) end)
-                        bullets_needed = bullets_needed - take
-                        sb.feed_turret(turret_id, sec, take)
-                        refilled_any = true
-                        if rem <= 0 then
-                            spent_ammo_boxes[item_id] = true
-                        end
+    sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, cid, cl_item)
+        if cur_idx > #deficits then return true end
+        if spent_ammo_boxes[item_id] then return end
+        -- a pack without a game object is a cse_alife_item_ammo, which exports no round
+        -- count: its rounds can be neither read nor taken
+        if not cl_item then return end
+        if sec and (sec:find("^ammo_9x19") or sec:find("^ammo_9x18")) then
+            local box_bullets = 0
+            pcall(function() box_bullets = cl_item:ammo_get_count() end)
+            if box_bullets > 0 then
+                while box_bullets > 0 and cur_idx <= #deficits do
+                    local entry = deficits[cur_idx]
+                    local take = math.min(entry.need, box_bullets)
+                    entry.need = entry.need - take
+                    box_bullets = box_bullets - take
+                    sb.feed_turret(entry.turret_id, sec, take)
+                    refilled_any = true
+                    if entry.need <= 0 then
+                        cur_idx = cur_idx + 1
                     end
                 end
-                if bullets_needed <= 0 then return true end
-            end)
+                pcall(function() cl_item:ammo_set_count(box_bullets) end)
+                if box_bullets <= 0 then
+                    spent_ammo_boxes[item_id] = true
+                end
+            end
         end
-    end
+        if cur_idx > #deficits then return true end
+    end)
 
     for id in pairs(spent_ammo_boxes) do
         local se_item = alife_object(id)
@@ -2239,6 +2338,9 @@ function stalker_camp_builder.process_turret_maintenance(npc_id, box_id, camp, f
     end
 
     if refilled_any then
+        if sb.invalidate_camp_inventory_cache then
+            sb.invalidate_camp_inventory_cache(hub_id, camp)
+        end
         local npc = npc_id and level.object_by_id(npc_id)
         local npc_name = npc and npc:character_name() or (npc_id and "Survivor" or (camp.name or "Settlement Defense"))
         sb.camp_send_tip(db.actor, string.format(game.translate_string("st_job_turret_refilled"), npc_name), nil, "general_stalker", 10000)
@@ -2262,19 +2364,41 @@ local function is_camp_trader(camp)
 end
 
 -- update_camp_jobs -- master per-tick job driver. Runs every 10 real seconds
+local MAX_GLOBAL_CYCLES_PER_TICK = 6
+local last_round_robin_camp_idx = 1
+
 function stalker_camp_builder.update_camp_jobs()
     local mmin = math.min
     local mmax = math.max
     local pairs_ = pairs
     local sformat = string.format
     local tostr = tostring
-            local actor = db.actor
+    local actor = db.actor
     local sb = stalker_camp_builder
     local current_sec = sb.game_sec()
 
-    for hub_id, camp in pairs_(sb.active_camps) do
-        local hub_obj = alife_object(hub_id)
-        if not hub_obj then
+    local camp_keys = {}
+    for hid in pairs_(sb.active_camps or {}) do
+        camp_keys[#camp_keys + 1] = hid
+    end
+    local num_camps = #camp_keys
+    if num_camps == 0 then return end
+    table.sort(camp_keys)
+
+    if last_round_robin_camp_idx > num_camps then
+        last_round_robin_camp_idx = 1
+    end
+
+    local global_cycles_budget = MAX_GLOBAL_CYCLES_PER_TICK
+    local total_cycles_run_this_tick = 0
+
+    for camp_loop_i = 1, num_camps do
+        local c_idx = ((last_round_robin_camp_idx - 1 + (camp_loop_i - 1)) % num_camps) + 1
+        local hub_id = camp_keys[c_idx]
+        local camp = sb.active_camps[hub_id]
+        if camp then
+            local hub_obj = alife_object(hub_id)
+            if not hub_obj then
             if camp and camp.survivors then
                 for _, surv in pairs_(camp.survivors) do
                     surv.shortfall_reason = nil
@@ -2426,6 +2550,8 @@ function stalker_camp_builder.update_camp_jobs()
                 end
             end
 
+            local camp_snap = sb.get_camp_inventory_snapshot and sb.get_camp_inventory_snapshot(hub_id, camp, false)
+
             camp.last_water_time = camp.last_water_time or current_sec
             local water_elapsed = current_sec - camp.last_water_time
             if water_elapsed >= sb.cfg.water_interval then
@@ -2551,7 +2677,15 @@ function stalker_camp_builder.update_camp_jobs()
                     local game_elapsed_sec = mmax(0, (current_sec - (survivor.job_start_time or current_sec)) / tf)
                     local effective_elapsed = mmax(rt_elapsed_sec, game_elapsed_sec)
 
-                    local is_paused, reason_short, reason_detail = sb.get_job_paused_status and sb.get_job_paused_status(survivor, camp, hub_id)
+                    -- Cap excessive backlog from long sleeps / absences (max 6 cycles backlog)
+                    local max_backlog_sec = effective_interval * 6
+                    if effective_elapsed > max_backlog_sec then
+                        effective_elapsed = max_backlog_sec
+                        survivor.job_start_realtime = tg - (max_backlog_sec * 1000)
+                        survivor.job_start_time = current_sec - (max_backlog_sec * tf)
+                    end
+
+                    local is_paused, reason_short, reason_detail = sb.get_job_paused_status and sb.get_job_paused_status(survivor, camp, hub_id, 10000, camp_snap)
                     if is_paused then
                         if not survivor.paused_elapsed then
                             survivor.paused_elapsed = mmin(effective_interval - 1, effective_elapsed)
@@ -2568,11 +2702,14 @@ function stalker_camp_builder.update_camp_jobs()
                         if effective_elapsed >= effective_interval then
                             local cycles_accum = math.floor(effective_elapsed / effective_interval)
                             local max_catchup = 2 -- Cap per update tick to distribute CPU budget and prevent item spawn hitches
-                            local cycles_to_run = math.min(max_catchup, math.max(1, cycles_accum))
-                            local cycles_completed = 0
-                            local last_did_work = false
+                            local remaining_budget = mmax(0, global_cycles_budget - total_cycles_run_this_tick)
+                            local cycles_to_run = math.min(max_catchup, math.min(remaining_budget, math.max(1, cycles_accum)))
 
-                            for cycle_idx = 1, cycles_to_run do
+                            if cycles_to_run > 0 then
+                                local cycles_completed = 0
+                                local last_did_work = false
+
+                                for cycle_idx = 1, cycles_to_run do
                                 local is_catchup = (cycle_idx > 1)
                                 local ok_cycle, dispatch_err = pcall(function()
                                 local did_work = false
@@ -2695,6 +2832,7 @@ function stalker_camp_builder.update_camp_jobs()
                                     sb.award_survivor_xp(survivor, job)
                                 end
                             end)
+                            total_cycles_run_this_tick = total_cycles_run_this_tick + 1
                             if not ok_cycle then
                                 last_did_work = false
                                 if survivor.shortfall_reason == nil then
@@ -2743,6 +2881,9 @@ function stalker_camp_builder.update_camp_jobs()
             end
         end
     end
+    last_round_robin_camp_idx = (last_round_robin_camp_idx % num_camps) + 1
+end
+end
 
 -- get_job_progress / get_job_time_remaining -- UI helpers used by the PDA
 function stalker_camp_builder.get_job_progress(survivor, camp, hub_id)

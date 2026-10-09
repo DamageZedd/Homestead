@@ -671,7 +671,7 @@ function stalker_camp_builder.get_camp_containers(hub_id, camp)
     end
 
     local tg = time_global()
-    if camp and camp._cached_containers and camp._cached_containers_tg and (tg - camp._cached_containers_tg) < 3000 then
+    if camp and camp._cached_containers and camp._cached_containers_tg and (tg - camp._cached_containers_tg) < 60000 then
         return camp._cached_containers
     end
 
@@ -980,6 +980,325 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
 end
 local camp_iterate_inventory = stalker_camp_builder.camp_iterate_inventory
 
+function stalker_camp_builder.invalidate_camp_inventory_cache(hub_id, camp)
+    local sb = stalker_camp_builder
+    if not camp and hub_id and sb.active_camps then
+        camp = sb.active_camps[hub_id]
+    end
+    if camp then
+        camp._inv_snapshot = nil
+        camp._inv_snapshot_tg = nil
+        camp._cached_chest_supplies_tg = nil
+        camp._cached_storage_metrics_tg = nil
+        if camp.survivors then
+            for _, s in pairs(camp.survivors) do
+                s._cached_paused_tg = nil
+            end
+        end
+    end
+end
+local invalidate_camp_inventory_cache = stalker_camp_builder.invalidate_camp_inventory_cache
+
+function stalker_camp_builder.on_actor_box_change(box_id)
+    if not box_id then return end
+    local sb = stalker_camp_builder
+    if not sb.active_camps then return end
+    for hub_id, camp in pairs(sb.active_camps) do
+        local is_camp_box = false
+        if camp.primary_chest_id == box_id then
+            is_camp_box = true
+        elseif camp.structures and camp.structures[box_id] then
+            is_camp_box = true
+        elseif camp._cached_containers then
+            for _, cid in ipairs(camp._cached_containers) do
+                if cid == box_id then
+                    is_camp_box = true
+                    break
+                end
+            end
+        end
+        if is_camp_box then
+            invalidate_camp_inventory_cache(hub_id, camp)
+            break
+        end
+    end
+end
+
+function stalker_camp_builder.get_camp_inventory_snapshot(hub_id, camp, force)
+    local sb = stalker_camp_builder
+    if not camp and hub_id and sb.active_camps then
+        camp = sb.active_camps[hub_id]
+    end
+    if not hub_id and camp and camp.hub_id then
+        hub_id = camp.hub_id
+    end
+    if not camp then return nil end
+
+    local now_tg = time_global()
+    if not force and camp._inv_snapshot and camp._inv_snapshot_tg and (now_tg - camp._inv_snapshot_tg) < 10000 then
+        return camp._inv_snapshot
+    end
+
+    local ini = ini_sys or sys_ini or system_ini()
+    local boxes = (sb.get_camp_containers and sb.get_camp_containers(hub_id, camp)) or {}
+
+    local fridge_id = nil
+    for struct_id, struct_type in pairs(camp.structures or {}) do
+        if struct_type == "fridge" and (sb.is_actual_container and sb.is_actual_container(struct_id)) then
+            fridge_id = struct_id
+            break
+        end
+    end
+
+    local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
+    local ws = m_data and m_data.workshop_stashes or {}
+    local wb_only = {}
+    if hub_id and ws[hub_id] then wb_only[ws[hub_id]] = true end
+    for sid, stype in pairs(camp.structures or {}) do
+        if stype == "workbench" or stype == "repair_bench" then
+            wb_only[ws[sid] or sid] = true
+        end
+    end
+    if hub_id then wb_only[hub_id] = true end
+
+    local max_weight = 0
+    for _, bid in ipairs(boxes) do
+        max_weight = max_weight + (sb.get_box_capacity(bid) or 60)
+    end
+    if max_weight <= 0 then max_weight = 60 end
+
+    local snapshot = {
+        total_items = 0,
+        total_weight = 0,
+        max_weight = max_weight,
+        food_count = 0,
+        has_food = false,
+        raw_meat_count = 0,
+        fridge_raw_meat_count = 0,
+        fridge_id = fridge_id,
+        clean_water_count = 0,
+        has_water = false,
+        water_filter_count = 0,
+        has_powder = false,
+        has_scrap = false,
+        ammo_counts = {
+            pistol = 0,
+            shotgun = 0,
+            rifle_soviet = 0,
+            rifle_nato = 0,
+            rifle_heavy = 0,
+            sniper = 0,
+            turret = 0,
+            auto = 0,
+        },
+        turret_9mm_rounds = 0,
+        has_damaged_gear = false,
+        has_repair_fee = false,
+        med_counts = {
+            akvatab = 0,
+            kalium = 0,
+            medkit = 0,
+            bandage = 0,
+            auto = 0,
+        },
+        total_ethanol = 0,
+        has_cloth = false,
+        has_bandage = false,
+        has_battery = false,
+        wood_count = 0,
+    }
+
+    local raw_meats = {
+        ["mutant_part_tushkano_meat"]  = true,
+        ["mutant_part_dog_meat"]       = true,
+        ["mutant_part_psevdodog_meat"] = true,
+        ["mutant_part_flesh_meat"]     = true,
+        ["mutant_part_boar_chop"]      = true,
+        ["mutant_part_snork_hand"]     = true,
+        ["mutant_part_krovosos_meat"]  = true,
+        ["mutant_part_psysucker_meat"] = true,
+        ["mutant_part_lurker_meat"]    = true,
+        ["mutant_part_chimera_meat"]   = true,
+    }
+
+    if sb.camp_iterate_inventory then
+        sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, cid, cl_item)
+            if not sec then return end
+            snapshot.total_items = snapshot.total_items + 1
+
+            local s = sec:lower()
+            local u = uses or 1
+            if u < 1 then u = 1 end
+
+            local w = 0.1
+            if cl_item and cl_item.weight then
+                local ok_w, iw = pcall(function() return cl_item:weight() end)
+                if ok_w and iw then w = iw end
+            elseif ini and ini:section_exist(sec) then
+                w = ini:r_float_ex(sec, "inv_weight") or 0.1
+            end
+            snapshot.total_weight = snapshot.total_weight + w
+
+            if s:find("_cooked") or (s:sub(1, 5) == "meat_" and (s:sub(-2) == "_b" or s:sub(-2) == "_a"))
+               or s == "meat_tushkano" or s == "meat_dog" or s == "meat_pseudodog"
+               or s == "meat_flesh" or s == "meat_boar" or s == "meat_bloodsucker"
+               or s == "meat_snork" or s == "meat_chimera" or s == "meat_lurker"
+               or s == "meat_psysucker" or s == "kolbasa" then
+                snapshot.food_count = snapshot.food_count + 1
+            end
+
+            if not snapshot.has_food then
+                if s:find("conserva", 1, true) or s:find("tushonka", 1, true) or s:find("kolbasa", 1, true)
+                   or s:find("bread", 1, true) or s:find("meat", 1, true) or s:find("sausage", 1, true)
+                   or s:find("stew", 1, true) or s:find("ration", 1, true) or s == "vodka" or s == "beer"
+                   or s == "chocolate" or s:find("mre", 1, true) or s:find("nuts", 1, true) then
+                    snapshot.has_food = true
+                end
+            end
+
+            if raw_meats[sec] or raw_meats[s] then
+                snapshot.raw_meat_count = snapshot.raw_meat_count + 1
+                if cid and fridge_id and cid == fridge_id then
+                    snapshot.fridge_raw_meat_count = snapshot.fridge_raw_meat_count + 1
+                end
+            end
+
+            if s == "flask" or s == "mineral_water" or s == "water_can_clean" or s == "purified_water"
+               or s == "water_clean" or s:find("clean_water") ~= nil or s:find("bottle_clean") ~= nil then
+                snapshot.clean_water_count = snapshot.clean_water_count + 1
+            end
+
+            if not snapshot.has_water then
+                if s:find("water", 1, true) or s:find("bottle", 1, true) or s:find("flask", 1, true)
+                   or s == "energy_drink" or s == "beer" or s:find("drink", 1, true) or s:find("canteen", 1, true)
+                   or s == "mineral_water" then
+                    snapshot.has_water = true
+                end
+            end
+
+            if sb.cfg and sb.cfg.water_filters and (sb.cfg.water_filters[sec] or sb.cfg.water_filters[s]) then
+                snapshot.water_filter_count = snapshot.water_filter_count + 1
+            end
+
+            if not snapshot.has_powder then
+                if s:find("gunpowder") ~= nil or s:find("powder") ~= nil or s == "prt_i_scrap" then
+                    snapshot.has_powder = true
+                end
+            end
+
+            if not snapshot.has_scrap then
+                if sec == "prt_i_scrap" or s:find("scrap") ~= nil or s:find("casing") ~= nil or s:find("bullet") ~= nil then
+                    snapshot.has_scrap = true
+                end
+            end
+
+            if s:find("^ammo_") then
+                snapshot.ammo_counts.auto = snapshot.ammo_counts.auto + 1
+                if s:find("ammo_9x18") or s:find("ammo_9x19") or s:find("ammo_11.43x23") or s:find("ammo_7.62x25") or s:find("ammo_357") then
+                    snapshot.ammo_counts.pistol = snapshot.ammo_counts.pistol + 1
+                end
+                if s:find("ammo_12x70") or s:find("ammo_12x76") or s:find("ammo_20x70") or s:find("ammo_23x75") then
+                    snapshot.ammo_counts.shotgun = snapshot.ammo_counts.shotgun + 1
+                end
+                if s:find("ammo_5.45x39") then
+                    snapshot.ammo_counts.rifle_soviet = snapshot.ammo_counts.rifle_soviet + 1
+                end
+                if s:find("ammo_5.56x45") then
+                    snapshot.ammo_counts.rifle_nato = snapshot.ammo_counts.rifle_nato + 1
+                end
+                if s:find("ammo_7.62x39") then
+                    snapshot.ammo_counts.rifle_heavy = snapshot.ammo_counts.rifle_heavy + 1
+                end
+                if s:find("ammo_7.62x54") or s:find("ammo_7.62x51") or s:find("ammo_9x39") or s:find("ammo_magnum_338") or s:find("ammo_12.7x55") then
+                    snapshot.ammo_counts.sniper = snapshot.ammo_counts.sniper + 1
+                end
+                if s:find("ammo_9x19") or s:find("ammo_9x18") then
+                    snapshot.ammo_counts.turret = snapshot.ammo_counts.turret + 1
+                    if cl_item then
+                        local b_count = 20
+                        pcall(function() b_count = cl_item:ammo_get_count() or 20 end)
+                        snapshot.turret_9mm_rounds = snapshot.turret_9mm_rounds + b_count
+                    end
+                end
+            end
+
+            if not snapshot.has_repair_fee then
+                if s == "vodka" or s:find("vodka") or s:find("conserva") or s:find("tushonka") or s:find("kolbasa") or s == "mre" or s == "ration" then
+                    snapshot.has_repair_fee = true
+                end
+            end
+            if not snapshot.has_damaged_gear then
+                local in_bench = wb_only[cid] and cl_item
+                if in_bench and (s:find("wpn_") or s:find("helm_") or s:find("armor_") or s:find("outfit")) then
+                    local c_val = cond or 1.0
+                    local worn_parts = false
+                    if item_id and sb.gun_parts_worn then
+                        pcall(function() worn_parts = sb.gun_parts_worn(item_id, sec) end)
+                    end
+                    if c_val < 0.95 or worn_parts then
+                        snapshot.has_damaged_gear = true
+                    end
+                end
+            end
+
+            if s:find("medkit") or s:find("bandage") or s:find("antirad") or s:find("stimpack") or s:find("salve") or s == "akvatab" or s == "antirad_kalium" then
+                snapshot.med_counts.auto = snapshot.med_counts.auto + 1
+            end
+            if s == "akvatab" or s == "drug_booster" or s:find("ibuprofen") ~= nil then
+                snapshot.med_counts.akvatab = snapshot.med_counts.akvatab + 1
+            end
+            if s == "antirad_kalium" or s == "antirad" or s:find("kalium") ~= nil then
+                snapshot.med_counts.kalium = snapshot.med_counts.kalium + 1
+            end
+            if s:find("medkit") ~= nil then
+                snapshot.med_counts.medkit = snapshot.med_counts.medkit + 1
+            end
+            if s:find("bandage") ~= nil then
+                snapshot.med_counts.bandage = snapshot.med_counts.bandage + 1
+                snapshot.has_bandage = true
+            end
+
+            if s:find("vodka") or s:find("antiseptic") or s == "alcohol" then
+                snapshot.total_ethanol = snapshot.total_ethanol + u
+            end
+
+            if not snapshot.has_cloth then
+                if s == "prt_i_cloth" or s == "prt_i_paper" or s:find("fabric") ~= nil or s:find("textile") ~= nil then
+                    snapshot.has_cloth = true
+                end
+            end
+
+            if not snapshot.has_battery then
+                if s:find("battery") or s:find("akkum") or s:find("accumulator") or s == "batteries_commercial" or s == "batteries_dead" then
+                    snapshot.has_battery = true
+                end
+            end
+
+            if s:find("wood") or s:find("prt_i_wood") or s:find("timber") or s:find("log") or s:find("firewood") then
+                snapshot.wood_count = snapshot.wood_count + u
+            end
+        end)
+    end
+
+    snapshot.has_storage_room = (snapshot.total_weight + 0.5) <= snapshot.max_weight
+
+    camp._inv_snapshot = snapshot
+    camp._inv_snapshot_tg = now_tg
+    camp._cached_chest_supplies_tg = now_tg
+    camp._cached_has_food = snapshot.has_food
+    camp._cached_has_water = snapshot.has_water
+    camp._cached_storage_metrics_tg = now_tg
+    camp._cached_storage_metrics = {
+        weight = math.floor(snapshot.total_weight),
+        max_weight = snapshot.max_weight,
+        total_items = snapshot.total_items,
+        pct = math.min(100, math.floor((snapshot.total_weight / snapshot.max_weight) * 100))
+    }
+
+    return snapshot
+end
+local get_camp_inventory_snapshot = stalker_camp_builder.get_camp_inventory_snapshot
+
 function stalker_camp_builder.camp_find_item(hub_id, camp, filter_fn, priority_box_id)
     if not filter_fn then return nil end
     local sb = stalker_camp_builder
@@ -1013,6 +1332,15 @@ function stalker_camp_builder.camp_consume_item(hub_id, camp, filter_fn, priorit
         sb.consume_one_use(id)
         if sb.invalidate_server_container_cache and box_id then
             sb.invalidate_server_container_cache(box_id)
+        end
+        if not camp and hub_id and sb.active_camps then
+            camp = sb.active_camps[hub_id]
+        end
+        if camp then
+            camp._inv_snapshot = nil
+            camp._inv_snapshot_tg = nil
+            camp._cached_chest_supplies_tg = nil
+            camp._cached_storage_metrics_tg = nil
         end
         return sec, id, box_id
     end
@@ -1827,7 +2155,12 @@ function scan_camp_structures(hub_id, force)
 
     camp.structures = new_structures
     camp._cached_containers = nil
+    camp._cached_containers_tg = nil
+    camp._cached_categorized_boxes = nil
+    camp._inv_snapshot = nil
+    camp._inv_snapshot_tg = nil
     camp._cached_chest_supplies_tg = nil
+    camp._cached_storage_metrics_tg = nil
     camp._stats_cache_tick = nil
     camp._stats_cache = nil
     scan_camp_structures_cache[hub_id] = {
@@ -1836,13 +2169,155 @@ function scan_camp_structures(hub_id, force)
     }
 end
 
+function scan_multiple_camp_structures(hub_ids, force)
+    if not hub_ids or #hub_ids == 0 then return end
+    if #hub_ids == 1 then
+        return scan_camp_structures(hub_ids[1], force)
+    end
+
+    local gg = game_graph()
+    local sim = alife()
+    if not (gg and sim) then return end
+
+    local now_tg = time_global()
+    local outposts = outpost_piece_ids(true)
+    local camps_data = {}
+
+    for _, hub_id in ipairs(hub_ids) do
+        local camp = stalker_camp_builder.active_camps[hub_id]
+        local hub_obj = camp and alife_object(hub_id)
+        if camp and hub_obj and hub_obj.m_game_vertex_id then
+            local hub_vertex = gg:vertex(hub_obj.m_game_vertex_id)
+            if hub_vertex then
+                camps_data[#camps_data + 1] = {
+                    hub_id = hub_id,
+                    camp = camp,
+                    hub_pos = hub_obj.position,
+                    hub_level_id = hub_vertex:level_id(),
+                    new_structures = {},
+                }
+                scan_camp_structures_last_run[hub_id] = now_tg
+            end
+        end
+    end
+
+    if #camps_data == 0 then return end
+
+    local function evaluate_multi(id, se_obj)
+        if not (se_obj and se_obj.parent_id == 65535 and se_obj.m_game_vertex_id) then return end
+        if outposts[id] then return end
+
+        local vertex = gg:vertex(se_obj.m_game_vertex_id)
+        if not vertex then return end
+        local obj_level_id = vertex:level_id()
+
+        local has_level_match = false
+        for _, cdata in ipairs(camps_data) do
+            if cdata.hub_level_id == obj_level_id and id ~= cdata.hub_id then
+                has_level_match = true
+                break
+            end
+        end
+        if not has_level_match then return end
+
+        local ok_sec, sec = pcall(function() return se_obj:section_name() end)
+        if not (ok_sec and sec) then return end
+        local s_sec_lower = sec:lower()
+        local c_id = se_obj.clsid and se_obj:clsid()
+        local is_real_box = (c_id == clsid.inventory_box or c_id == clsid.inventory_box_s or s_sec_lower:find("inventory_box") or s_sec_lower:find("backpack") or s_sec_lower:find("safe") or s_sec_lower:find("stash"))
+        local is_furniture = (not s_sec_lower:find("workshop_stash")) and (is_real_box or sec:find("placeable_") or sec:find("rival_") or sec:find("hg_") or sec:find("turret") or sec:find("alarm"))
+        if not is_furniture and hf_furniture_types and not s_sec_lower:find("workshop_stash") then
+            pcall(function() is_furniture = hf_furniture_types.get_type(se_obj) end)
+        end
+        if not (is_furniture and se_obj.position) then return end
+
+        for _, cdata in ipairs(camps_data) do
+            if cdata.hub_level_id == obj_level_id and id ~= cdata.hub_id then
+                local hub_pos = cdata.hub_pos
+                local y_diff = math.abs(se_obj.position.y - hub_pos.y)
+                if y_diff <= 12.0 then
+                    local dist = se_obj.position:distance_to(hub_pos)
+                    if is_real_box or sec:find("_stash") then
+                        local dx = se_obj.position.x - hub_pos.x
+                        local dz = se_obj.position.z - hub_pos.z
+                        dist = math.sqrt(dx*dx + dz*dz)
+                    end
+                    if dist <= cfg.boundary_dist then
+                        local ok_stype, stype = pcall(resolve_structure_type, se_obj)
+                        if ok_stype and stype and stype ~= "unknown" then
+                            cdata.new_structures[id] = stype
+                        elseif is_real_box and not s_sec_lower:find("workshop_stash") then
+                            cdata.new_structures[id] = "stash"
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    local registry = _G.server_objects_registry
+    if registry then
+        for id, se_obj in pairs(registry) do
+            evaluate_multi(id, se_obj)
+        end
+    else
+        for id = 1, 65534 do
+            local se_obj = sim:object(id)
+            if se_obj then
+                evaluate_multi(id, se_obj)
+            end
+        end
+    end
+
+    for _, cdata in ipairs(camps_data) do
+        local camp = cdata.camp
+        local hub_id = cdata.hub_id
+        camp.structures = cdata.new_structures
+        camp._cached_containers = nil
+        camp._cached_containers_tg = nil
+        camp._cached_categorized_boxes = nil
+        camp._inv_snapshot = nil
+        camp._inv_snapshot_tg = nil
+        camp._cached_chest_supplies_tg = nil
+        camp._cached_storage_metrics_tg = nil
+        camp._stats_cache_tick = nil
+        camp._stats_cache = nil
+        scan_camp_structures_cache[hub_id] = {
+            structures = camp.structures,
+            expires_tg = now_tg + 600000,
+        }
+    end
+end
+stalker_camp_builder.scan_multiple_camp_structures = scan_multiple_camp_structures
+
 function invalidate_scan_camp_structures_cache(hub_id)
     if hub_id then
         scan_camp_structures_cache[hub_id] = nil
         stalker_camp_builder.camp_box_id_cache[hub_id] = nil
+        local c = stalker_camp_builder.active_camps and stalker_camp_builder.active_camps[hub_id]
+        if c then
+            c._cached_containers = nil
+            c._cached_containers_tg = nil
+            c._cached_categorized_boxes = nil
+            c._inv_snapshot = nil
+            c._inv_snapshot_tg = nil
+            c._cached_chest_supplies_tg = nil
+            c._cached_storage_metrics_tg = nil
+        end
     else
         scan_camp_structures_cache = {}
         stalker_camp_builder.camp_box_id_cache = {}
+        if stalker_camp_builder.active_camps then
+            for _, c in pairs(stalker_camp_builder.active_camps) do
+                c._cached_containers = nil
+                c._cached_containers_tg = nil
+                c._cached_categorized_boxes = nil
+                c._inv_snapshot = nil
+                c._inv_snapshot_tg = nil
+                c._cached_chest_supplies_tg = nil
+                c._cached_storage_metrics_tg = nil
+            end
+        end
     end
 end
 
@@ -2351,8 +2826,17 @@ end
 local function process_boundary_rescan(actor)
     local current_boundary = cfg.boundary_dist
     if last_boundary_dist and last_boundary_dist ~= current_boundary then
-        for hub_id in pairs(stalker_camp_builder.active_camps) do
-            scan_camp_structures(hub_id)
+        local cur_level = level and level.name and level.name()
+        local camps_to_scan = {}
+        for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
+            if not camp.level or camp.level == cur_level then
+                camps_to_scan[#camps_to_scan + 1] = hub_id
+            end
+        end
+        if #camps_to_scan == 1 then
+            scan_camp_structures(camps_to_scan[1])
+        elseif #camps_to_scan > 1 then
+            scan_multiple_camp_structures(camps_to_scan)
         end
         camp_send_tip(actor, game.translate_string("st_mcm_boundary_rescanned"),
                       nil, "general_stalker", 8000, nil, "general")
@@ -4912,8 +5396,19 @@ function actor_on_first_update()
     end)
 
     last_boundary_dist = cfg.boundary_dist
-    for hub_id in pairs(stalker_camp_builder.active_camps) do
-        scan_camp_structures(hub_id, true)
+    local cur_level = current_level or (level and level.name and level.name())
+    local camps_to_scan = {}
+    for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
+        -- Furniture on other levels is offline, static, and loaded from save data. Only scan
+        -- camps on the loaded level, or camps missing structures.
+        if not camp.level or camp.level == cur_level or not camp.structures then
+            camps_to_scan[#camps_to_scan + 1] = hub_id
+        end
+    end
+    if #camps_to_scan == 1 then
+        scan_camp_structures(camps_to_scan[1], true)
+    elseif #camps_to_scan > 1 then
+        scan_multiple_camp_structures(camps_to_scan, true)
     end
 end
 
@@ -4971,7 +5466,10 @@ function check_camp_chest_supplies(camp, hub_obj)
     end
 
     local tg = time_global()
-    if camp and camp._cached_chest_supplies_tg and (tg - camp._cached_chest_supplies_tg) < 3000 then
+    if camp and camp._inv_snapshot and camp._inv_snapshot_tg and (tg - camp._inv_snapshot_tg) < 10000 then
+        return camp._inv_snapshot.has_food, camp._inv_snapshot.has_water
+    end
+    if camp and camp._cached_chest_supplies_tg and (tg - camp._cached_chest_supplies_tg) < 10000 then
         return camp._cached_has_food, camp._cached_has_water
     end
 
@@ -6631,8 +7129,16 @@ function on_game_start()
     safe_register_callback("actor_on_item_take", function(obj)
         stalker_camp_builder.apply_pending_cond(obj)
     end)
+    safe_register_callback("actor_on_item_put_in_box", function(box, obj)
+        if box and stalker_camp_builder.on_actor_box_change then
+            stalker_camp_builder.on_actor_box_change(box:id())
+        end
+    end)
     safe_register_callback("actor_on_item_take_from_box", function(box, obj)
         stalker_camp_builder.apply_pending_cond(obj)
+        if box and stalker_camp_builder.on_actor_box_change then
+            stalker_camp_builder.on_actor_box_change(box:id())
+        end
     end)
     safe_register_callback("ActorMenu_on_mode_changed", function(mode, last_mode)
         stalker_camp_builder.pending_cond_tick()
@@ -6915,11 +7421,174 @@ function stalker_camp_builder.camp_has_storage_room(camp, hub_id, weight)
 end
 
 -- AUTO-SORT TARGET ROUTING & CENTRALIZED DEPOSIT SYSTEM (v1.3.0)
+local function get_camp_categorized_boxes(camp, hub_id)
+    local sb = stalker_camp_builder
+    if camp and camp._cached_categorized_boxes and camp._cached_categorized_boxes.boxes_by_bucket then
+        return camp._cached_categorized_boxes
+    end
+
+    local fridge_boxes, stove_boxes, crafter_boxes, tech_boxes, medic_boxes, weapon_boxes, armor_boxes = {}, {}, {}, {}, {}, {}, {}
+    local chest_boxes, other_boxes = {}, {}
+    local all_boxes = {}
+    local seen_boxes = {}
+    local any_box = nil
+
+    local function make_box_meta(bid, sec_name)
+        local sec = sec_name
+        if not sec then
+            local se_b = safe_alife_object(bid)
+            sec = se_b and se_b:section_name()
+        end
+        local is_showcase = false
+        if sec and weapon_showcase and weapon_showcase.valid_stash and weapon_showcase.valid_stash[sec] then
+            is_showcase = true
+        end
+        local kind = sec and ini_sys and ini_sys:r_string_ex(sec, "specialized_storage")
+        return { id = bid, sec = sec or "", is_showcase = is_showcase, spec_storage = kind }
+    end
+
+    local hub_obj = hub_id and safe_alife_object(hub_id)
+    local hub_pos = hub_obj and hub_obj.position
+
+    sb.sanitize_primary_chest(camp)
+    if camp.primary_chest_id then
+        if is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
+            local meta = make_box_meta(camp.primary_chest_id)
+            seen_boxes[camp.primary_chest_id] = true
+            table.insert(chest_boxes, meta)
+            table.insert(all_boxes, meta)
+            any_box = any_box or camp.primary_chest_id
+        else
+            camp.primary_chest_id = nil
+        end
+    end
+
+    local m_data = alife_storage_manager and alife_storage_manager.get_state and alife_storage_manager.get_state()
+    if m_data and m_data.workshop_stashes and hub_id and m_data.workshop_stashes[hub_id] then
+        local ws_id = m_data.workshop_stashes[hub_id]
+        if ws_id and not seen_boxes[ws_id] and is_valid_camp_box(ws_id, hub_id, camp) then
+            local meta = make_box_meta(ws_id)
+            seen_boxes[ws_id] = true
+            table.insert(tech_boxes, meta)
+            table.insert(chest_boxes, meta)
+            table.insert(all_boxes, meta)
+            any_box = any_box or ws_id
+        end
+    end
+
+    for id, stype in pairs(camp.structures or {}) do
+        local target_id = id
+        if m_data and m_data.workshop_stashes and m_data.workshop_stashes[id] then
+            target_id = m_data.workshop_stashes[id]
+        end
+        if target_id and not seen_boxes[target_id] and is_valid_camp_box(target_id, hub_id, camp) then
+            seen_boxes[target_id] = true
+            local se = safe_alife_object(target_id)
+            local ssec_raw = se and se:section_name() or ""
+            local ssec = ssec_raw:lower()
+            local meta = make_box_meta(target_id, ssec_raw)
+            any_box = any_box or target_id
+            table.insert(all_boxes, meta)
+
+            if ssec:find("fridge") or ssec:find("refrigerator") or ssec:find("cooler") then
+                table.insert(fridge_boxes, meta)
+            elseif ssec:find("stove") or ssec:find("fireplace") or ssec:find("wood_stove") or ssec:find("barrel_metal") then
+                table.insert(stove_boxes, meta)
+            elseif ssec:find("clinic") or ssec:find("med") then
+                table.insert(medic_boxes, meta)
+            elseif ssec:find("repair") or ssec:find("tool") or ssec:find("tech") or ssec:find("workshop") then
+                table.insert(tech_boxes, meta)
+            elseif ssec:find("gun") or ssec:find("weapon") or ssec:find("rifle") or ssec:find("armory") then
+                table.insert(weapon_boxes, meta)
+            elseif ssec:find("wardrobe") or ssec:find("locker") or ssec:find("armor") or ssec:find("suit") then
+                table.insert(armor_boxes, meta)
+            elseif (ssec:find("case") and not ssec:find("gun") and not ssec:find("weapon")) or ssec:find("sumka") or ssec:find("ammo") then
+                table.insert(crafter_boxes, meta)
+            elseif ssec:find("stash") or ssec:find("chest") or ssec:find("safe") or ssec:find("box_wood") or ssec:find("inv_box") or ssec:find("blue_box") then
+                table.insert(chest_boxes, meta)
+            else
+                table.insert(other_boxes, meta)
+            end
+        end
+    end
+
+    if not any_box and hub_pos then
+        local registry = _G.server_objects_registry
+        if registry then
+            for i, _ in pairs(registry) do
+                if is_valid_camp_box(i, hub_id, camp) then
+                    any_box = i
+                    local meta = make_box_meta(i)
+                    table.insert(chest_boxes, meta)
+                    table.insert(all_boxes, meta)
+                    camp.primary_chest_id = i
+                    camp.structures = camp.structures or {}
+                    camp.structures[i] = "stash"
+                    break
+                end
+            end
+        else
+            for i = 1, 65534 do
+                if is_valid_camp_box(i, hub_id, camp) then
+                    any_box = i
+                    local meta = make_box_meta(i)
+                    table.insert(chest_boxes, meta)
+                    table.insert(all_boxes, meta)
+                    camp.primary_chest_id = i
+                    camp.structures = camp.structures or {}
+                    camp.structures[i] = "stash"
+                    break
+                end
+            end
+        end
+    end
+
+    if not any_box and hub_id and hub_obj and alife() then
+        local new_box = alife():create("inventory_box", hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
+        if new_box then
+            camp.structures = camp.structures or {}
+            camp.structures[new_box.id] = "stash"
+            camp.primary_chest_id = new_box.id
+            any_box = new_box.id
+            local meta = make_box_meta(new_box.id, "inventory_box")
+            table.insert(chest_boxes, meta)
+            table.insert(all_boxes, meta)
+        end
+    end
+
+    local fallback_chest = (chest_boxes[1] and chest_boxes[1].id)
+        or (tech_boxes[1] and tech_boxes[1].id)
+        or (crafter_boxes[1] and crafter_boxes[1].id)
+        or (other_boxes[1] and other_boxes[1].id)
+        or (weapon_boxes[1] and weapon_boxes[1].id)
+        or (armor_boxes[1] and armor_boxes[1].id)
+        or (all_boxes[1] and all_boxes[1].id)
+
+    local res = {
+        boxes_by_bucket = {
+            fridge = fridge_boxes,
+            stove = stove_boxes,
+            crafter = crafter_boxes,
+            tech = tech_boxes,
+            medic = medic_boxes,
+            weapon = weapon_boxes,
+            armor = armor_boxes,
+            chest = chest_boxes,
+            other = other_boxes,
+        },
+        all_boxes = all_boxes,
+        fallback_chest = fallback_chest,
+    }
+    camp._cached_categorized_boxes = res
+    return res
+end
+stalker_camp_builder.get_camp_categorized_boxes = get_camp_categorized_boxes
+
+-- AUTO-SORT TARGET ROUTING & CENTRALIZED DEPOSIT SYSTEM (v1.3.0)
 function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item, is_player_dump, item_weight, weight_cache)
     local pairs_ = pairs
     local ipairs_ = ipairs
     local type_ = type
-    local mabs = math.abs
     local sb = stalker_camp_builder
     if type_(camp) ~= "table" and type_(hub_id) == "table" then
         local tmp = camp
@@ -6948,25 +7617,17 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
     local sec = type_(sec_or_item) == "string" and sec_or_item or (sec_or_item and sec_or_item.section and sec_or_item:section()) or ""
     local sec_l = string.lower(sec)
 
-    local fridge_boxes, stove_boxes, crafter_boxes, tech_boxes, medic_boxes, weapon_boxes, armor_boxes = {}, {}, {}, {}, {}, {}, {}
-    local chest_boxes, other_boxes = {}, {}
-    local any_box = nil
+    local cat = get_camp_categorized_boxes(camp, hub_id)
+    if not cat then return nil end
 
-    -- Hideout Furniture Expansion's single-kind boxes (specialized_storage) take only their kind:
-    -- haru_specialized_storage_boxes refuses anything else the player puts in by hand
-    local function takes_item(box_id)
-        local se_b = safe_alife_object(box_id)
-        -- Hideout Furniture's weapon displays (pistol shelf, pegboards) are boxes too: weapon_showcase
-        -- refuses other items the player moves in, and shows only guns put in by hand
-        if se_b and weapon_showcase and weapon_showcase.valid_stash
-           and weapon_showcase.valid_stash[se_b:section_name()] then
-            return false
-        end
-        local kind = se_b and ini_sys and ini_sys:r_string_ex(se_b:section_name(), "specialized_storage")
+    local function takes_item_meta(meta)
+        if meta.is_showcase then return false end
+        local kind = meta.spec_storage
+        if not kind then return true end
         if kind == "ammo" then
             return IsItem ~= nil and IsItem("ammo", sec) ~= nil
         elseif kind == "meds" then
-            return ini_sys:r_string_ex(sec, "kind") == "i_medical"
+            return ini_sys and ini_sys:r_string_ex(sec, "kind") == "i_medical"
         elseif kind == "canned_food" then
             local canned = haru_specialized_storage_boxes and haru_specialized_storage_boxes.canned_food
             return (canned and canned[sec]) == true
@@ -6974,126 +7635,18 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
         return true
     end
 
-    local hub_obj = hub_id and safe_alife_object(hub_id)
-    local hub_pos = hub_obj and hub_obj.position
-
-    sb.sanitize_primary_chest(camp)
-    if camp.primary_chest_id then
-        if is_valid_camp_box(camp.primary_chest_id, hub_id, camp) then
-            if takes_item(camp.primary_chest_id) then
-                table.insert(chest_boxes, camp.primary_chest_id)
-            end
-            any_box = any_box or camp.primary_chest_id
-        else
-            camp.primary_chest_id = nil
-        end
-    end
-
-    local m_data = alife_storage_manager and alife_storage_manager.get_state()
-    if m_data and m_data.workshop_stashes and hub_id and m_data.workshop_stashes[hub_id] then
-        local ws_id = m_data.workshop_stashes[hub_id]
-        if is_valid_camp_box(ws_id, hub_id, camp) then
-            table.insert(tech_boxes, ws_id)
-            table.insert(chest_boxes, ws_id)
-            any_box = any_box or ws_id
-        end
-    end
-
-    for id, stype in pairs_(camp.structures or {}) do
-        local target_id = id
-        if m_data and m_data.workshop_stashes and m_data.workshop_stashes[id] then
-            target_id = m_data.workshop_stashes[id]
-        end
-        if is_valid_camp_box(target_id, hub_id, camp) then
-            local se = safe_alife_object(target_id)
-            local ssec = se and se:section_name() and se:section_name():lower() or ""
-            any_box = any_box or target_id
-            if not takes_item(target_id) then
-                -- a single-kind box for another kind of item
-            elseif ssec:find("fridge") or ssec:find("refrigerator") or ssec:find("cooler") then
-                table.insert(fridge_boxes, target_id)
-            elseif ssec:find("stove") or ssec:find("fireplace") or ssec:find("wood_stove") or ssec:find("barrel_metal") then
-                table.insert(stove_boxes, target_id)
-            elseif ssec:find("clinic") or ssec:find("med") then
-                table.insert(medic_boxes, target_id)
-            elseif ssec:find("repair") or ssec:find("tool") or ssec:find("tech") or ssec:find("workshop") then
-                table.insert(tech_boxes, target_id)
-            elseif ssec:find("gun") or ssec:find("weapon") or ssec:find("rifle") or ssec:find("armory") then
-                table.insert(weapon_boxes, target_id)
-            elseif ssec:find("wardrobe") or ssec:find("locker") or ssec:find("armor") or ssec:find("suit") then
-                table.insert(armor_boxes, target_id)
-            elseif (ssec:find("case") and not ssec:find("gun") and not ssec:find("weapon")) or ssec:find("sumka") or ssec:find("ammo") then
-                table.insert(crafter_boxes, target_id)
-            elseif ssec:find("stash") or ssec:find("chest") or ssec:find("safe") or ssec:find("box_wood") or ssec:find("inv_box") or ssec:find("blue_box") then
-                table.insert(chest_boxes, target_id)
-            else
-                table.insert(other_boxes, target_id)
-            end
-        end
-    end
-
-    if not any_box and hub_pos then
-        local registry = _G.server_objects_registry
-        if registry then
-            for i, _ in pairs_(registry) do
-                if is_valid_camp_box(i, hub_id, camp) then
-                    any_box = i
-                    table.insert(chest_boxes, i)
-                    camp.primary_chest_id = i
-                    camp.structures = camp.structures or {}
-                    camp.structures[i] = "stash"
-                    break
-                end
-            end
-        else
-            for i = 1, 65534 do
-                if is_valid_camp_box(i, hub_id, camp) then
-                    any_box = i
-                    table.insert(chest_boxes, i)
-                    camp.primary_chest_id = i
-                    camp.structures = camp.structures or {}
-                    camp.structures[i] = "stash"
-                    break
-                end
-            end
-        end
-    end
-
-    -- the engine's own box at the hub, made the main chest: decor_box_wood is Even More Hideout
-    -- Furnitures' wooden box kit, an item
-    local function make_hub_box()
-        if not (hub_id and hub_obj and alife()) then return nil end
-        local new_box = alife():create("inventory_box", hub_obj.position, hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
-        if new_box then
-            camp.structures = camp.structures or {}
-            camp.structures[new_box.id] = "stash"
-            camp.primary_chest_id = new_box.id
-            table.insert(chest_boxes, new_box.id)
-            return new_box.id
-        end
-    end
-
-    if not any_box then
-        any_box = make_hub_box()
-    end
-    if not any_box then return nil end
-
-    -- the last resort takes a job's deposit with no room check, so only a box that holds any item:
-    -- not a fridge, stove or med case, nor a box for another kind, as any_box can be
-    local fallback_chest = chest_boxes[1] or tech_boxes[1] or crafter_boxes[1] or other_boxes[1]
-        or weapon_boxes[1] or armor_boxes[1]
-
     local function pick_box(priority_lists)
-        for _, list in ipairs(priority_lists) do
-            for _, bid in ipairs(list) do
-                if sb.box_has_room_for(bid, item_weight, weight_cache) then
-                    return bid
+        for _, list in ipairs_(priority_lists) do
+            for _, meta in ipairs_(list) do
+                if takes_item_meta(meta) and sb.box_has_room_for(meta.id, item_weight, weight_cache) then
+                    return meta.id
                 end
             end
         end
         return nil
     end
 
+    local b = cat.boxes_by_bucket
     local is_mutant_part = sec_l:find("mutant_part_") ~= nil
     local is_edible_mutant_meat = is_mutant_part and (sec_l:find("_meat") or sec_l:find("boar_chop") or sec_l:find("snork_hand"))
 
@@ -7105,32 +7658,32 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
        or sec_l:find("water") or sec_l:find("mineral_water") or sec_l:find("flask") or sec_l:find("vodka") or sec_l:find("beer")
        or sec_l:find("energy_drink") or sec_l:find("tea") or sec_l:find("drink_") or sec_l:find("bottle_") or sec_l:find("ration")
        or sec_l:find("mre") or sec_l:find("cereal") or sec_l:find("tomato") or sec_l:find("corn") or sec_l:find("sausage"))) then
-        target_priority = { fridge_boxes, chest_boxes, other_boxes }
+        target_priority = { b.fridge, b.chest, b.other }
     elseif sec_l:find("charcoal") or sec_l:find("firewood") or sec_l:find("matches") or sec_l:find("kerosene")
        or sec_l:find("fuel") or sec_l:find("diesel") or sec_l:find("coal") or sec_l:find("igniter") or sec_l:find("prt_i_wood") then
-        target_priority = { stove_boxes, chest_boxes, other_boxes }
+        target_priority = { b.stove, b.chest, b.other }
     elseif sec_l:find("medkit") or sec_l:find("bandage") or sec_l:find("antirad") or sec_l:find("drug_")
        or sec_l:find("stimpack") or sec_l:find("salve") or sec_l:find("morphine") or sec_l:find("jgut")
        or sec_l:find("e_syringe") or sec_l:find("glucose") or sec_l:find("analgetic") or sec_l:find("tetanus")
        or sec_l:find("yad") or sec_l:find("antibio") or sec_l:find("splint") or sec_l:find("iod")
        or sec_l == "akvatab" or sec_l:find("ibuprofen") then
-        target_priority = { medic_boxes, chest_boxes, other_boxes }
+        target_priority = { b.medic, b.chest, b.other }
     elseif ((ini_sys and ini_sys:r_string_ex(sec, "ammo_class") ~= nil and not sec_l:find("knife")) or (sec_l:find("wpn_") ~= nil)) then
-        target_priority = { weapon_boxes, chest_boxes, other_boxes }
+        target_priority = { b.weapon, b.chest, b.other }
     elseif ((ini_sys and ini_sys:r_string_ex(sec, "burn_protection") ~= nil) or sec_l:find("outfit") or sec_l:find("helmet") or sec_l:find("helm_") or sec_l:find("exo_") or sec_l:find("trenchcoat")) then
-        target_priority = { armor_boxes, chest_boxes, other_boxes }
+        target_priority = { b.armor, b.chest, b.other }
     elseif sec_l:find("ammo_") or sec_l:find("grenade_") or sec_l:find("gl_") or sec_l:find("vog_")
        or sec_l:find("powder") or sec_l:find("scrap") or sec_l:find("casing") or sec_l:find("bullet")
        or sec_l:find("primer") or sec_l:find("prt_i_copper") or sec_l:find("prt_i_paper") or sec_l:find("prt_i_plastic")
        or sec_l:find("prt_i_resistor") or sec_l:find("prt_i_transist") or sec_l:find("prt_i_cond") or sec_l:find("prt_i_capacit") or sec_l:find("prt_i_microchip")
        or (is_mutant_part and not is_edible_mutant_meat) then
-        target_priority = { crafter_boxes, tech_boxes, chest_boxes, other_boxes }
+        target_priority = { b.crafter, b.tech, b.chest, b.other }
     elseif sec_l:find("toolkit") or sec_l:find("glue") or sec_l:find("sewing") or sec_l:find("oil") or sec_l:find("solvent")
        or sec_l:find("rasp") or sec_l:find("ramrod") or sec_l:find("prt_w_") or sec_l:find("prt_o_")
        or sec_l:find("cleaning_kit") or sec_l:find("repair_kit") or sec_l:find("upg_") or sec_l:find("lead_box") or sec_l:find("leatherman") then
-        target_priority = { tech_boxes, crafter_boxes, chest_boxes, other_boxes }
+        target_priority = { b.tech, b.crafter, b.chest, b.other }
     else
-        target_priority = { chest_boxes, other_boxes }
+        target_priority = { b.chest, b.other }
     end
 
     local chosen = pick_box(target_priority)
@@ -7142,12 +7695,12 @@ function stalker_camp_builder.get_auto_sort_target_box(camp, hub_id, sec_or_item
 
     -- Job deposits fallback: check any remaining container with room
     -- not fridges, stoves or med cases: they hold their own kind (see sanitize_primary_chest)
-    local general_fallback = pick_box({ chest_boxes, other_boxes, tech_boxes, crafter_boxes, weapon_boxes, armor_boxes })
+    local general_fallback = pick_box({ b.chest, b.other, b.tech, b.crafter, b.weapon, b.armor })
     if general_fallback then return general_fallback end
 
     -- If all categorized containers are full, check if fallback_chest itself has room
-    if fallback_chest and sb.box_has_room_for(fallback_chest, item_weight, weight_cache) then
-        return fallback_chest
+    if cat.fallback_chest and sb.box_has_room_for(cat.fallback_chest, item_weight, weight_cache) then
+        return cat.fallback_chest
     end
 
     return nil
@@ -7469,6 +8022,9 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
             verified = true
         }
         camp._cached_storage_metrics_tg = nil
+        camp._inv_snapshot = nil
+        camp._inv_snapshot_tg = nil
+        camp._cached_chest_supplies_tg = nil
     end
 
     if target_box_id and weights and weights[target_box_id] ~= nil then
@@ -9672,17 +10228,21 @@ function get_camp_storage_metrics(camp, hub_obj)
     if not camp then return 0, 100, 0, 0 end
 
     local tg = time_global()
-    if camp._cached_storage_metrics_tg and (tg - camp._cached_storage_metrics_tg) < 5000 and camp._cached_storage_metrics then
+    if camp._cached_storage_metrics_tg and (tg - camp._cached_storage_metrics_tg) < 15000 and camp._cached_storage_metrics then
         local c = camp._cached_storage_metrics
         return c.weight, c.max_weight, c.total_items, c.pct
     end
 
-    local total_items = 0
-    local total_weight = 0
-    local max_weight = 200
-
     local hub_id = camp.hub_id or (hub_obj and hub_obj.id)
     if not hub_id then return 0, 100, 0, 0 end
+
+    if stalker_camp_builder.get_camp_inventory_snapshot then
+        local snap = stalker_camp_builder.get_camp_inventory_snapshot(hub_id, camp, false)
+        if snap and camp._cached_storage_metrics then
+            local c = camp._cached_storage_metrics
+            return c.weight, c.max_weight, c.total_items, c.pct
+        end
+    end
     if (camp._structures_scanned == nil) and scan_camp_structures then
         scan_camp_structures(hub_id, false)
     end
