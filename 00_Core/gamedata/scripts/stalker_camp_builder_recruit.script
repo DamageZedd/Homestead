@@ -1256,11 +1256,13 @@ function stalker_camp_builder.recruit_to_camp_slot_2(actor, npc) recruit_to_camp
 function stalker_camp_builder.recruit_to_camp_slot_3(actor, npc) recruit_to_camp_slot(actor, npc, 3) end
 function stalker_camp_builder.recruit_to_camp_slot_4(actor, npc) recruit_to_camp_slot(actor, npc, 4) end
 
-local function get_camp_slot_text(n)
+-- The camp choices' <script_text>. The engine calls it with the NPC (the speaker who isn't the actor),
+-- the dialog id and the phrase id (PhraseDialog.cpp 211-219) and shows the string it returns; a Lua
+-- error or a nil there is fatal.
+local function get_camp_slot_text(npc, n)
     local sb = stalker_camp_builder
-    local npc = mob_trade and mob_trade.GetTalkingNpc and mob_trade.GetTalkingNpc()
     if not npc then
-        npc = sb.last_talked_npc
+        npc = mob_trade and mob_trade.GetTalkingNpc and mob_trade.GetTalkingNpc() or sb.last_talked_npc
     end
     local recruitable = sb.get_recruitable_camps(npc)
     local entry = recruitable[n]
@@ -1280,10 +1282,10 @@ local function get_camp_slot_text(n)
     return ""
 end
 
-function stalker_camp_builder.get_camp_slot_1_text() return get_camp_slot_text(1) end
-function stalker_camp_builder.get_camp_slot_2_text() return get_camp_slot_text(2) end
-function stalker_camp_builder.get_camp_slot_3_text() return get_camp_slot_text(3) end
-function stalker_camp_builder.get_camp_slot_4_text() return get_camp_slot_text(4) end
+function stalker_camp_builder.get_camp_slot_1_text(npc) return get_camp_slot_text(npc, 1) end
+function stalker_camp_builder.get_camp_slot_2_text(npc) return get_camp_slot_text(npc, 2) end
+function stalker_camp_builder.get_camp_slot_3_text(npc) return get_camp_slot_text(npc, 3) end
+function stalker_camp_builder.get_camp_slot_4_text(npc) return get_camp_slot_text(npc, 4) end
 
 function stalker_camp_builder.is_camp_survivor(p1, p2)
     local ok, res = pcall(function()
@@ -1555,8 +1557,9 @@ function stalker_camp_builder.can_return_to_settlement(p1, p2)
     return false
 end
 
-function stalker_camp_builder.get_return_to_settlement_text(p1, p2)
-    local actor, npc = resolve_speakers(p1, p2)
+-- return_to_settlement_dialog's <script_text>: the engine passes the NPC (nil while the dialog is only
+-- listed as a topic), the dialog id and the phrase id (PhraseDialog.cpp 211-219)
+function stalker_camp_builder.get_return_to_settlement_text(npc, dialog_id, phrase_id)
     local sb = stalker_camp_builder
     if npc then
         local npc_id = npc:id()
