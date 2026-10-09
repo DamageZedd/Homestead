@@ -3448,6 +3448,8 @@ function stalker_camp_builder.dialog_set_survivor_position_to_actor(actor, npc)
             stalker_camp_builder.setup_settler_beh_logic(n, lvid, nil, "guard")
         end
         actor_menu.set_msg(1, game.translate_string("st_dialog_hold_position_done") or "Position anchored to current spot.", 4)
+    elseif res == "too_far" then
+        actor_menu.set_msg(1, game.translate_string("st_pda_position_too_far"), 4)
     end
 end
 
