@@ -99,6 +99,11 @@
   - Producing settlement jobs (Cooks, Crafters, Medics, Hunters, Scrappers, Woodcutters, Brewers, and waiting Scavengers) pause with status `[PAUSED - Storage Full]` when all containers reach capacity, preserving cycle timers until room is cleared.
   - In `get_auto_sort_target_box`, prevented unconditional fallback to `fallback_chest` when all containers are full.
   - In `deposit_item_to_camp`, if an expedition haul arrives when all containers are at capacity, items spawn neatly on the ground at the camp hub workbench rather than vanishing or overfilling stashes.
+- **Accurate Offline Container Weight for Multi-Use Items, Ammo & Weapons (Fixes #197)**: Fixed an issue where offline containers were evaluated against capacity limits using static base section weights (`inv_weight`), causing partially consumed items (charcoal bags, vodka, water, medicine) to read at full weight, kitted weapons to omit attachment weights, and fresh multi-use items found offline to default to 1 use:
+  - Stored verified real engine item weight (`cl_item:weight()`) and maximum uses into `camp.stored_items` whenever items are inspected online or deposited into settlement storage.
+  - Updated `consume_one_use` to dynamically adjust tracked item weight using the engine's `CEatableItem::Weight` formula (`empty_weight + (inv_weight - empty_weight) * (uses / max_uses)`) as settlers consume portions offline.
+  - Corrected offline item discovery in `camp_iterate_inventory` to initialize untracked multi-use consumables to `max_uses` rather than 1 use, preventing full items from prematurely vanishing after a single offline cycle.
+  - Updated `get_box_current_weight` to evaluate offline containers using recorded weights and dynamic multi-use calculations, preventing boxes of partially used materials from falsely reading full and overflowing prematurely.
 - **Fallback Stash & Outpost Loot Table Sanitization (PR #159)**: Replaced nonexistent item section entries (`prt_i_resistor`, `prt_i_transist`, `toolkit_r`, `elite_detector`, etc.) in fallback loot and outpost chest tables with authentic items.
 
 ### 🛡️ Defense Turrets, Audio & Gadgets Hardening (Community / devinhorowitz):

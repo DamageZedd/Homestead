@@ -735,7 +735,18 @@ function stalker_camp_builder.consume_one_use(item_id)
                 local it = c.stored_items[item_id]
                 known_uses = it.uses
                 if it.uses and it.uses > 1 then
+                    local old_uses = it.uses
                     it.uses = it.uses - 1
+                    local sec = it.sec
+                    local ini = ini_sys or sys_ini or system_ini()
+                    if sec and ini and ini:section_exist(sec) and ini:r_bool_ex(sec, "use_condition", false) then
+                        local max_u = it.max_uses or ini:r_float_ex(sec, "max_uses") or old_uses
+                        local full_w = ini:r_float_ex(sec, "inv_weight") or (it.weight or 0.1)
+                        local empty_w = ini:r_float_ex(sec, "empty_weight") or 0.0
+                        if max_u and max_u > 0 and full_w > empty_w then
+                            it.weight = empty_w + (full_w - empty_w) * (it.uses / max_u)
+                        end
+                    end
                 else
                     c.stored_items[item_id] = nil
                 end
@@ -846,9 +857,20 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                     local uses = 1
                     local ok_u, u = pcall(function() return cl_item:get_remaining_uses() end)
                     if ok_u and u then uses = u end
+                    local item_w = (cl_item.weight and cl_item:weight()) or nil
+                    local ini = ini_sys or sys_ini or system_ini()
+                    local max_u = (cl_item.get_max_uses and cl_item:get_max_uses()) or (ini and ini:section_exist(sec) and ini:r_float_ex(sec, "max_uses")) or uses
 
                     if camp and camp.stored_items then
-                        camp.stored_items[iid] = { sec = sec, cond = cond, uses = uses, box_id = cid }
+                        camp.stored_items[iid] = {
+                            sec = sec,
+                            cond = cond,
+                            uses = uses,
+                            max_uses = max_u,
+                            box_id = cid,
+                            weight = item_w,
+                            verified = true
+                        }
                     end
 
                     local stop = callback(iid, sec, cond, uses, se_obj, cid, cl_item)
@@ -864,23 +886,26 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                     if not (child_id and se_item) then return end
                     local sec = se_item:section_name()
                     local cond = se_item.condition or 1.0
+                    local ini = ini_sys or sys_ini or system_ini()
                     local uses = 1
-                    if utils_item and utils_item.get_uses then
-                        local ok_u, u = pcall(function() return utils_item.get_uses(se_item) end)
-                        if ok_u and u then uses = u end
-                    elseif se_item.get_remaining_uses then
-                        local ok_u, u = pcall(function() return se_item:get_remaining_uses() end)
-                        if ok_u and u then uses = u end
-                    end
-                    -- server objects export no uses: keep the count on record, or the item reads
-                    -- as 1 use and consume_one_use releases all of it
                     local seen = camp and camp.stored_items and camp.stored_items[child_id]
                     if seen and seen.sec == sec and seen.uses then
                         uses = seen.uses
+                    elseif ini and ini:section_exist(sec) and ini:r_bool_ex(sec, "use_condition", false) then
+                        uses = ini:r_float_ex(sec, "max_uses") or 1
                     end
 
                     if camp and camp.stored_items then
-                        camp.stored_items[child_id] = { sec = sec, cond = cond, uses = uses, box_id = cid }
+                        local max_u = (seen and seen.max_uses) or (ini and ini:section_exist(sec) and ini:r_float_ex(sec, "max_uses")) or uses
+                        camp.stored_items[child_id] = {
+                            sec = sec,
+                            cond = cond,
+                            uses = uses,
+                            max_uses = max_u,
+                            box_id = cid,
+                            weight = (seen and seen.weight) or nil,
+                            verified = (seen and seen.verified) or false
+                        }
                     end
 
                     local stop = callback(child_id, sec, cond, uses, se_item, cid, nil)
@@ -905,15 +930,18 @@ function stalker_camp_builder.camp_iterate_inventory(hub_id, camp, callback, pri
                         if child_id and se_item then
                             local sec = se_item:section_name()
                             local cond = se_item.condition or 1.0
+                            local ini = ini_sys or sys_ini or system_ini()
                             local uses = 1
-                            if utils_item and utils_item.get_uses then
-                                local ok_u, u = pcall(function() return utils_item.get_uses(se_item) end)
-                                if ok_u and u then uses = u end
-                            elseif se_item.get_remaining_uses then
-                                local ok_u, u = pcall(function() return se_item:get_remaining_uses() end)
-                                if ok_u and u then uses = u end
+                            if ini and ini:section_exist(sec) and ini:r_bool_ex(sec, "use_condition", false) then
+                                uses = ini:r_float_ex(sec, "max_uses") or 1
                             end
-                            camp.stored_items[child_id] = { sec = sec, cond = cond, uses = uses, box_id = cid }
+                            camp.stored_items[child_id] = {
+                                sec = sec,
+                                cond = cond,
+                                uses = uses,
+                                max_uses = uses,
+                                box_id = cid
+                            }
                         end
                     end)
                 end
@@ -6764,11 +6792,49 @@ function stalker_camp_builder.get_box_current_weight(box_id)
     local se_box = alife_object(box_id)
     if se_box then
         local ini = ini_sys or sys_ini or system_ini()
-        stalker_camp_builder.iterate_server_container(se_box, function(child_id, se_item)
+        local camp = nil
+        local sb = stalker_camp_builder
+        if sb and sb.active_camps then
+            for _, c in pairs(sb.active_camps) do
+                if type(c) == "table" and (c.primary_chest_id == box_id or c.box_id == box_id or (c.containers and c.containers[box_id])) then
+                    camp = c
+                    break
+                end
+            end
+        end
+
+        sb.iterate_server_container(se_box, function(child_id, se_item)
             if se_item then
-                local sec = se_item:section_name()
-                local w = (ini and ini:r_float_ex(sec, "inv_weight")) or 0.05
-                weight = weight + w
+                local it = camp and camp.stored_items and camp.stored_items[child_id]
+                if not it and sb and sb.active_camps then
+                    for _, c in pairs(sb.active_camps) do
+                        if c.stored_items and c.stored_items[child_id] then
+                            it = c.stored_items[child_id]
+                            break
+                        end
+                    end
+                end
+
+                local w = nil
+                if it and it.weight and it.weight > 0 then
+                    w = it.weight
+                else
+                    local sec = se_item:section_name()
+                    local inv_w = (ini and ini:section_exist(sec) and ini:r_float_ex(sec, "inv_weight")) or 0.05
+                    if it and it.uses and ini and ini:section_exist(sec) and ini:r_bool_ex(sec, "use_condition", false) then
+                        local max_u = it.max_uses or ini:r_float_ex(sec, "max_uses")
+                        local empty_w = ini:r_float_ex(sec, "empty_weight") or 0.0
+                        if max_u and max_u > 0 and inv_w > empty_w and it.uses < max_u then
+                            w = empty_w + (inv_w - empty_w) * (it.uses / max_u)
+                            if it.verified then it.weight = w end
+                        else
+                            w = inv_w
+                        end
+                    else
+                        w = inv_w
+                    end
+                end
+                weight = weight + (w or 0.05)
             end
         end)
     end
@@ -7398,7 +7464,10 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
             sec = sec,
             cond = cond or 1.0,
             uses = uses,
-            box_id = target_box_id
+            max_uses = max_uses,
+            box_id = target_box_id,
+            weight = item_w,
+            verified = true
         }
         camp._cached_storage_metrics_tg = nil
     end
