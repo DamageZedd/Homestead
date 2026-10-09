@@ -3835,9 +3835,8 @@ function load_state(m_data)
                     local game_elapsed = current_sec - (survivor.job_start_time or current_sec)
                     local effective_sec = math.max(0, game_elapsed / tf)
                     survivor.job_start_realtime = time_global() - (math.min(effective_sec, effective_interval) * 1000)
-                    if not survivor.job_start_time then
-                        survivor.job_start_time = current_sec
-                    end
+                    -- a missing job_start_time waits for the first update's rebase: the engine loads the
+                    -- save's game time after load_state, so game_sec() still reads the start date here
                 else
                     survivor.job_start_realtime = time_global()
                 end
