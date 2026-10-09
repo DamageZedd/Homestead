@@ -3559,6 +3559,7 @@ function hf_on_before_furniture_release(obj_id)
     local pairs_ = pairs
     if stalker_camp_builder.active_camps[obj_id] then
         stalker_camp_builder.release_camp_trader(stalker_camp_builder.active_camps[obj_id])
+        stalker_camp_builder.end_camp_raid(stalker_camp_builder.active_camps[obj_id])
         level.map_remove_object_spot(obj_id, "ui_pda2_actor_sleep_location")
         invalidate_scan_camp_structures_cache(obj_id)
         stalker_camp_builder.active_camps[obj_id] = nil
@@ -4392,6 +4393,7 @@ local function clean_orphaned_camps(current_level)
     end
     for _, hub_id in ipairs(to_remove) do
         level.map_remove_object_spot(hub_id, "ui_pda2_actor_sleep_location")
+        stalker_camp_builder.end_camp_raid(stalker_camp_builder.active_camps[hub_id])
         stalker_camp_builder.active_camps[hub_id] = nil
     end
 end
@@ -5509,7 +5511,8 @@ function process_camp_raids()
         local cur_lvl = level.name()
         -- a camp gets one raid cooldown of peace after it is founded
         local is_new = camp.created_time and (current_sec - camp.created_time) < cfg.raid_cooldown
-        if survivor_count > 0 and not is_new and (not camp.level or camp.level == cur_lvl) then
+        -- one raid at a time: a second would leave the first squad its "actor" target
+        if survivor_count > 0 and not is_new and not camp.active_raid and (not camp.level or camp.level == cur_lvl) then
             local hub_obj = alife_object(hub_id)
             if hub_obj and hub_obj.position then
                 local dist = hub_obj.position:distance_to(player_pos)
@@ -5537,6 +5540,20 @@ function process_camp_raids()
     end
 
     check_completed_raids()
+end
+
+-- a camp's raid ends with the camp: the raiders' saved "actor" target would otherwise keep them
+-- following the player to every level, as check_completed_raids sees only camps that still exist
+function stalker_camp_builder.end_camp_raid(camp)
+    local raid = camp and camp.active_raid
+    if not raid then return end
+    local squad = raid.squad_id and alife_object(raid.squad_id)
+    -- only while the id still names a squad sent at the player, not a companion squad that took it
+    if squad and squad.squad_members and squad.scripted_target == "actor"
+        and not (axr_companions and axr_companions.companion_squads and axr_companions.companion_squads[squad.id]) then
+        squad.scripted_target = nil
+    end
+    camp.active_raid = nil
 end
 
 function check_completed_raids()
@@ -5874,6 +5891,7 @@ function server_entity_on_unregister(se_obj, type_name)
             safe_deferred_release(zid)
         end
         invalidate_scan_camp_structures_cache(obj_id)
+        stalker_camp_builder.end_camp_raid(stalker_camp_builder.active_camps[obj_id])
         stalker_camp_builder.active_camps[obj_id] = nil
         pcall(function()
             if actor_menu and actor_menu.set_msg and game and game.translate_string then
