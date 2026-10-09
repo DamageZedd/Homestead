@@ -4587,6 +4587,16 @@ local function run_settler_self_heals()
     end
 end
 
+-- A survivor's NPC, or nil when its id holds no stalker (of the survivor's section, when one is given).
+-- An NPC released without dying (another mod's despawner) keeps its camp entry until the next load,
+-- and its id may be free or taken by another object; the engine's switch and squad calls crash on those.
+function stalker_camp_builder.survivor_se(npc_id, survivor)
+    local se = npc_id and alife_object(tonumber(npc_id) or npc_id)
+    if not (se and IsStalker(nil, se:clsid())) then return nil end
+    if survivor and survivor.section and se:section_name() ~= survivor.section then return nil end
+    return se
+end
+
 local function verify_and_heal_settlers()
     for hub_id, camp in pairs(stalker_camp_builder.active_camps) do
         local hub_obj = alife_object(hub_id)
@@ -4595,7 +4605,9 @@ local function verify_and_heal_settlers()
 
         for npc_id, survivor in pairs(camp.survivors) do
             local id_num = tonumber(npc_id) or npc_id
-            local se = alife_object(id_num)
+            -- an id that holds no stalker (an item took it) counts as missing. No section check:
+            -- restore_missing_settler uses sim_default_stalker_0 when the section is gone
+            local se = stalker_camp_builder.survivor_se(id_num)
             if not se and stalker_camp_builder.restore_missing_settler then
                 id_num = stalker_camp_builder.restore_missing_settler(hub_id, id_num, survivor) or id_num
                 se = alife_object(id_num)
@@ -7588,7 +7600,7 @@ function stalker_camp_builder.get_available_scavengers()
                     end
                 end
 
-                if not surv.on_expedition then
+                if not surv.on_expedition and sb.survivor_se(n_id, surv) then
                     local entry = {
                         npc_id = n_id,
                         hub_id = hub_id,
@@ -8558,7 +8570,7 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
         if camp and camp.survivors and camp.survivors[specific_npc_id] then
             local surv = camp.survivors[specific_npc_id]
             local j = surv.job and string.lower(tostring(surv.job)) or "idle"
-            if not surv.on_expedition then
+            if not surv.on_expedition and sb.survivor_se(specific_npc_id, surv) then
                 if j:find("scav") == nil and j == "idle" then
                     surv.job = "scavenge"
                 end
@@ -8574,7 +8586,8 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
         for hub_id, camp in pairs_(sb.active_camps) do
             if camp.level == target_level and camp.survivors then
                 for npc_id, surv in pairs_(camp.survivors) do
-                    if (surv.job == "scavenge" or surv.job == "scavenger") and not surv.on_expedition then
+                    if (surv.job == "scavenge" or surv.job == "scavenger") and not surv.on_expedition
+                        and sb.survivor_se(npc_id, surv) then
                         best_surv = surv
                         best_hub_id = hub_id
                         best_camp = camp
@@ -8591,7 +8604,8 @@ function stalker_camp_builder.dispatch_scavenger_to_stash(stash_id, target_level
         for hub_id, camp in pairs_(sb.active_camps) do
             if camp.survivors then
                 for npc_id, surv in pairs_(camp.survivors) do
-                    if (surv.job == "scavenge" or surv.job == "scavenger") and not surv.on_expedition then
+                    if (surv.job == "scavenge" or surv.job == "scavenger") and not surv.on_expedition
+                        and sb.survivor_se(npc_id, surv) then
                         best_surv = surv
                         best_hub_id = hub_id
                         best_camp = camp
@@ -8677,7 +8691,7 @@ function stalker_camp_builder.dispatch_scavenger_regional_sweep(all_stashes, tar
         if camp and camp.survivors and camp.survivors[specific_npc_id] then
             local surv = camp.survivors[specific_npc_id]
             local j = surv.job and string.lower(tostring(surv.job)) or "idle"
-            if not surv.on_expedition then
+            if not surv.on_expedition and sb.survivor_se(specific_npc_id, surv) then
                 if j:find("scav") == nil and j == "idle" then
                     surv.job = "scavenge"
                 end
