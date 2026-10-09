@@ -944,7 +944,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                             end
                             if actor and same_level then
                                 local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
-                                news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_reinforced_stronghold"), fac_name, camp.name), nil, "general_stalker", 8000)
+                                stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_camp_reinforced_stronghold"), fac_name, camp.name), nil, "general_stalker", 8000, nil, "general")
                             end
                         end
                     end
@@ -1004,7 +1004,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                         sb.sync_rival_camp_map_spot(camp)
 
                         if actor then
-                            news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_moved_on"), camp.name), nil, "general_stalker", 10000)
+                            stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_camp_moved_on"), camp.name), nil, "general_stalker", 10000, nil, "general")
                         end
                     end
                 else
@@ -1111,7 +1111,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                 local faction_name = game.translate_string(camp.faction or "stalker")
                                 local lvl_name = game.translate_string(camp.level or level_name)
                                 if actor then
-                                    news_manager.send_tip(actor, sformat(game.translate_string("st_mayday_forces_taking_fire"), faction_name, camp.name, lvl_name), nil, "red_danger", 14000)
+                                    stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_mayday_forces_taking_fire"), faction_name, camp.name, lvl_name), nil, "red_danger", 14000, nil, "combat", true)
                                 end
                             end
                         end
@@ -1166,7 +1166,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                     camp.cleared = not is_hostile
                                     sb.sync_rival_camp_map_spot(camp)
                                     if actor then
-                                        news_manager.send_tip(actor, sformat(game.translate_string("st_zone_skirmish_cleansed"), new_fac_name, camp.name, old_fac_name), nil, is_hostile and "red_danger" or "general_stalker", 12000)
+                                        stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_zone_skirmish_cleansed"), new_fac_name, camp.name, old_fac_name), nil, is_hostile and "red_danger" or "general_stalker", 12000, nil, "combat")
                                     end
                                 end
                             end
@@ -1188,7 +1188,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
                 if actor then
                     local faction_name = old_faction and game.translate_string(old_faction) or "occupying"
-                    news_manager.send_tip(actor, sformat(game.translate_string("st_recon_garrison_eliminated"), camp.name, faction_name), nil, "general_stalker", 10000)
+                    stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_garrison_eliminated"), camp.name, faction_name), nil, "general_stalker", 10000, nil, "general")
                 end
             end
         elseif camp.status == "unoccupied" then
@@ -1234,9 +1234,9 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
 
                 if actor then
                     if is_hostile then
-                        news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_occupied_hostile"), camp.name, faction_name), nil, "red_danger", 12000)
+                        stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_camp_occupied_hostile"), camp.name, faction_name), nil, "red_danger", 12000, nil, "general")
                     else
-                        news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_claimed_friendly"), camp.name, faction_name), nil, "general_stalker", 10000)
+                        stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_camp_claimed_friendly"), camp.name, faction_name), nil, "general_stalker", 10000, nil, "general")
                     end
                 end
             elseif not camp.takeover_at then
@@ -1301,7 +1301,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
         end
 
         if actor then
-            news_manager.send_tip(actor, sformat(game.translate_string("st_recon_camp_destroyed"), camp.name), nil, "general_stalker", 10000)
+            stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_camp_destroyed"), camp.name), nil, "general_stalker", 10000, nil, "general")
         end
 
         sb.rival_camps[key] = nil
@@ -1359,7 +1359,7 @@ function stalker_camp_builder.update_rival_camps()
                 for _, target_lvl in ipairs_(shuffled) do
                     if sb.spawn_single_rival_camp(target_lvl) then
                         if actor then
-                            news_manager.send_tip(actor, game.translate_string("st_recon_post_emission_expedition"), nil, "general_stalker", 10000)
+                            stalker_camp_builder.camp_send_tip(actor, game.translate_string("st_recon_post_emission_expedition"), nil, "general_stalker", 10000, nil, "general")
                         end
                         break
                     end
@@ -1383,7 +1383,7 @@ function stalker_camp_builder.update_rival_camps()
                         if sb.spawn_single_rival_camp(target_lvl, retal_faction) then
                             if actor then
                                 local fac_name = game.translate_string(retal_faction)
-                                news_manager.send_tip(actor, sformat(game.translate_string("st_recon_retaliatory_expedition"), fac_name), nil, "red_danger", 10000)
+                                stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_retaliatory_expedition"), fac_name), nil, "red_danger", 10000, nil, "general")
                             end
                             break
                         end
@@ -2228,7 +2228,7 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                         sb.sync_rival_camp_map_spot(sb.rival_camps[camp_key])
 
                         if actor then
-                            news_manager.send_tip(actor, sformat(game.translate_string("st_recon_new_camp_established"), translated_level, faction_name), nil, "general_stalker", 10000)
+                            stalker_camp_builder.camp_send_tip(actor, sformat(game.translate_string("st_recon_new_camp_established"), translated_level, faction_name), nil, "general_stalker", 10000, nil, "general")
                         end
                         return true
                     end
@@ -2433,7 +2433,7 @@ function stalker_camp_builder.upgrade_rival_camp_tier(camp, new_tier)
 
         if db.actor and same_level then
             local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
-            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_reinforced_outpost"), fac_name, camp.name), nil, "general_stalker", 10000)
+            stalker_camp_builder.camp_send_tip(db.actor, sformat(game.translate_string("st_recon_reinforced_outpost"), fac_name, camp.name), nil, "general_stalker", 10000, nil, "general")
         end
 
     elseif new_tier == 3 then
@@ -2521,7 +2521,7 @@ function stalker_camp_builder.upgrade_rival_camp_tier(camp, new_tier)
         if db.actor then
             local fac_name = camp.faction and game.translate_string(camp.faction) or "Forces"
             local lvl_name = game.translate_string(camp.level or level_name)
-            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_expanded_stronghold"), fac_name, camp.name, lvl_name), nil, "general_stalker", 12000)
+            stalker_camp_builder.camp_send_tip(db.actor, sformat(game.translate_string("st_recon_expanded_stronghold"), fac_name, camp.name, lvl_name), nil, "general_stalker", 12000, nil, "general")
         end
     end
 end
@@ -2752,7 +2752,7 @@ function stalker_camp_builder.zombify_rival_camp(camp)
 
         if db.actor then
             local lvl_name = game.translate_string(camp.level or level.name())
-            news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_psy_surge_zombified"), camp.name, lvl_name), nil, "red_danger", 14000)
+            stalker_camp_builder.camp_send_tip(db.actor, sformat(game.translate_string("st_recon_psy_surge_zombified"), camp.name, lvl_name), nil, "red_danger", 14000, nil, "general")
         end
     end
 end
@@ -2815,7 +2815,7 @@ function stalker_camp_builder.transform_to_mutant_nest(camp, mutant_type)
 
     if db.actor then
         local lvl_name = game.translate_string(camp.level or level.name())
-        news_manager.send_tip(db.actor, sformat(game.translate_string("st_recon_mutant_overrun_den"), camp.name, lvl_name), nil, "red_danger", 12000)
+        stalker_camp_builder.camp_send_tip(db.actor, sformat(game.translate_string("st_recon_mutant_overrun_den"), camp.name, lvl_name), nil, "red_danger", 12000, nil, "combat")
     end
 end
 
@@ -2895,7 +2895,7 @@ function stalker_camp_builder.check_sos_rescue_reward(actor)
                     dialogs.relocate_money_to_actor(db.actor, nil, reward_rubles)
 
                     local faction_name = camp.faction and game.translate_string(camp.faction) or "Stalkers"
-                    news_manager.send_tip(actor, string.format(game.translate_string("st_recon_rescue_complete"), faction_name, reward_rubles), nil, "general_stalker", 12000)
+                    stalker_camp_builder.camp_send_tip(actor, string.format(game.translate_string("st_recon_rescue_complete"), faction_name, reward_rubles), nil, "general_stalker", 12000, nil, "general", true)
                 end
             end
         end
