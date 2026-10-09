@@ -544,10 +544,34 @@ function safe_deferred_release(id)
 end
 stalker_camp_builder.safe_deferred_release = safe_deferred_release
 
+-- the ids of every outpost's chest and furniture: they stay the outpost's, which releases them when
+-- it decays and garrisons them again on a takeover. Kept for a second; fresh rebuilds at once.
+local outpost_ids, outpost_ids_tg = {}, nil
+local function outpost_piece_ids(fresh)
+    local tg = time_global()
+    if not fresh and outpost_ids_tg and tg >= outpost_ids_tg and tg - outpost_ids_tg < 1000 then
+        return outpost_ids
+    end
+    outpost_ids, outpost_ids_tg = {}, tg
+    for _, rcamp in pairs(stalker_camp_builder.rival_camps or {}) do
+        if type(rcamp) == "table" then
+            if rcamp.chest_id then outpost_ids[rcamp.chest_id] = true end
+            for _, did in ipairs(rcamp.decorations or {}) do
+                outpost_ids[did] = true
+            end
+        end
+    end
+    return outpost_ids
+end
+
 function is_valid_camp_box(box_id, hub_id, camp)
     local type_ = type
     local sim = alife()
     if not box_id or type_(box_id) ~= "number" or box_id <= 0 or box_id >= 65535 then
+        return false
+    end
+    -- an outpost's chest or ammo crate near the hub is not camp storage
+    if outpost_piece_ids()[box_id] then
         return false
     end
     if not is_actual_container(box_id) then
@@ -1714,9 +1738,11 @@ function scan_camp_structures(hub_id, force)
     local hub_vertex = gg:vertex(hub_obj.m_game_vertex_id)
     if not hub_vertex then return end
     local hub_level_id = hub_vertex:level_id()
+    -- an outpost's pieces near the hub stay the outpost's
+    local outposts = outpost_piece_ids(true)
 
     local function evaluate_furniture_candidate(id, se_obj)
-        if id ~= hub_id and se_obj and se_obj.parent_id == 65535 and se_obj.m_game_vertex_id then
+        if id ~= hub_id and not outposts[id] and se_obj and se_obj.parent_id == 65535 and se_obj.m_game_vertex_id then
             local vertex = gg:vertex(se_obj.m_game_vertex_id)
             if vertex and vertex:level_id() == hub_level_id then
                 local ok_sec, sec = pcall(function() return se_obj:section_name() end)
