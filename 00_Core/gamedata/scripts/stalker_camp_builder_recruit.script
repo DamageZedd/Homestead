@@ -3518,6 +3518,12 @@ function on_game_start()
             local ret = add_to_actor_squad(npc, ...)
             if npc and npc.id then
                 stalker_camp_builder.mark_settler_companion(npc:id())
+                -- hired on purpose: the ghost-companion sweep must not take them out of the party
+                local m_data = alife_storage_manager and alife_storage_manager.get_state()
+                local banished = m_data and m_data.stalker_camp_builder_banished_companions
+                if banished then
+                    banished[npc:id()] = nil
+                end
             end
             return ret
         end
