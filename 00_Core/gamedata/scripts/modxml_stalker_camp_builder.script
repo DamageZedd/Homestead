@@ -10,6 +10,7 @@ local dialogues = [[
             <next>20</next>
             <next>30</next>
             <next>40</next>
+            <next>50</next>
         </phrase>
         <phrase id="10">
             <text>st_recruit_to_camp_accept</text>
@@ -32,6 +33,11 @@ local dialogues = [[
         <phrase id="40">
             <text>st_recruit_camps_full</text>
             <precondition>stalker_camp_builder.camps_are_full</precondition>
+            <next>99</next>
+        </phrase>
+        <phrase id="50">
+            <text>st_recruit_camps_refuse</text>
+            <precondition>stalker_camp_builder.camps_refuse_recruit</precondition>
             <next>99</next>
         </phrase>
         <phrase id="99">

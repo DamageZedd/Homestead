@@ -306,22 +306,28 @@ function stalker_camp_builder.no_camps_exist(actor, npc)
     return count == 0
 end
 
+-- no camp has a free bed (get_recruitable_camps with no stalker skips the faction checks)
 function stalker_camp_builder.camps_are_full(actor, npc)
     local sb = stalker_camp_builder
-    local count = 0
-    for _, _ in pairs(sb.active_camps) do count = count + 1 end
-    if count == 0 then return false end
+    if sb.no_camps_exist(actor, npc) then return false end
+    return #sb.get_recruitable_camps(nil) == 0
+end
 
+-- a camp has a free bed, but none this stalker's faction can live in: ground its enemies hold,
+-- or its enemies among the settlers (can_settler_safely_live_in_camp)
+function stalker_camp_builder.camps_refuse_recruit(actor, npc)
+    local sb = stalker_camp_builder
+    if sb.no_camps_exist(actor, npc) or sb.camps_are_full(actor, npc) then return false end
     local a, target_npc = resolve_speakers(actor, npc)
-    local recruitable = sb.get_recruitable_camps(target_npc)
-    return #recruitable == 0
+    return #sb.get_recruitable_camps(target_npc) == 0
 end
 
 function stalker_camp_builder.recruitment_roll_success(p1, p2)
     local actor, npc = resolve_speakers(p1, p2)
     if not npc then return false end
     local sb = stalker_camp_builder
-    if sb.no_camps_exist(actor, npc) or sb.camps_are_full(actor, npc) then
+    -- yes or no only when a camp can take them: the camp choices after yes come from this list
+    if sb.no_camps_exist(actor, npc) or #sb.get_recruitable_camps(npc) == 0 then
         return false
     end
     return sb.get_recruitment_roll(npc) == true
@@ -331,7 +337,7 @@ function stalker_camp_builder.recruitment_roll_fail(p1, p2)
     local actor, npc = resolve_speakers(p1, p2)
     if not npc then return false end
     local sb = stalker_camp_builder
-    if sb.no_camps_exist(actor, npc) or sb.camps_are_full(actor, npc) then
+    if sb.no_camps_exist(actor, npc) or #sb.get_recruitable_camps(npc) == 0 then
         return false
     end
     return sb.get_recruitment_roll(npc) == false

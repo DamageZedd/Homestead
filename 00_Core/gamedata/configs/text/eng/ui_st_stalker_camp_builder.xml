@@ -19,6 +19,9 @@
     <string id="st_recruit_camps_full">
         <text>All of your active settlements are at full capacity. You'll need to place more beds before I can join.</text>
     </string>
+    <string id="st_recruit_camps_refuse">
+        <text>None of your settlements with free beds is safe for me: my faction's enemies either control the area or already live there.</text>
+    </string>
     <string id="st_recruit_to_camp_close">
         <text>I see.</text>
     </string>
