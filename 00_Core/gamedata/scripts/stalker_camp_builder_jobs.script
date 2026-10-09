@@ -734,6 +734,23 @@ end
 local REPAIR_FEES = { vodka = true, conserva = true, tushonka = true }
 local function is_repair_fee(sec) return REPAIR_FEES[sec] == true end
 
+-- a gun with a part below 95%: G.A.M.M.A. holds a fired gun's condition at 0.83 and keeps its wear
+-- in the WPO parts, which don't follow condition. Only the parts in its list count, the ones a
+-- repair round raises.
+local function gun_parts_worn(item_id, sec)
+    if not (sec and sec:find("wpn_") and item_parts and item_parts.get_parts_con) then return false end
+    local ini_parts = itms_manager and itms_manager.ini_parts
+    local psec = ini_sys and ini_sys:r_string_ex(sec, "parent_section") or sec
+    local list = ini_parts and ini_parts:r_string_ex("con_parts_list", psec)
+    local parts = list and item_parts.get_parts_con(nil, item_id)
+    if type_(parts) ~= "table" then return false end
+    for _, p_name in ipairs_(str_explode(list, ",")) do
+        local con = parts[p_name]
+        if type_(con) == "number" and con < 95 then return true end
+    end
+    return false
+end
+
 -- process_gear_repair -- repair one or more damaged items in exchange for food
 function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor, fallback_box_id)
     local ipairs_ = ipairs
@@ -836,8 +853,9 @@ function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor
                 if not is_gear and (sec:find("wpn_") or sec:find("helm_") or sec:find("armor_") or sec:find("outfit")) then
                     is_gear = true
                 end
-                -- an offline item's condition can't be written (server items export none)
-                if is_gear and cond < 0.95 and cl_item then
+                -- an offline item's condition can't be written (server items export none); a gun's
+                -- wear can be in its parts alone
+                if is_gear and cl_item and (cond < 0.95 or gun_parts_worn(item_id, sec)) then
                     repair_item_id = item_id
                     repair_item_cond = cond
                     item_name = ui_item.get_sec_name(sec)
@@ -1007,11 +1025,11 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
     local has_damaged = false
     local has_fee = false
 
-    local function check_item(sec, cond)
+    local function check_item(sec, cond, item_id)
         if not has_fee and is_repair_fee(sec) then
             has_fee = true
         end
-        if not has_damaged and sec and cond and cond < 0.95 then
+        if not has_damaged and sec and cond and (cond < 0.95 or (item_id and gun_parts_worn(item_id, sec))) then
             if sec:find("wpn_") or sec:find("helm_") or sec:find("armor_") or sec:find("outfit") then
                 has_damaged = true
             end
@@ -1030,7 +1048,8 @@ function stalker_camp_builder.camp_has_repairable_gear(hub_id, camp)
     if sb.camp_iterate_inventory then
         sb.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, box_id, cl_item)
             -- only online gear counts: process_gear_repair can't repair the rest
-            check_item(sec, (wb_only[box_id] and cl_item) and cond or 1.0)  -- DANZY EDIT: damaged gear only counts inside a workbench
+            local in_bench = wb_only[box_id] and cl_item
+            check_item(sec, in_bench and cond or 1.0, in_bench and item_id or nil)  -- DANZY EDIT: damaged gear only counts inside a workbench
             if has_damaged and has_fee then return true end
         end)
     end
