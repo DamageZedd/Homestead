@@ -184,6 +184,10 @@ function stalker_camp_builder.get_recruitment_fee(npc)
     if sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)]) then
         return 0
     end
+    -- the player's own settler, moved through the recruit dialog: free, as with Transfer
+    if sb.is_camp_settler(nil, npc_id) then
+        return 0
+    end
     local rname = get_npc_rank_name(npc)
     local req = RANK_REQUIREMENTS[rname] or RANK_REQUIREMENTS["novice"]
     local mult = (sb.cfg and sb.cfg.recruitment_cost_mult) or 1.0
@@ -198,6 +202,10 @@ function stalker_camp_builder.check_recruitment_requirements(npc, target_hub_id)
 
     -- Refugees seeking shelter always join without fees or rank demands
     if sb.refugee_ids and (sb.refugee_ids[npc_id] or sb.refugee_ids[tostring(npc_id)]) then
+        return true, "ok", 0, 0
+    end
+    -- so do the player's own settlers, moved here between camps
+    if sb.is_camp_settler(nil, npc_id) then
         return true, "ok", 0, 0
     end
 
@@ -946,10 +954,12 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
     local restored_xp = 0
     local restored_tier = 0
     local restored_job_start_realtime = time_global()
+    local prev_record = nil
 
     for search_hub_id, search_camp in pairs(sb.active_camps) do
         if search_camp.survivors and search_camp.survivors[npc_id] then
             local s = search_camp.survivors[npc_id]
+            prev_record = s
             if s.paused_job then
                 restored_job = s.paused_job
                 restored_xp = s.paused_xp or 0
@@ -989,6 +999,17 @@ function stalker_camp_builder.recruit_npc_to_camp(actor, npc, hub_id)
         visual = npc:get_visual_name(),
         icon = (npc.character_icon and npc:character_icon()) or nil,
     }
+    -- one of the player's settlers, changing camps: keep what the player set in the PDA
+    if prev_record then
+        local s = camp.survivors[npc_id]
+        if prev_record.renamed then
+            s.name = prev_record.name
+            s.renamed = true
+        end
+        s.medic_order = prev_record.medic_order
+        s.craft_order = prev_record.craft_order
+        s.woodcutter_mode = prev_record.woodcutter_mode
+    end
     sb.settler_lookup[npc_id] = {
         hub_id = hub_id,
         camp = camp,
