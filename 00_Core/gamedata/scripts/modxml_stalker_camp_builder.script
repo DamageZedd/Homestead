@@ -39,25 +39,25 @@ local dialogues = [[
             <action>dialogs.break_dialog</action>
         </phrase>
         <phrase id="1">
-            <text_functor>stalker_camp_builder.get_camp_slot_1_text</text_functor>
+            <script_text>stalker_camp_builder.get_camp_slot_1_text</script_text>
             <precondition>stalker_camp_builder.camp_slot_1_exists</precondition>
             <action>stalker_camp_builder.recruit_to_camp_slot_1</action>
             <action>dialogs.break_dialog</action>
         </phrase>
         <phrase id="2">
-            <text_functor>stalker_camp_builder.get_camp_slot_2_text</text_functor>
+            <script_text>stalker_camp_builder.get_camp_slot_2_text</script_text>
             <precondition>stalker_camp_builder.camp_slot_2_exists</precondition>
             <action>stalker_camp_builder.recruit_to_camp_slot_2</action>
             <action>dialogs.break_dialog</action>
         </phrase>
         <phrase id="3">
-            <text_functor>stalker_camp_builder.get_camp_slot_3_text</text_functor>
+            <script_text>stalker_camp_builder.get_camp_slot_3_text</script_text>
             <precondition>stalker_camp_builder.camp_slot_3_exists</precondition>
             <action>stalker_camp_builder.recruit_to_camp_slot_3</action>
             <action>dialogs.break_dialog</action>
         </phrase>
         <phrase id="4">
-            <text_functor>stalker_camp_builder.get_camp_slot_4_text</text_functor>
+            <script_text>stalker_camp_builder.get_camp_slot_4_text</script_text>
             <precondition>stalker_camp_builder.camp_slot_4_exists</precondition>
             <action>stalker_camp_builder.recruit_to_camp_slot_4</action>
             <action>dialogs.break_dialog</action>
@@ -220,7 +220,7 @@ local dialogues = [[
             <next>77</next>
         </phrase>
         <phrase id="77">
-            <text_functor>stalker_camp_builder.get_camp_status_text</text_functor>
+            <script_text>stalker_camp_builder.get_camp_status_text</script_text>
             <next>100</next>
         </phrase>
     </phrase_list>
@@ -230,7 +230,7 @@ local dialogues = [[
     <precondition>stalker_camp_builder.can_return_to_settlement</precondition>
     <phrase_list>
         <phrase id="0">
-            <text_functor>stalker_camp_builder.get_return_to_settlement_text</text_functor>
+            <script_text>stalker_camp_builder.get_return_to_settlement_text</script_text>
             <action>stalker_camp_builder.return_to_settlement</action>
             <action>dialogs.break_dialog</action>
         </phrase>

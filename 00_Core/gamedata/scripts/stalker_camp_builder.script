@@ -5103,7 +5103,9 @@ function process_camp_morale()
     end
 end
 
-function get_camp_status_text(actor, npc, dialog_id, phrase_id)
+-- manage_camp_dialog's <script_text> for phrase 77: the engine passes the NPC, the dialog id and the
+-- phrase id (PhraseDialog.cpp 211-219). The status is that of the camp the player stands in.
+function get_camp_status_text(npc, dialog_id, phrase_id)
     local hub_id, camp = get_active_camp_near(db.actor:position())
     if not camp then
         return game.translate_string("st_camp_status_not_near")
