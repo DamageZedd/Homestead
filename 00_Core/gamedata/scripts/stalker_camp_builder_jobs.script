@@ -240,9 +240,12 @@ function stalker_camp_builder.spawn_scavenged_loot(box_id, multiplier, hub_id, c
             treasure_manager.caches[target_box] = nil
             local parts = str_explode and str_explode(raw_str, ",")
             if parts and #parts > 0 then
-                for _, sec in ipairs_(parts) do
+                for _, entry in ipairs_(parts) do
+                    -- "section__uses": a partly used item (split_stash_entry)
+                    local sec, uses = entry, nil
+                    if sb.split_stash_entry then sec, uses = sb.split_stash_entry(entry) end
                     if sec and sec ~= "" and ini_sys and ini_sys:section_exist(sec) then
-                        items_to_deposit[#items_to_deposit+1] = { sec = sec, is_yellow = is_yellow, map_tier = map_tier }
+                        items_to_deposit[#items_to_deposit+1] = { sec = sec, uses = uses, is_yellow = is_yellow, map_tier = map_tier }
                     end
                 end
                 tm_success = (#items_to_deposit > 0)
@@ -275,7 +278,7 @@ function stalker_camp_builder.spawn_scavenged_loot(box_id, multiplier, hub_id, c
         end
         for c = 1, count do
             if camp and hub_id and sb.deposit_item_to_camp then
-                local dep_box = sb.deposit_item_to_camp(hub_id, camp, sec, itm.is_yellow, itm.map_tier)
+                local dep_box = sb.deposit_item_to_camp(hub_id, camp, sec, itm.is_yellow, itm.map_tier, nil, nil, itm.uses)
                 if dep_box then
                     deposited_items[#deposited_items+1] = sec
                 end
