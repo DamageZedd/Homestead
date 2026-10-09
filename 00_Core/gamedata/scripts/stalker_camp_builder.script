@@ -6946,23 +6946,15 @@ function stalker_camp_builder.pending_cond_tick()
     pcall(function()
         local pend = sb.pending_item_cond
         if not pend then return end
-        local cur_sec = 0
-        if game and game.get_game_time then
-            pcall(function()
-                cur_sec = game_sec()
-            end)
-        end
-        local MAX_PENDING_AGE_SEC = 7 * 86400 -- 7 in-game days
         for id, data in pairs(pend) do
             local o = level.object_by_id(id)
             if o then
                 sb.apply_pending_cond(o)
-            elseif not alife_object(id) then
-                pend[id] = nil
-            elseif data and cur_sec > 0 then
-                if not data.t then
-                    data.t = cur_sec
-                elseif (cur_sec - data.t) > MAX_PENDING_AGE_SEC and not data.u then  -- owed uses wait
+            else
+                -- an item can wait offline in a camp box for weeks: keep its record until it comes
+                -- online, unless the id no longer names it (released, or passed to another object)
+                local se_obj = alife_object(id)
+                if not se_obj or (type(data) == "table" and data.s and se_obj:section_name() ~= data.s) then
                     pend[id] = nil
                 end
             end
