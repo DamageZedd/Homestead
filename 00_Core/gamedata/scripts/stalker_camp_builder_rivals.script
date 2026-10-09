@@ -1719,9 +1719,13 @@ function stalker_camp_builder.snap_rival_camps_to_ground()
                         end
                     end
 
-                    camp.snapped = true
-                    camp.ground_snapped_v2 = true
-                    camp.ground_snapped_v4 = true
+                    -- an inventory box takes its server position only when it spawns: while the chest
+                    -- is online the camp stays marked unsnapped, so a later level entry snaps it again
+                    if not level.object_by_id(camp.chest_id) then
+                        camp.snapped = true
+                        camp.ground_snapped_v2 = true
+                        camp.ground_snapped_v4 = true
+                    end
                 end
             end
         end
