@@ -3502,6 +3502,10 @@ function stalker_camp_builder.mark_settler_companion(npc_id)
                 if squad then
                     squad.get_script_target = nil
                 end
+                -- the squad is the companion system's now (convert_settler_to_companion_squad drops the entry too)
+                if sb.settler_home_squads then
+                    sb.settler_home_squads[npc_id] = nil
+                end
             end
             return
         end

@@ -205,6 +205,11 @@ function stalker_camp_builder.anchor_settler_to_smart(npc_id, camp_level, target
         if actor_squad_check and home_squad.id == actor_squad_check.id then
             still_valid = false
         end
+        -- the settler has left it (the companion system, the recruit dialog), or it was released and
+        -- its id went to another squad
+        if se_obj.group_id ~= existing_home_id then
+            still_valid = false
+        end
         local ok_count, cnt = pcall(function() return home_squad:npc_count() end)
         if not (ok_count and cnt and cnt <= 1) then
             still_valid = false
