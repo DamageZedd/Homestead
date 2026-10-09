@@ -2534,7 +2534,7 @@ function stalker_camp_builder.update_camp_jobs()
                                     local roll = math.random(100)
                                     if roll <= sb.cfg.scavenge_ambush_chance then
                                         if not is_catchup then
-                                            news_manager.send_tip(actor, string.format(game.translate_string("st_job_scavenger_ambushed"), survivor.name), nil, "red_danger", 12000)
+                                            sb.camp_send_tip(actor, string.format(game.translate_string("st_job_scavenger_ambushed"), survivor.name), nil, "red_danger", 12000, hub_id, "combat", true)
                                         end
                                     else
                                         local loot_box = sb.find_best_container(hub_id, camp, {"workbench"}, camp_box_id)
@@ -2567,11 +2567,11 @@ function stalker_camp_builder.update_camp_jobs()
                                     local roll = math.random(100)
                                     local ambush_chance = sb.cfg.hunter_ambush_chance or 20
                                     if roll <= ambush_chance then
+                                        local ambush_msg = string.format(game.translate_string("st_job_hunter_ambushed"), survivor.name)
                                         if not is_catchup then
-                                            news_manager.send_tip(actor, string.format(game.translate_string("st_job_hunter_ambushed"), survivor.name), nil, "red_danger", 12000)
-                                        end
-                                        if sb.add_radio_feed_entry then
-                                            sb.add_radio_feed_entry("combat", string.format(game.translate_string("st_job_hunter_ambushed"), survivor.name))
+                                            sb.camp_send_tip(actor, ambush_msg, nil, "red_danger", 12000, hub_id, "combat", true)
+                                        elseif sb.add_radio_feed_entry then
+                                            sb.add_radio_feed_entry("combat", ambush_msg)
                                         end
                                     else
                                         local loot_box = sb.find_best_container(hub_id, camp, {"fridge", "box", "stash", "workbench"}, camp_box_id)

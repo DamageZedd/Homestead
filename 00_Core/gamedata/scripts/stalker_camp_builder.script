@@ -998,9 +998,10 @@ local last_rival_spawn_scan_tg = 0
 local RIVAL_SPAWN_SCAN_INTERVAL_MS = 60000  -- 60 real seconds
 
 -- category is the news icon; radio_category is the radio feed's filter for the report:
--- "work" (the default), "expedition", "combat" or "general"
-function camp_send_tip(actor, text, snd_type, category, duration, hub_id, radio_category)
-    if cfg.verbose_notifications ~= false then
+-- "work" (the default), "expedition", "combat" or "general". Verbose Notifications off
+-- holds back a routine report's toast; an alert (always) shows either way.
+function camp_send_tip(actor, text, snd_type, category, duration, hub_id, radio_category, always)
+    if always or cfg.verbose_notifications ~= false then
         _suppress_news_intercept = true
         stalker_camp_builder._suppress_news_intercept = true
         pcall(news_manager.send_tip, actor, text, snd_type, category, duration)
@@ -5232,7 +5233,7 @@ function trigger_random_camp_event(hub_id, camp, hub_obj)
             squad.get_script_target = function(self)
                 return AC_ID
             end
-            news_manager.send_tip(db.actor, game.translate_string("st_event_mutant_migration"), nil, "red_danger", 15000)
+            camp_send_tip(db.actor, game.translate_string("st_event_mutant_migration"), nil, "red_danger", 15000, hub_id, "combat", true)
             local has_alarm = false
             local alarm_pos = hub_obj.position
             for id, struct_type in pairs(camp.structures) do
@@ -5423,7 +5424,7 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
             original_squad_size = squad_size,
             remaining_count = squad_size,
         }
-        news_manager.send_tip(actor, string.format(game.translate_string("st_event_camp_under_attack"), game.translate_string(level.name()), game.translate_string("st_hostiles") or "hostiles"), nil, "red_danger", 15000)
+        camp_send_tip(actor, string.format(game.translate_string("st_event_camp_under_attack"), game.translate_string(level.name()), game.translate_string("st_hostiles") or "hostiles"), nil, "red_danger", 15000, hub_id, "combat", true)
 
         local has_alarm = false
         local alarm_pos = hub_obj.position
@@ -5600,7 +5601,7 @@ function check_completed_raids()
                     raiders_killed = raid.original_squad_size - raid.remaining_count
                 end
                 if db.actor then
-                    news_manager.send_tip(db.actor, string.format(game.translate_string("st_raid_summary"), camp_name, raiders_killed, raid.guards_lost or 0), nil, "general_stalker", 12000)
+                    camp_send_tip(db.actor, string.format(game.translate_string("st_raid_summary"), camp_name, raiders_killed, raid.guards_lost or 0), nil, "general_stalker", 12000, hub_id, "combat", true)
                 end
                 camp.active_raid = nil
             end
@@ -8606,21 +8607,21 @@ local function emit_expedition_chatter(actor, exp, progress, target_lvl_name, ca
     local name = exp.survivor_name or "Scavenger"
     if progress >= 0.25 and not exp.chatter[25] then
         exp.chatter[25] = true
-        news_manager.send_tip(actor,
+        camp_send_tip(actor,
             sformat(game.translate_string("st_scavenger_radio_25"), name, target_lvl_name),
-            nil, "general_stalker", 8000)
+            nil, "general_stalker", 8000, exp.hub_id, "expedition")
     end
     if progress >= 0.50 and not exp.chatter[50] then
         exp.chatter[50] = true
-        news_manager.send_tip(actor,
+        camp_send_tip(actor,
             sformat(game.translate_string("st_scavenger_radio_50"), name, target_lvl_name, camp_name),
-            nil, "general_stalker", 8000)
+            nil, "general_stalker", 8000, exp.hub_id, "expedition")
     end
     if progress >= 0.75 and not exp.chatter[75] then
         exp.chatter[75] = true
-        news_manager.send_tip(actor,
+        camp_send_tip(actor,
             sformat(game.translate_string("st_scavenger_radio_75"), name, camp_name),
-            nil, "general_stalker", 8000)
+            nil, "general_stalker", 8000, exp.hub_id, "expedition")
     end
 end
 
@@ -8799,9 +8800,9 @@ local function roll_expedition_ambush(actor, exp)
 
     if (exp.survivor_tier or 0) >= 2 or math.random(100) <= 60 then
         if actor then
-            news_manager.send_tip(actor,
+            camp_send_tip(actor,
                 sformat(game.translate_string("st_scavenger_ambush_win"), name),
-                nil, "general_stalker", 10000)
+                nil, "general_stalker", 10000, exp.hub_id, "expedition")
         end
         return {"ammo_5.45x39_fmj", "mutant_part_dog_tail", "bandage",
                 "conserva", "prt_i_scrap"},
@@ -8809,9 +8810,9 @@ local function roll_expedition_ambush(actor, exp)
     end
 
     if actor then
-        news_manager.send_tip(actor,
+        camp_send_tip(actor,
             sformat(game.translate_string("st_scavenger_ambush_fled"), name),
-            nil, "red_danger", 10000)
+            nil, "red_danger", 10000, exp.hub_id, "combat", true)
     end
     return {}, 45, "Evaded Enemy Ambush"
 end
@@ -9018,10 +9019,7 @@ local function complete_expedition(stash_id)
             items_recovered, deposited_names, item_counts,
             xp_earned, total_xp, cur_tier)
         if ok and receipt then
-            pcall(news_manager.send_tip, actor, receipt, nil, "general_stalker", 16000)
-            if sb.add_radio_log then
-                pcall(sb.add_radio_log, exp.hub_id, "expeditions", receipt)
-            end
+            camp_send_tip(actor, receipt, nil, "general_stalker", 16000, exp.hub_id, "expedition")
         end
     end
 
