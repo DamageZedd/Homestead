@@ -4542,6 +4542,11 @@ local function verify_and_heal_settlers()
             camp.survivors[npc_id] = nil
             stalker_camp_builder.settler_lookup[npc_id] = nil
         end
+
+        -- an Invincible settler who died just before the save: the respawn's time event is gone
+        for dead_id in pairs(camp.respawning or {}) do
+            stalker_camp_builder.respawn_settler(hub_id, dead_id)
+        end
     end
 end
 
@@ -5979,6 +5984,38 @@ function server_entity_on_unregister(se_obj, type_name)
     end
 end
 
+-- re-creates an Invincible settler who died (npc_on_death_callback) at the camp's hub
+function stalker_camp_builder.respawn_settler(hub_id, dead_id)
+    local camp = stalker_camp_builder.active_camps[hub_id]
+    local entry = camp and camp.respawning and camp.respawning[dead_id]
+    if not entry then return end
+    camp.respawning[dead_id] = nil
+    local survivor = entry.survivor
+    local hub_obj = alife_object(hub_id)
+    local sim = alife()
+    if not (hub_obj and sim and survivor) then return end
+    local new_se = sim:create(entry.sec or "sim_default_stalker_0", hub_obj.position,
+        hub_obj.m_level_vertex_id, hub_obj.m_game_vertex_id)
+    if not new_se then return end
+    local new_id = new_se.id
+    survivor.job = survivor.job or "idle"
+    camp.survivors[new_id] = survivor
+    stalker_camp_builder.settler_lookup[new_id] = {
+        hub_id = hub_id,
+        camp = camp,
+        survivor = survivor,
+        is_rival = false,
+    }
+    -- the server object keeps the name and passes it to the NPC online; the
+    -- community needs the NPC online, so game_object_on_net_spawn applies it
+    if survivor.name then
+        pcall(function() new_se:set_character_name(survivor.name) end)
+    end
+    survivor.pending_community = stalker_camp_builder.get_camp_dominant_faction
+        and stalker_camp_builder.get_camp_dominant_faction(camp) or nil
+    camp_send_tip(db.actor, string.format(game.translate_string("st_event_settler_recovered"), survivor.name or "unknown"), nil, "general_stalker", 10000)
+end
+
 function npc_on_death_callback(npc, who)
     if not npc then return end
     local npc_id = npc:id()
@@ -5997,34 +6034,12 @@ function npc_on_death_callback(npc, who)
                 set_camp_settler_relations(hub_id, npc_id, false)
                 camp.survivors[npc_id] = nil
                 stalker_camp_builder.settler_lookup[npc_id] = nil
+                -- held in the camp, which is saved, until the new settler exists: the time event is
+                -- not, and verify_and_heal_settlers finishes the respawn after a load
+                camp.respawning = camp.respawning or {}
+                camp.respawning[npc_id] = { survivor = survivor, sec = sec }
                 CreateTimeEvent("homestead_respawn_settler", tostring(npc_id), 0.5, function()
-                    local hub_obj = alife_object(hub_id)
-                    if not hub_obj then return true end
-                    local pos = hub_obj.position
-                    local lvid = hub_obj.m_level_vertex_id
-                    local gvi = hub_obj.m_game_vertex_id
-                    local sim = alife()
-                    if not sim then return true end
-                    local new_se = sim:create(sec or "sim_default_stalker_0", pos, lvid, gvi)
-                    if new_se then
-                        local new_id = new_se.id
-                        survivor.job = survivor.job or "idle"
-                        camp.survivors[new_id] = survivor
-                        stalker_camp_builder.settler_lookup[new_id] = {
-                            hub_id = hub_id,
-                            camp = camp,
-                            survivor = survivor,
-                            is_rival = false,
-                        }
-                        -- the server object keeps the name and passes it to the NPC online; the
-                        -- community needs the NPC online, so game_object_on_net_spawn applies it
-                        if survivor.name then
-                            pcall(function() new_se:set_character_name(survivor.name) end)
-                        end
-                        survivor.pending_community = stalker_camp_builder.get_camp_dominant_faction
-                            and stalker_camp_builder.get_camp_dominant_faction(camp) or nil
-                        camp_send_tip(db.actor, string.format(game.translate_string("st_event_settler_recovered"), name), nil, "general_stalker", 10000)
-                    end
+                    stalker_camp_builder.respawn_settler(hub_id, npc_id)
                     return true
                 end)
             else
