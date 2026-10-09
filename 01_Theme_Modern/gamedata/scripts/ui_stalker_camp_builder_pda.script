@@ -103,7 +103,7 @@ local function close_pda()
 end
 
 -- Homestead PDA Settlement Manager Tab UI
--- Version: v1.2.3
+-- Version: v1.2.4
 
 local SINGLETON = nil
 
