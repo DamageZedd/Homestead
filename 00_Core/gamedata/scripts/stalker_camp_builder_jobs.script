@@ -773,7 +773,8 @@ function stalker_camp_builder.process_gear_repair(npc_id, box_id, camp, survivor
 
     local tier_mult = survivor and sb.get_survivor_tier_mult(survivor) or 1.0
     local spec_mult = camp and sb.get_specialization_mult(camp, "repair") or 1.0
-    local total_repairs = tier_mult * spec_mult
+    -- the tier sets the rounds; the specialization raises each round's repair (repair_inc)
+    local total_repairs = tier_mult
     local items_to_repair = math.max(1, math.floor(total_repairs) + (math.random() < (total_repairs - math.floor(total_repairs)) and 1 or 0))
 
     -- DANZY EDIT: technicians only repair gear placed in a workbench, so loot in
