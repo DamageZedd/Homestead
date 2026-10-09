@@ -7532,11 +7532,12 @@ function stalker_camp_builder.is_quest_or_task_stash(id)
     return false
 end
 
--- not treasure_player or ui_pda2_actor_box*: those mark the player's own stashes
+-- not treasure_player or ui_pda2_actor_box*: those mark the player's own stashes; not
+-- ui_pda2_special_location: stalker_generic puts it on story NPCs (level_spot = special)
 local stash_spot_types = {
     "treasure", "treasure_unique", "treasure_epic", "treasure_searched",
     "treasure_unsearched", "ui_pda2_stash_location",
-    "ui_pda2_secret_location", "ui_pda2_special_location", "alife_presentation_stash"
+    "ui_pda2_secret_location", "alife_presentation_stash"
 }
 
 -- a backpack stash the player dropped (item_backpack records each one)
@@ -7545,9 +7546,17 @@ local function is_player_stash(id)
     return (m_data and m_data.player_created_stashes and m_data.player_created_stashes[id] ~= nil) or false
 end
 
+-- a stash is an inventory box; a marker on anything else (an NPC) doesn't make one
+local function is_stash_box(id)
+    local se_obj = alife_object(id)
+    local c = se_obj and se_obj:clsid()
+    return c == clsid.inventory_box or c == clsid.inventory_box_s
+end
+
 local function has_marked_stash_spot(id)
     if not id or id <= 0 then return false end
     if is_player_stash(id) then return false end
+    if not is_stash_box(id) then return false end
     for _, spot in ipairs(stash_spot_types) do
         if level.map_has_object_spot(id, spot) > 0 then
             return true
@@ -8012,6 +8021,8 @@ local function loot_and_clear_stash(s_id, exp)
     if exp.looted_stashes[s_id] then return end
     exp.looted_stashes[s_id] = true
     if is_player_stash(s_id) then return end
+    -- the list was made at dispatch, and a save can hold one that names an NPC: loot only a box
+    if alife_object(s_id) and not is_stash_box(s_id) then return end
 
     local sb = stalker_camp_builder
     if sb and sb.active_stash_expeditions then
