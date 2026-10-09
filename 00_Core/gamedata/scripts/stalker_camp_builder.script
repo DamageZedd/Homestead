@@ -2484,6 +2484,16 @@ end
 local last_refugee_despawn_check_tg = 0
 local REFUGEE_DESPAWN_CHECK_INTERVAL_MS = 60000  -- 60 real seconds
 
+-- whether the player could see the NPC go: it is online, or on the player's level within the switch
+-- distance (stalker_camp_builder_rivals' is_player_near)
+function stalker_camp_builder.in_player_range(se_obj)
+    if se_obj.online then return true end
+    local is_player_near = stalker_camp_builder.is_player_near
+    if not is_player_near then return false end
+    local gv = game_graph():vertex(se_obj.m_game_vertex_id)
+    return is_player_near(gv and alife():level_name(gv:level_id()), se_obj.position)
+end
+
 function process_refugee_despawns()
     local now_tg = time_global()
     if (now_tg - last_refugee_despawn_check_tg) < REFUGEE_DESPAWN_CHECK_INTERVAL_MS then
@@ -2507,11 +2517,16 @@ function process_refugee_despawns()
         local se_obj = alife_object(npc_id)
         -- only the refugee itself: once a dead refugee's body is released, its id goes to a later object
         if se_obj and IsStalker(se_obj) and se_obj:alive() and se_obj:section_name() == "stalker_regular" then
-            -- a refugee is in no squad, and alife_release removes stalkers only through their squad
-            safe_release_manager.release(se_obj)
-            departed = departed + 1
+            -- a refugee leaves where the player can't see it go; until then its entry stays for the next check
+            if not (stalker_camp_builder.in_player_range and stalker_camp_builder.in_player_range(se_obj)) then
+                -- a refugee is in no squad, and alife_release removes stalkers only through their squad
+                safe_release_manager.release(se_obj)
+                departed = departed + 1
+                stalker_camp_builder.refugee_ids[npc_id] = nil
+            end
+        else
+            stalker_camp_builder.refugee_ids[npc_id] = nil
         end
-        stalker_camp_builder.refugee_ids[npc_id] = nil
     end
     if departed > 0 and db.actor then
         camp_send_tip(db.actor, string.format(game.translate_string("st_event_refugees_departed"), departed), nil, "general_stalker", 8000)
