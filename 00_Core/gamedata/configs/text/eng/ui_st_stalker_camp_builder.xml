@@ -143,7 +143,7 @@
         <text>Idle NPC Leash Radius (meters)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_npc_leash_radius_desc">
-        <text>How far idle settlers can wander from the Camp Hub. Job NPCs (cook, crafter, etc.) use the full Camp Boundary to reach their furniture. Default: 10m.</text>
+        <text>Idle settlers gather at a piano, radio or stove within this distance of the Camp Hub. One that strays farther than this or 25m, whichever is more (up to the Camp Boundary), is walked back. Job NPCs (cook, crafter, etc.) use the full Camp Boundary to reach their furniture. Default: 10m.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_slope_tolerance">
         <text>Rival Camp Slope Tolerance (meters)</text>
@@ -971,7 +971,7 @@
         <text>Camp Rest Bonus</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_camp_rest_bonus_desc">
-        <text>When ON, sleeping in a camp boundary restores satiety, power, and thirst to full.</text>
+        <text>When ON, sleeping in a camp boundary restores satiety and power to full.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_medic_job_interval_min">
         <text>Medic Job Cycle (minutes)</text>
