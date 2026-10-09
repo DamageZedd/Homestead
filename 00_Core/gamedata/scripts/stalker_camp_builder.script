@@ -7076,7 +7076,7 @@ function stalker_camp_builder.start_pending_cond_timer()
     CreateTimeEvent("homestead_pend_cond", "tick", 2, sb.pending_cond_tick)
 end
 
-function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow, map_tier, custom_cond, custom_parts)
+function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow, map_tier, custom_cond, custom_parts, uses)
       local sim = alife()
     local mrandom = math.random
     local type_ = type
@@ -7244,12 +7244,24 @@ function stalker_camp_builder.deposit_item_to_camp(hub_id, camp, sec, is_yellow,
         db.actor:give_info_portion("actor_find_expert_kit")
     end
 
+    -- a new item has all its uses; a stash entry's partly used item owes the rest, as
+    -- consume_one_use owes uses spent offline, until apply_pending_cond reaches it online
+    local max_uses = ini:r_float_ex(sec, "max_uses") or 1
+    if uses and uses >= 1 and uses < max_uses then
+        sb.pending_item_cond = sb.pending_item_cond or {}
+        sb.pending_item_cond[se_item.id] = { s = sec, u = max_uses - uses }
+        sb.save_pending_cond()
+        sb.start_pending_cond_timer()
+    else
+        uses = max_uses
+    end
+
     if camp and se_item then
         camp.stored_items = camp.stored_items or {}
         camp.stored_items[se_item.id] = {
             sec = sec,
             cond = cond or 1.0,
-            uses = ini:r_float_ex(sec, "max_uses") or 1,  -- a new item has all its uses
+            uses = uses,
             box_id = target_box_id
         }
         camp._cached_storage_metrics_tg = nil
@@ -7494,7 +7506,7 @@ function stalker_camp_builder.recall_scavenger_expedition(stash_id)
         for _, itm in ipairs(exp.haul or {}) do
             local count = (spec_mult > 1.0 and math.random() < (spec_mult - 1.0)) and 2 or 1
             for c = 1, count do
-                pcall(sb.deposit_item_to_camp, exp.hub_id, camp, itm.sec, itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+                pcall(sb.deposit_item_to_camp, exp.hub_id, camp, itm.sec, itm.is_yellow, itm.map_tier, itm.cond, itm.parts, itm.uses)
             end
         end
     end
@@ -8098,6 +8110,17 @@ stalker_camp_builder.gamma_tools_map_tiers = gamma_tools_map_tiers
 stalker_camp_builder.roll_gamma_toolkit = roll_gamma_toolkit
 stalker_camp_builder.generate_gamma_stash_loot = generate_gamma_stash_loot
 
+-- a stash list names a partly used item "section__uses" (mineral_water__2): itms_manager's
+-- Extract_Uses splits it the same way when the player opens the stash
+local function split_stash_entry(entry)
+    local sec, uses = string.match(entry, "(.*)__(%d)")
+    if sec and ini_sys:section_exist(sec) then
+        return sec, tonumber(uses)
+    end
+    return entry, nil
+end
+stalker_camp_builder.split_stash_entry = split_stash_entry
+
 local function loot_and_clear_stash(s_id, exp)
     local ipairs_ = ipairs
     if not exp or not s_id then return end
@@ -8146,12 +8169,13 @@ local function loot_and_clear_stash(s_id, exp)
         local raw_str = treasure_manager.caches[s_id]
         local parts = str_explode and str_explode(raw_str, ",")
         if parts then
-            for _, sec in ipairs_(parts) do
+            for _, entry in ipairs_(parts) do
+                local sec, uses = split_stash_entry(entry)
                 if sec and sec ~= "" and ini_sys:section_exist(sec) then
                     if sec:find("itm_basickit") or sec:find("itm_advancedkit") or sec:find("itm_expertkit") or sec:find("itm_ammokit") or sec:find("itm_drugkit") then
                         is_yellow = true
                     end
-                    stash_items[#stash_items+1] = { sec = sec, is_yellow = is_yellow, map_tier = map_tier }
+                    stash_items[#stash_items+1] = { sec = sec, uses = uses, is_yellow = is_yellow, map_tier = map_tier }
                 end
             end
         end
@@ -8206,12 +8230,13 @@ local function loot_and_clear_stash(s_id, exp)
                 local raw_str = treasure_manager.caches[s_id]
                 local parts = str_explode and str_explode(raw_str, ",")
                 if parts then
-                    for _, sec in ipairs_(parts) do
+                    for _, entry in ipairs_(parts) do
+                        local sec, uses = split_stash_entry(entry)
                         if sec and sec ~= "" and ini_sys:section_exist(sec) then
                             if sec:find("itm_basickit") or sec:find("itm_advancedkit") or sec:find("itm_expertkit") or sec:find("itm_ammokit") or sec:find("itm_drugkit") then
                                 is_yellow = true
                             end
-                            stash_items[#stash_items+1] = { sec = sec, is_yellow = is_yellow, map_tier = map_tier }
+                            stash_items[#stash_items+1] = { sec = sec, uses = uses, is_yellow = is_yellow, map_tier = map_tier }
                         end
                     end
                 end
@@ -8934,7 +8959,7 @@ local function deposit_expedition_haul(exp, camp, bonus_loot)
             local dep_box = nil
             pcall(function()
                 dep_box = sb.deposit_item_to_camp(exp.hub_id, camp, itm.sec,
-                    itm.is_yellow, itm.map_tier, itm.cond, itm.parts)
+                    itm.is_yellow, itm.map_tier, itm.cond, itm.parts, itm.uses)
             end)
             if dep_box then
                 items_recovered = items_recovered + 1
