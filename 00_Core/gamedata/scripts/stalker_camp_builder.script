@@ -2946,6 +2946,12 @@ function npc_on_update(npc)
 
     -- a settler following the player as a companion belongs to the companion system
     if my_survivor and (my_survivor.job == "companion" or my_survivor.is_companion) then return end
+    -- one hired with the vanilla dialog under an older version still has their camp job: pause it as
+    -- the add_to_actor_squad wrap (on_game_start) does
+    if my_survivor and npc:has_info("npcx_is_companion") then
+        if sb.mark_settler_companion then sb.mark_settler_companion(npc_id) end
+        return
+    end
     if my_survivor and my_survivor.job == "scavenge" and my_survivor.on_expedition then return end
 
     local hub_obj = alife_object(my_hub_id)
