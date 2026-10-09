@@ -61,6 +61,11 @@ end
 local function release_rival_hold(sb, squad)
     if not squad then return end
     squad.get_script_target = nil
+    -- the pin left the squad aimed at itself: a squad read from a save (current_action 0) would
+    -- "reach" that and stay for its idle_time, 2 to 8 game hours, before moving on
+    squad.assigned_target_id = nil
+    squad.current_target_id = nil
+    squad.current_action = nil
     for k in sb.safe_squad_members(squad) do
         if k.id then
             if sb.camp_npc_released then sb.camp_npc_released[k.id] = nil end
