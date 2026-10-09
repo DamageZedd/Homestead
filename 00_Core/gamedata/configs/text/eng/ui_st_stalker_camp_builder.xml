@@ -182,7 +182,7 @@
         <text>Craft Output Multiplier</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_craft_output_multiplier_desc">
-        <text>Multiplies the output of every job cycle (cook, craft, repair, medic). Set to 1 for vanilla balance, 2-3 for faster progression, 5 for testing. Does NOT affect scavenge loot.</text>
+        <text>Multiplies the output of each cook, crafter, medic, woodcutter, brewer and scrapper cycle, up to 3x. Set to 1 for vanilla balance, 2-3 for faster progression. Does NOT affect repairs, hunting or scavenge loot.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_fast_travel_cost">
         <text>Fast Travel Cost (RU)</text>
