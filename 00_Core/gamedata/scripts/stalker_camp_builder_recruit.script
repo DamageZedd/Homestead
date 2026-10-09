@@ -1093,10 +1093,6 @@ end
 
 function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
     local sb = stalker_camp_builder
-    -- a scavenger away on an expedition is recalled first and brings home what it has looted
-    if sb.recall_scavenger_expedition_by_npc then
-        sb.recall_scavenger_expedition_by_npc(npc_id)
-    end
     local target_camp = sb.active_camps[target_hub_id]
     if not target_camp then return false, "no_camp" end
 
@@ -1153,6 +1149,11 @@ function stalker_camp_builder.transfer_survivor_to_camp(npc_id, target_hub_id)
         end
     end
 
+    -- a scavenger away on an expedition is recalled and brings home what it has looted; a refused
+    -- transfer leaves the expedition running
+    if sb.recall_scavenger_expedition_by_npc then
+        sb.recall_scavenger_expedition_by_npc(npc_id)
+    end
     sb.active_camps[source_hub_id].survivors[npc_id] = nil
     survivor_data.assigned_pos = nil
     survivor_data.job = survivor_data.job or "idle"
