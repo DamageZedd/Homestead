@@ -9324,8 +9324,13 @@ function get_camp_storage_metrics(camp, hub_obj)
         scan_camp_structures(hub_id, false)
     end
     local boxes = (get_camp_containers and get_camp_containers(hub_id, camp)) or {}
-    local box_count = math.max(1, #boxes)
-    max_weight = box_count * 150
+    -- each box's own capacity, the one deposits stop at (box_has_room_for); a box without one
+    -- counts the 60 kg Hideout Furniture gives a stash without one (stash_capacities.script)
+    max_weight = 0
+    for _, bid in ipairs(boxes) do
+        max_weight = max_weight + (stalker_camp_builder.get_box_capacity(bid) or 60)
+    end
+    if max_weight <= 0 then max_weight = 60 end
 
     local sys_ini_obj = ini_sys or sys_ini or system_ini()
     stalker_camp_builder.camp_iterate_inventory(hub_id, camp, function(item_id, sec, cond, uses, se_obj, box_id, cl_item)
