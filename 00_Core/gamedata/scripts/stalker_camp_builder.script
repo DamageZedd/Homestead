@@ -6081,8 +6081,7 @@ function spawn_camp_raid(hub_id, camp, hub_obj)
     end
 end
 
--- has_active_alarm -- does this camp's alarm system currently DETECT a
-local alarm_detection_rp = nil
+-- has_active_alarm -- does this camp have a switched-on alarm siren
 local function has_active_alarm(camp)
     for id, struct_type in pairs(camp.structures or {}) do
         if struct_type == "alarm" then
@@ -6090,22 +6089,7 @@ local function has_active_alarm(camp)
             if se then
                 local data = hf_obj_manager and hf_obj_manager.get_data and hf_obj_manager.get_data(id)
                 if data and data.is_on then
-                    local alarm_obj = level.object_by_id(id)
-                    if alarm_obj then
-                        alarm_detection_rp = alarm_detection_rp or ray_pick()
-                        local detect_fn = (bind_alarm_system_pda and bind_alarm_system_pda.alarm_has_targets)
-                            or (bind_alarm_system and bind_alarm_system.alarm_has_targets)
-                        if detect_fn then
-                            local ok, detected = pcall(detect_fn, alarm_obj, 5, alarm_detection_rp)
-                            if ok and detected then
-                                return true
-                            end
-                        else
-                            return true
-                        end
-                    else
-                        return true
-                    end
+                    return true
                 end
             end
         end
