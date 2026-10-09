@@ -1019,7 +1019,8 @@ function SettlementManagerPDA:Reset(tab_name)
         local level_name = game.translate_string(camp.level or "unknown")
         local hub_obj = alife_object(hub_id)
         local stats = hub_obj and stalker_camp_builder.get_camp_stats(camp, hub_obj) or { population = num_survivors, beds = 0, defense = 0 }
-        local is_raid = (camp.under_attack or camp.raid_active)
+        -- spawn_camp_raid records a raid in camp.active_raid until check_completed_raids ends it
+        local is_raid = camp.active_raid ~= nil
         local spec = camp.specialization or "none"
 
         local badge_str
@@ -1345,7 +1346,7 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     end
 
     if self.raid_banner_bg then
-        if camp.under_attack or camp.raid_active then
+        if camp.active_raid then
             hs_theme.banner(self.raid_banner_bg, "threat")
         else
             hs_theme.banner(self.raid_banner_bg, "secure")
@@ -1370,7 +1371,7 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     end
 
     if self.raid_banner_lbl then
-        if camp.under_attack or camp.raid_active then
+        if camp.active_raid then
             self.raid_banner_lbl:SetText("[! THREAT ALERT: SETTLEMENT UNDER ACTIVE HOSTILE ASSAULT !]")
             self.raid_banner_lbl:SetTextColor(hs_theme.argb("danger"))
         else
@@ -1396,7 +1397,7 @@ function SettlementManagerPDA:RenderOverviewStats(hub_id, camp, hub_obj)
     self.camp_def_breakdown:SetText(sformat("Perimeter Grid: %d Barricades   |   %d Guards   |   %d Turrets", stats.barricades, stats.guards, stats.gadgets))
     if self.camp_threat_lvl then
         -- against the defense cap, as the rating above: 40% is the old 60 of the default 150
-        local threat_str = (camp.under_attack or camp.raid_active) and "CRITICAL (Active Raid)" or (def_pct >= 40 and "LOW (Sector Fortified)" or "MODERATE (Standard Patrols)")
+        local threat_str = camp.active_raid and "CRITICAL (Active Raid)" or (def_pct >= 40 and "LOW (Sector Fortified)" or "MODERATE (Standard Patrols)")
         self.camp_threat_lvl:SetText(sformat("Threat Level: %s", threat_str))
     end
 
