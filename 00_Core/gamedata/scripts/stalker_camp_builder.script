@@ -2302,6 +2302,16 @@ local function process_proximity_structure_rescan(tg)
     scan_camp_structures(near_hub_id)
 end
 
+-- An outpost chest's treasure-manager entry only lists its loot. Once the player has taken from the
+-- chest it is false, which G.A.M.M.A. reads as an empty stash free for new loot: a reward or a fetch
+-- task's item put there would go with the outpost's decay.
+local function forget_looted_outpost_chest(chest_id)
+    local caches = treasure_manager and treasure_manager.caches
+    if caches and caches[chest_id] == false then
+        caches[chest_id] = nil
+    end
+end
+
 local function populate_gamma_rival_chests(in_teardown_grace)
     if in_teardown_grace then return end
     local is_gamma_mode = (stalker_camp_builder_gamma_flag ~= nil)
@@ -2311,6 +2321,7 @@ local function populate_gamma_rival_chests(in_teardown_grace)
     pcall(function()
         for _, camp in pairs(stalker_camp_builder.rival_camps) do
             if type(camp) == "table" and camp.chest_id then
+                forget_looted_outpost_chest(camp.chest_id)
                 local box_obj = level.object_by_id(camp.chest_id)
                 local has_cache = treasure_manager
                     and treasure_manager.caches
@@ -4478,6 +4489,7 @@ local function populate_gamma_rival_chests_on_load()
     pcall(function()
         for _, camp in pairs(stalker_camp_builder.rival_camps) do
             if type(camp) == "table" and camp.chest_id then
+                forget_looted_outpost_chest(camp.chest_id)
                 local box_obj = level.object_by_id(camp.chest_id)
                 local has_cache = treasure_manager
                     and treasure_manager.caches
