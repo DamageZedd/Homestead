@@ -2709,6 +2709,10 @@ function cleanup_camp_convoys(chest_id)
     return stalker_camp_builder.cleanup_camp_convoys and stalker_camp_builder.cleanup_camp_convoys(chest_id)
 end
 
+function enforce_rival_camp_survivor_cap(camp, force)
+    return stalker_camp_builder.enforce_rival_camp_survivor_cap and stalker_camp_builder.enforce_rival_camp_survivor_cap(camp, force)
+end
+
 local level_start_time = nil
 local snap_done = false
 local tg_update = 0
@@ -3375,7 +3379,7 @@ local function enforce_settler_leash(npc, npc_id, my_survivor, my_hub_id, hub_ob
 
     local leash = max_boundary
     if my_survivor and (my_survivor.job == "idle" or not my_survivor.job) then
-        leash = math.min(max_boundary, math.max(25, cfg.npc_leash_radius or 10))
+        leash = math.min(max_boundary, math.max(3, cfg.npc_leash_radius or 10))
     end
 
     if dist > leash then

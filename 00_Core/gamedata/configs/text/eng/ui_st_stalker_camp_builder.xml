@@ -146,7 +146,7 @@
         <text>Idle NPC Leash Radius (meters)</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_npc_leash_radius_desc">
-        <text>Idle settlers gather at a piano, radio or stove within this distance of the Camp Hub. One that strays farther than this or 25m, whichever is more (up to the Camp Boundary), is walked back. Job NPCs (cook, crafter, etc.) use the full Camp Boundary to reach their furniture. Default: 10m.</text>
+        <text>Idle settlers gather at a piano, radio or stove within this distance of the Camp Hub. One that strays farther than this (up to the Camp Boundary) is walked back. Job NPCs (cook, crafter, etc.) use the full Camp Boundary to reach their furniture. Default: 10m.</text>
     </string>
     <string id="ui_mcm_stalker_camp_builder_rival_camp_slope_tolerance">
         <text>Rival Camp Slope Tolerance (meters)</text>

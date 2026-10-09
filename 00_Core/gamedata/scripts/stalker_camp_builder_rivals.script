@@ -129,6 +129,84 @@ local function is_squad_alive(squad)
     return false
 end
 
+-- enforce_rival_camp_survivor_cap -- trim garrison members exceeding max_survivors_rival_camp
+local function enforce_rival_camp_survivor_cap(camp, force)
+    if not camp then return end
+    local sb = stalker_camp_builder
+    local cap = tonumber(sb.cfg and sb.cfg.max_survivors_rival_camp) or 5
+    if cap < 1 then cap = 1 end
+
+    local sim = alife()
+    if not sim then return end
+
+    if not force and is_player_near(camp.level or (level and level.name and level.name()), camp.position) then
+        return
+    end
+
+    local squads = {}
+    if camp.squad_id then
+        local sq = sim:object(camp.squad_id)
+        if sq and is_valid_camp_squad(camp, sq) then
+            squads[#squads + 1] = sq
+        end
+    end
+    if camp.extra_squad_ids then
+        for _, ex_id in ipairs(camp.extra_squad_ids) do
+            local ex_sq = sim:object(ex_id)
+            if ex_sq and is_valid_camp_squad(camp, ex_sq) then
+                squads[#squads + 1] = ex_sq
+            end
+        end
+    end
+    if #squads == 0 then return end
+
+    local all_members = {}
+    for _, sq in ipairs(squads) do
+        for k in sb.safe_squad_members(sq) do
+            if k.id then
+                local se_npc = sim:object(k.id)
+                if se_npc and se_npc:alive() then
+                    all_members[#all_members + 1] = { squad = sq, id = k.id, se = se_npc }
+                end
+            end
+        end
+    end
+
+    if #all_members > cap then
+        for i = cap + 1, #all_members do
+            local item = all_members[i]
+            local m_id = item.id
+            local sq = item.squad
+            local se_npc = item.se
+            pcall(function()
+                if sb.camp_npc_released then sb.camp_npc_released[m_id] = nil end
+                if sb.settler_lookup then sb.settler_lookup[m_id] = nil end
+                if sq and sq.remove_npc then
+                    sq:remove_npc(m_id, true)
+                end
+                if se_npc then
+                    alife_release(se_npc)
+                end
+            end)
+        end
+
+        -- Clean up any extra squads that were emptied
+        if camp.extra_squad_ids then
+            for i = #camp.extra_squad_ids, 1, -1 do
+                local ex_id = camp.extra_squad_ids[i]
+                local ex_sq = sim:object(ex_id)
+                if not (ex_sq and is_valid_camp_squad(camp, ex_sq) and is_squad_alive(ex_sq)) then
+                    if ex_sq then
+                        pcall(alife_release, ex_sq)
+                    end
+                    table.remove(camp.extra_squad_ids, i)
+                end
+            end
+        end
+    end
+end
+stalker_camp_builder.enforce_rival_camp_survivor_cap = enforce_rival_camp_survivor_cap
+
 -- whether a convoy entry's squad id names something other than its courier by now (a released
 -- squad's id goes to a later object)
 local function courier_id_reused(sim, id, conv)
@@ -800,6 +878,7 @@ local function reinforce_stronghold(sb, camp, sim)
         sb.setup_rival_squad_positions(squad, camp, sim)
         camp.extra_squad_ids = camp.extra_squad_ids or {}
         table.insert(camp.extra_squad_ids, squad.id)
+        enforce_rival_camp_survivor_cap(camp, true)
     end
 end
 
@@ -923,6 +1002,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                 end
             end
             if has_alive then
+                enforce_rival_camp_survivor_cap(camp, false)
                 local lifespan = camp.setup_duration or (sb.cfg.rival_camp_setup_duration or 43200)
                 -- an upgrade builds furniture, and at tier 3 a squad, at the chest: not in the player's
                 -- sight. A camp that can still upgrade waits with its time-up roll too.
@@ -1195,6 +1275,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                                         camp.squad_id = new_squad.id
                                         sb.setup_rival_squad_positions(new_squad, camp, sim)
                                         reinforce_stronghold(sb, camp, sim)
+                                        enforce_rival_camp_survivor_cap(camp, true)
                                     end
 
                                     local actor_comm = (actor and actor.character_community) and actor:character_community() or "stalker"
@@ -1256,6 +1337,7 @@ local function process_single_rival_camp(key, camp, level_name, actor, current_s
                 sb.setup_rival_squad_positions(occupant_squad, camp, sim)
                 camp.faction = occupant_faction
                 reinforce_stronghold(sb, camp, sim)
+                enforce_rival_camp_survivor_cap(camp, true)
                 camp.cleared = false
                 camp.despawn_chest_when_empty = nil
                 camp.setup_sec = current_sec
@@ -2257,6 +2339,8 @@ function stalker_camp_builder.spawn_single_rival_camp(target_level, specific_fac
                             tier = 1
                         }
 
+                        enforce_rival_camp_survivor_cap(sb.rival_camps[camp_key], true)
+
                         if occupant_squad then
                             sb.setup_rival_squad_positions(occupant_squad, sb.rival_camps[camp_key], sim_alao)
                         end
@@ -2554,6 +2638,7 @@ function stalker_camp_builder.upgrade_rival_camp_tier(camp, new_tier)
             -- tracked with the garrison, so it is counted, unpinned and released with it
             camp.extra_squad_ids = camp.extra_squad_ids or {}
             table.insert(camp.extra_squad_ids, reinforce_squad.id)
+            enforce_rival_camp_survivor_cap(camp, true)
         end
 
         if not same_level then

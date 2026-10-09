@@ -52,6 +52,9 @@
 - **AI Mesh Validation for Mutant Migration Spawns (PR #137)**: Validated candidate spawn coordinates against the level AI graph, preventing mutant migration hordes from defaulting to the settlement hub and spawning inside camp workbenches.
 - **Authentic Trade Caravan Departure Lifecycle (PR #117)**: Routed departing caravan traders through `safe_release_manager`, ensuring traveling merchants actually pack up and leave when their stay concludes.
 - **Automated Caravan Departure on Settlement Teardown (PR #118)**: Automatically dismissed active caravan traders when a settlement is dismantled or its hub workbench picked up.
+- **Idle Settler Leash Slider & Rival Camp Survivor Cap Enforcement (Fixes #255)**:
+  - **Idle Settler Leash Slider (MCM 27)**: Removed the artificial 25m floor in `enforce_settler_leash` (`math.max(25, ...)` -> `math.max(3, cfg.npc_leash_radius or 10)`), allowing the slider's full 3–50m range to take effect for idle wander soft-leashing. Updated English and Russian MCM tooltips to reflect that idle settlers are walked back when straying past the configured leash radius.
+  - **Max Survivors for Rival Camps (MCM 88)**: Connected the previously unused `max_survivors_rival_camp` MCM setting (range 1–10, default 5) via `enforce_rival_camp_survivor_cap`, pruning excess squad members through `squad:remove_npc` and releasing empty extra squads across outpost generation, stronghold reinforcement, tier 3 upgrades, faction takeovers, and periodic outpost maintenance (safely deferred when the player is nearby).
 
 ### 🛠️ Settlement Jobs, Workbenches & Resource Automation (Community / devinhorowitz):
 - **Changelog Wording Audit & Documentation Alignment (Fixes #198)**: Audited v1.2.4 changelog entries against code implementations:
